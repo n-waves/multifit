@@ -7,7 +7,7 @@ import pickle
 
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai import fit_one_cycle
-from ulmfit.utils import PAD, UNK, read_imdb, PAD_TOKEN_ID
+from fastai_contrib.utils import PAD, UNK, read_imdb, PAD_TOKEN_ID
 
 from sacremoses import MosesTokenizer
 import fire

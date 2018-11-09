@@ -8,9 +8,10 @@ import fire
 import numpy as np
 
 from fastai import DataBunch, partial, optim, fit_one_cycle
-from fastai.text import LanguageModelLoader, get_language_model, RNNLearner, TextLMDataBunch
+from fastai.text import LanguageModelLoader, get_language_model, RNNLearner, TextLMDataBunch, NumericalizedDataset, \
+    Vocab
 import torch
-from ulmfit.utils import read_file, read_whitespace_file,\
+from fastai_contrib.utils import read_file, read_whitespace_file,\
     DataStump, validate, PAD, UNK
 
 import pickle
@@ -71,12 +72,14 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
         stoi = {w: i for i, w in enumerate(itos)}
 
+        vocab = Vocab(itos)
+        stoi = vocab.stoi
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
-        trn_dl = LanguageModelLoader(DataStump(trn_ids), bs, bptt)
-        val_dl = LanguageModelLoader(DataStump(val_ids), bs, bptt)
+        trn_dl = LanguageModelLoader(NumericalizedDataset(vocab, trn_ids, labels=np.zeros(len(trn_ids))), bs, bptt)
+        val_dl = LanguageModelLoader(NumericalizedDataset(vocab, val_ids, labels=np.zeros(len(val_ids))), bs, bptt)
         data_lm = DataBunch(trn_dl, val_dl)
     else:
         # apply fastai preprocessing and tokenization
@@ -116,6 +119,8 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
 
+    # fixes the issue with QRNN described in https://forums.fast.ai/t/multilingual-ulmfit/28117/13
+    learn.lr_find()
     fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
     if clean and max_vocab is None:

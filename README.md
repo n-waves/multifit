@@ -25,7 +25,7 @@ $ git checkout ulmfit_multilingual
 Branch 'ulmfit_multilingual' set up to track remote branch 'ulmfit_multilingual' from 'n-waves'.
 Switched to a new branch 'ulmfit_multilingual'
 
-$ git push --set-upstream m-waves ulmfit_multilingual  # to automatically push ulmfit_multilingual branch to the n-waves repo
+$ git push --set-upstream n-waves ulmfit_multilingual  # to automatically push ulmfit_multilingual branch to the n-waves repo
 ```
 
 ## Repo structure

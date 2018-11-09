@@ -7,7 +7,7 @@ import argparse
 
 from collections import Counter
 from pathlib import Path
-from ulmfit.utils import replace_number, UNK
+from fastai_contrib.utils import replace_number, UNK
 
 
 def build_vocab(file_path, cutoff=3):
