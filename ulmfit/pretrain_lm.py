@@ -4,12 +4,13 @@ expected to have been tokenized with Moses and processed with `postprocess_wikit
 That is, the data is expected to be white-space separated and numbers are expected
 to be split.
 """
+import fastai
 import fire
 import numpy as np
 
 from fastai import DataBunch, partial, optim, fit_one_cycle
 from fastai.text import LanguageModelLoader, get_language_model, RNNLearner, TextLMDataBunch, NumericalizedDataset, \
-    Vocab
+    Vocab, language_model_learner
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file,\
     DataStump, validate, PAD, UNK
@@ -78,9 +79,10 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
-        trn_dl = LanguageModelLoader(NumericalizedDataset(vocab, trn_ids, labels=np.zeros(len(trn_ids))), bs, bptt)
-        val_dl = LanguageModelLoader(NumericalizedDataset(vocab, val_ids, labels=np.zeros(len(val_ids))), bs, bptt)
-        data_lm = DataBunch(trn_dl, val_dl)
+        data_lm = TextLMDataBunch.create(
+            train_ds=NumericalizedDataset(vocab, trn_ids, labels=np.zeros(len(trn_ids), dtype=np.int)),
+            valid_ds=NumericalizedDataset(vocab, val_ids, labels=np.zeros(len(val_ids), dtype=np.int)),
+            bs=bs, bptt=bptt)
     else:
         # apply fastai preprocessing and tokenization
         read_file(trn_path, 'train')
@@ -97,30 +99,28 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     # for training on smaller datasets, more dropout is necessary
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
-        dps = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        # dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        #dps = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
+        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        drop_mult = 0.1
     else:
         emb_sz, nh, nl = 400, 1150, 3
         # emb_sz, nh, nl = 400, 1150, 3
-        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
+        drop_mult = 0.1
 
-    model = get_language_model(len(itos), emb_sz, nh, nl, pad_token=1, input_p=dps[0],
-                               output_p=dps[1], weight_p=dps[2],
-                               embed_p=dps[3], hidden_p=dps[4], qrnn=qrnn)
-    learn = RNNLearner(data_lm, model, bptt, path=model_dir.parent, model_dir=model_dir.name,
-                       clip=0.12)
+    fastai.text.learner.default_dropout['language'] = dps
+    learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
+                           drop_mult=drop_mult, tie_weights=True,
+                           bias=True, qrnn=True, clip=0.12)
+    # compared to standard Adam, we set beta_1 to 0.8
+    learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
+    learn.true_wd = False
 
     # save vocabulary
     print('Saving vocabulary...')
     with open(model_dir / f'itos_{name}.pkl', 'wb') as f:
         pickle.dump(itos, f)
 
-    # compared to standard Adam, we set beta_1 to 0.8
-    learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-    learn.true_wd = False
-
-    # fixes the issue with QRNN described in https://forums.fast.ai/t/multilingual-ulmfit/28117/13
-    learn.lr_find()
     fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
     if clean and max_vocab is None:
