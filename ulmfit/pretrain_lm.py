@@ -14,6 +14,7 @@ from fastai.text import LanguageModelLoader, get_language_model, RNNLearner, Tex
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file,\
     DataStump, validate, PAD, UNK
+from fastai_contrib.learner import bilm_learner
 
 import pickle
 
@@ -27,7 +28,8 @@ from collections import Counter
 
 
 def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
-                bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10):
+                bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10,
+                bidir=True):
     """
     :param dir_path: The path to the directory of the file.
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
@@ -39,6 +41,7 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     :param bptt: The back-propagation-through-time sequence length.
     :param name: The name used for both the model and the vocabulary.
     :param model_dir: The path to the directory where the models should be saved
+    :param bidir: whether the language model is bidirectional
     """
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
@@ -109,9 +112,11 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         drop_mult = 0.1
 
     fastai.text.learner.default_dropout['language'] = dps
-    learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
-                           drop_mult=drop_mult, tie_weights=True,
-                           bias=True, qrnn=True, clip=0.12)
+
+    lm_learner = bilm_learner if bidir else language_model_learner
+    learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
+                       drop_mult=drop_mult, tie_weights=True,
+                       bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
