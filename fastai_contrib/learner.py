@@ -10,7 +10,7 @@ def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:in
                   pretrained_fnames:OptStrTuple=None, **kwargs) -> 'LanguageLearner':
     "Create a `Learner` with a language model."
     dps = default_dropout['language'] * drop_mult
-    vocab_size = data.train_ds.vocab_size
+    vocab_size = len(data.vocab.itos)
     model = get_bilm(vocab_size, emb_sz, nh, nl, pad_token, input_p=dps[0], output_p=dps[1],
                 weight_p=dps[2], embed_p=dps[3], hidden_p=dps[4], tie_weights=tie_weights, bias=bias, qrnn=qrnn)
     learn = LanguageLearner(data, model, bptt, split_func=bilm_split, **kwargs)

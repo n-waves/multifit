@@ -44,7 +44,10 @@ class BiLMCore(nn.Module):
         self.hidden_dps = nn.ModuleList([RNNDropout(hidden_p) for l in range(n_layers)])
 
     def forward(self, input:LongTensor)->Tuple[Tensor,Tensor]:
-        sl,bs = input.size()
+        sl,bs,tracks = input.size()
+        assert tracks == 2, "It should have two tracks for forward and backward pass"
+
+        input = input[...,0] # Select forward pass only
         if bs!=self.bs:
             self.bs=bs
             self.reset()
@@ -59,6 +62,8 @@ class BiLMCore(nn.Module):
             if l != self.n_layers - 1: raw_output = hid_dp(raw_output)
             outputs.append(raw_output)
         self.hidden = to_detach(new_hidden)
+
+        #bi_raw_outputs = torch.stack((outputs, outputs), dim=2)
         return raw_outputs, outputs
 
     def _one_hidden(self, l:int)->Tensor:

@@ -24,7 +24,7 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
         if getattr(self.dataset, 'item', None) is not None:
             yield LongTensor(getattr(self.dataset, 'item')).unsqueeze(1),LongTensor([0])
         idx = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
-        data = self.batchify(np.concatenate([self.dataset.x[i] for i in idx]))
+        data = self.batchify(np.concatenate([self.dataset.x.items[i] for i in idx]))
 
         pos, itr = 0,0
         while pos < self.n-1 and itr<len(self):
@@ -51,7 +51,7 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
 
     def get_batch(self, data:LongTensor,  i:int, seq_len:int) -> Tuple[LongTensor, LongTensor]:
         "Create a batch at `i` of a given `seq_len`."
-        seq_len = min(seq_len, len(self.data) - 1 - i)
+        seq_len = min(seq_len, len(data) - 1 - i)
         x = data[i:i+seq_len]
         y = data[i+1:i+1+seq_len].contiguous() # x & y has 2 elements on the last dimension
         y = y.view(-1, 2) if self.lm_type == LanguageModelType.BiLM else y.view(-1)
