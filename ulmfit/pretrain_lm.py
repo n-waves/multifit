@@ -25,10 +25,11 @@ from collections import Counter
 # cupy needs to be installed for QRNN
 
 
-def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
+def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
                 bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10):
     """
     :param dir_path: The path to the directory of the file.
+    :param lang: the language unicode
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
                     run on CPU.
     :param qrrn: Use a QRNN. Requires installing cupy.
@@ -54,9 +55,9 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if qrnn:
         print('Using QRNNs...')
 
-    trn_path = dir_path / 'wiki.train.tokens'
-    val_path = dir_path / 'wiki.valid.tokens'
-    tst_path = dir_path / 'wiki.test.tokens'
+    trn_path = dir_path / f'{lang}.wiki.train.tokens.unk'
+    val_path = dir_path / f'{lang}.wiki.valid.tokens.unk'
+    tst_path = dir_path / f'{lang}.wiki.test.tokens.unk'
     for path_ in [trn_path, val_path, tst_path]:
         assert path_.exists(), f'Error: {path_} does not exist.'
 
@@ -107,15 +108,15 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
 
     fastai.text.learner.default_dropout['language'] = dps
     learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
-                           drop_mult=drop_mult, tie_weights=True,
+                           drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
                            bias=True, qrnn=True, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
 
     # save vocabulary
-    print('Saving vocabulary...')
-    with open(model_dir / f'itos_{name}.pkl', 'wb') as f:
+    print(f"Saving vocabulary as {dir_path / model_dir}")
+    with open(dir_path / model_dir / f'itos_{name}.pkl', 'wb') as f:
         pickle.dump(itos, f)
 
     fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
@@ -123,13 +124,18 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if clean and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
         # are the perplexity results comparable to previous work
+        print(f"Validating model performance with test tokens from: {trn_path}")
         tst_tok = read_whitespace_file(trn_path)
         tst_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in tst_tok])
-        logloss, perplexity = validate(model, tst_ids, bptt)
+        logloss, perplexity = validate(learn.model, tst_ids, bptt)
         print('Test logloss:', logloss.item(), 'perplexity:', perplexity.item())
 
+    print(f"Saving models at {learn.path / learn.model_dir}")
     learn.save(f'{model_name}_{name}')
-    torch.save(learn.opt.opt.state_dict(), learn.path / learn.model_dir / f'{model_name}3_{name}_state.pth')
+
+    opt_state_path = learn.path / learn.model_dir / f'{model_name}3_{name}_state.pth'
+    print(f"Saving optimiser state at {opt_state_path}")
+    torch.save(learn.opt.opt.state_dict(), opt_state_path)
 
 
 if __name__ == '__main__':
