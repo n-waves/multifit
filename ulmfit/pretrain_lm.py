@@ -8,9 +8,8 @@ import fastai
 import fire
 import numpy as np
 
-from fastai import DataBunch, partial, optim, fit_one_cycle
-from fastai.text import LanguageModelLoader, get_language_model, RNNLearner, TextLMDataBunch, NumericalizedDataset, \
-    Vocab, language_model_learner
+from fastai import *
+from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file,\
     DataStump, validate, PAD, UNK
@@ -79,10 +78,8 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
-        data_lm = TextLMDataBunch.create(
-            train_ds=NumericalizedDataset(vocab, trn_ids, labels=np.zeros(len(trn_ids), dtype=np.int)),
-            valid_ds=NumericalizedDataset(vocab, val_ids, labels=np.zeros(len(val_ids), dtype=np.int)),
-            bs=bs, bptt=bptt)
+        data_lm = TextLMDataBunch.from_ids(path=dir_path, vocab=vocab, train_ids=trn_ids,
+                                           valid_ids=val_ids, bs=bs, bptt=bptt)
     else:
         # apply fastai preprocessing and tokenization
         read_file(trn_path, 'train')
