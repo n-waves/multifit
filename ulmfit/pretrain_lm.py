@@ -26,10 +26,15 @@ import fastai_contrib.data as contrib_data
 # conda install -c pytorch -c fastai fastai pytorch-nightly [cuda92]
 # cupy needs to be installed for QRNN
 
+def accuracy_fwd(input, targs):
+    return accuracy(input[...,0], targs[...,0])
+def accuracy_bwd(input, targs):
+    return accuracy(input[...,1], targs[...,1])
+
 
 def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
                 bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10,
-                bidir=False):
+                bidir=False, ds_pct=1.0):
     """
     :param dir_path: The path to the directory of the file.
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
@@ -58,8 +63,7 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if qrnn:
         print('Using QRNNs...')
 
-    #trn_path = dir_path / 'wiki.train.tokens'
-    trn_path = dir_path / 'wiki.valid.tokens'
+    trn_path = dir_path / 'wiki.train.tokens'
     val_path = dir_path / 'wiki.valid.tokens'
     tst_path = dir_path / 'wiki.test.tokens'
     for path_ in [trn_path, val_path, tst_path]:
@@ -69,6 +73,9 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         # read the already whitespace separated data without any preprocessing
         trn_tok = read_whitespace_file(trn_path)
         val_tok = read_whitespace_file(val_path)
+        if ds_pct < 1.0:
+            trn_tok = trn_tok[:int(len(trn_tok) * ds_pct)]
+            val_tok = val_tok[:int(len(val_tok) * ds_pct)]
 
         # create the vocabulary
         cnt = Counter(word for sent in trn_tok for word in sent)
@@ -123,7 +130,11 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
-    learn.metrics=[] # accuracy does not work when we have multiple dimensions at the end.
+
+    if bidir:
+        learn.metrics = [accuracy_fwd, accuracy_bwd]
+    else:
+        learn.metrics = [accuracy]
     # save vocabulary
     print('Saving vocabulary...')
     with open(model_dir / f'itos_{name}.pkl', 'wb') as f:

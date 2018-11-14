@@ -28,7 +28,5 @@ def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:in
 
 def bilm_split(model:nn.Module) -> List[nn.Module]:
     "Split a RNN `model` in groups for differential learning rates."
-    groups = [[rnn, dp] for rnn, dp in zip(model[0].forward_rnns, model[0].hidden_dps)]
-    groups += [[rnn, dp] for rnn, dp in zip(model[0].backward_rnns, model[0].hidden_dps)]
-    groups.append([model[0].encoder, model[0].encoder_dp, model[1]])
-    return groups
+
+    return [f+b for f,b in zip(lm_split(model.fwd_lm),lm_split(model.bwd_lm))]
