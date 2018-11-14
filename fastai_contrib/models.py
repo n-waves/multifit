@@ -46,25 +46,37 @@ class BiLMCore(nn.Module):
     def forward(self, input:LongTensor)->Tuple[Tensor,Tensor]:
         sl,bs,tracks = input.size()
         assert tracks == 2, "It should have two tracks for forward and backward pass"
-
-        input = input[...,0] # Select forward pass only
-        if bs!=self.bs:
-            self.bs=bs
+        if bs != self.bs:
+            self.bs = bs
             self.reset()
-        raw_output = self.input_dp(self.encoder_dp(input))
 
-        # TODO get reverse input and compute backward representation
+        return [self.fwdlm_forwad(input[..., 0]), self.bwdlm_forwad(input[..., 1])]
+
+    def bwdlm_forwad(self, input):
+        raw_output = self.input_dp(self.encoder_dp(input))
         new_hidden,raw_outputs,outputs = [],[],[]
-        for l, (rnn,hid_dp) in enumerate(zip(self.forward_rnns, self.hidden_dps)):
-            raw_output, new_h = rnn(raw_output, self.hidden[l])
+        for l, (rnn,hid_dp) in enumerate(zip(self.backward_rnns, self.hidden_dps)):
+            raw_output, new_h = rnn(raw_output, self.bwdlm_hidden[l])
             new_hidden.append(new_h)
             raw_outputs.append(raw_output)
             if l != self.n_layers - 1: raw_output = hid_dp(raw_output)
             outputs.append(raw_output)
-        self.hidden = to_detach(new_hidden)
+        self.bwdlm_hidden = to_detach(new_hidden)
 
-        #bi_raw_outputs = torch.stack((outputs, outputs), dim=2)
-        return raw_outputs, outputs
+        return (raw_outputs, outputs)
+
+    def fwdlm_forwad(self, input):
+        raw_output = self.input_dp(self.encoder_dp(input))
+        new_hidden,raw_outputs,outputs = [],[],[]
+        for l, (rnn,hid_dp) in enumerate(zip(self.forward_rnns, self.hidden_dps)):
+            raw_output, new_h = rnn(raw_output, self.fwdlm_hidden[l])
+            new_hidden.append(new_h)
+            raw_outputs.append(raw_output)
+            if l != self.n_layers - 1: raw_output = hid_dp(raw_output)
+            outputs.append(raw_output)
+        self.fwdlm_hidden = to_detach(new_hidden)
+
+        return (raw_outputs, outputs)
 
     def _one_hidden(self, l:int)->Tensor:
         "Return one hidden state."
@@ -76,8 +88,40 @@ class BiLMCore(nn.Module):
         [r.reset() for r in self.forward_rnns if hasattr(r, 'reset')]
         [r.reset() for r in self.backward_rnns if hasattr(r, 'reset')]
         self.weights = next(self.parameters()).data
-        if self.qrnn: self.hidden = [self._one_hidden(l) for l in range(self.n_layers)]
-        else: self.hidden = [(self._one_hidden(l), self._one_hidden(l)) for l in range(self.n_layers)]
+        if self.qrnn: self.fwdlm_hidden = [self._one_hidden(l) for l in range(self.n_layers)]
+        else: self.fwdlm_hidden = [(self._one_hidden(l), self._one_hidden(l)) for l in range(self.n_layers)]
+        if self.qrnn: self.bwdlm_hidden = [self._one_hidden(l) for l in range(self.n_layers)]
+        else: self.bwdlm_hidden = [(self._one_hidden(l), self._one_hidden(l)) for l in range(self.n_layers)]
+
+class BiLinearDecoder(nn.Module):
+    "To go on top of a RNNCore module and create a Language Model."
+
+    initrange=0.1
+
+    def __init__(self, n_out:int, n_hid:int, output_p:float, tie_encoder:nn.Module=None, bias:bool=True):
+        super().__init__()
+        self.decoder = nn.Linear(n_hid, n_out, bias=bias)
+        self.decoder.weight.data.uniform_(-self.initrange, self.initrange)
+        self.output_dp = RNNDropout(output_p)
+        if bias: self.decoder.bias.data.zero_()
+        if tie_encoder: self.decoder.weight = tie_encoder.weight
+
+    def forward(self, input:List[Tuple[Tensor,Tensor]])->Tuple[Tensor,Tensor,Tensor]:
+        decoded=[]
+        raw_outputs=[]
+        outputs=[]
+        for lm_input in input:
+            d, ro, o = self.one_forward(lm_input)
+            decoded.append(d)
+            raw_outputs += ro
+            outputs += o
+        return torch.stack(decoded, dim=2), raw_outputs, outputs
+
+    def one_forward(self, input):
+        raw_outputs, outputs = input
+        output = self.output_dp(outputs[-1])
+        decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
+        return decoded, raw_outputs, outputs
 
 
 def get_bilm(vocab_sz:int, emb_sz:int, n_hid:int, n_layers:int, pad_token:int, tie_weights:bool=True,
@@ -87,4 +131,4 @@ def get_bilm(vocab_sz:int, emb_sz:int, n_hid:int, n_layers:int, pad_token:int, t
     rnn_enc = BiLMCore(vocab_sz, emb_sz, n_hid=n_hid, n_layers=n_layers, pad_token=pad_token, qrnn=qrnn, bidir=bidir,
                  hidden_p=hidden_p, input_p=input_p, embed_p=embed_p, weight_p=weight_p)
     enc = rnn_enc.encoder if tie_weights else None
-    return SequentialRNN(rnn_enc, LinearDecoder(vocab_sz, emb_sz, output_p, tie_encoder=enc, bias=bias))
+    return SequentialRNN(rnn_enc, BiLinearDecoder(vocab_sz, emb_sz, output_p, tie_encoder=enc, bias=bias))

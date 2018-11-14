@@ -58,3 +58,7 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
         return x,y
 
 ###################### NEW CODE
+
+
+import fastai.text.data
+fastai.text.data.LanguageModelLoader = LanguageModelLoader # Replace original LanguageModelLoader with new verion

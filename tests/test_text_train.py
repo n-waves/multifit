@@ -43,23 +43,22 @@ def learn():
 def test_val_loss(learn):
     assert learn.validate()[1] > 0.5
 
-def test_bwdlm_lstm_can_be_trained():
-    manual_seed()
-    path, df_trn, df_val = prep_human_numbers()
-    data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer),
-                                   lm_type = contrib_data.LanguageModelType.BiLM,
-                                   ld_cls = contrib_data.LanguageModelLoader)
-
-    learn = bilm_learner(data, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
-    learn.fit_one_cycle(4, 5e-3)
-    assert learn.validate()[1] > 0.5
-
 def test_bilm_lstm_can_be_trained():
     manual_seed()
     path, df_trn, df_val = prep_human_numbers()
     data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer),
-                                   lm_type = contrib_data.LanguageModelType.BwdLM,
-                                   ld_cls = contrib_data.LanguageModelLoader)
+                                   lm_type = contrib_data.LanguageModelType.BiLM)
+
+    learn = bilm_learner(data, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
+    learn.metrics = []
+    learn.fit_one_cycle(4, 5e-3)
+    assert learn.validate()[0] < 2 #TODO Change to accuracy once it is fixed
+
+def test_bwdlm_lstm_can_be_trained():
+    manual_seed()
+    path, df_trn, df_val = prep_human_numbers()
+    data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer),
+                                   lm_type = contrib_data.LanguageModelType.BwdLM)
 
     learn = language_model_learner(data, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
     learn.fit_one_cycle(4, 5e-3)
