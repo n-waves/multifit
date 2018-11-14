@@ -20,6 +20,7 @@ import pickle
 from pathlib import Path
 
 from collections import Counter
+import fastai_contrib.data as contrib_data
 
 # to install, do:
 # conda install -c pytorch -c fastai fastai pytorch-nightly [cuda92]
@@ -28,7 +29,7 @@ from collections import Counter
 
 def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
                 bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10,
-                bidir=True):
+                bidir=False):
     """
     :param dir_path: The path to the directory of the file.
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
@@ -57,7 +58,8 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if qrnn:
         print('Using QRNNs...')
 
-    trn_path = dir_path / 'wiki.train.tokens'
+    #trn_path = dir_path / 'wiki.train.tokens'
+    trn_path = dir_path / 'wiki.valid.tokens'
     val_path = dir_path / 'wiki.valid.tokens'
     tst_path = dir_path / 'wiki.test.tokens'
     for path_ in [trn_path, val_path, tst_path]:
@@ -80,9 +82,13 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
+        lm_type = contrib_data.LanguageModelType.BiLM if bidir else  contrib_data.LanguageModelType.FwdLM
+
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
         data_lm = TextLMDataBunch.from_ids(path=dir_path, vocab=vocab, train_ids=trn_ids,
-                                           valid_ids=val_ids, bs=bs, bptt=bptt)
+                                           valid_ids=val_ids, bs=bs, bptt=bptt,
+                                           lm_type=lm_type)
+
     else:
         # apply fastai preprocessing and tokenization
         read_file(trn_path, 'train')
@@ -117,13 +123,13 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
-
+    learn.metrics=[] # accuracy does not work when we have multiple dimensions at the end.
     # save vocabulary
     print('Saving vocabulary...')
     with open(model_dir / f'itos_{name}.pkl', 'wb') as f:
         pickle.dump(itos, f)
 
-    fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+    learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
     if clean and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
