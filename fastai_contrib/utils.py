@@ -72,7 +72,7 @@ def prepare_imdb(file_path: str, prepare_lm = False):
     if not dir_path.exists():
         print(f"Extracting {file_path} to {dir_path}. This may take a long time...")
         tgz_file = tarfile.open(file_path)
-        tgz_file.extractall(path=dir_path.parent) # the aclImdb.tgz has aclImdb dir packed 
+        tgz_file.extractall(path=dir_path.parent) # the aclImdb.tgz has aclImdb dir packed
         assert dir_path.exists()
         print(f"Extracted to {dir_path}")
 

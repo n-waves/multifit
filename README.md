@@ -1,6 +1,44 @@
 # ulmfit-multilingual
 Temporary repository used for collaboration on application of for multiple languages.
 
+## data directory strucutre
+
+Directory structure after changes to the way we process wiki dumps.
+```
+data
+├── imdb
+│   ├── aclImdb
+│   ├── imdb_lm
+│   └── tmp
+├── wiki
+│   ├── de-100
+│   │   └── models
+│   ├── de-100-unk
+│   │   └── models
+│   ├── de-2
+│   │   └── models
+│   ├── de-2-unk
+│   │   └── models
+│   ├── de-all
+│   │   └── models
+│   ├── _dumps
+│   ├── _extr
+│   │   └── de
+│   │       ├── AA
+│   │       ├── AB
+...
+│   │       └── CC
+│   ├── wikitext-103
+│   │   └── models
+│   └── wikitext-2
+│       └── models
+└── xnli
+    ├── XNLI-1.0
+    └── XNLI-MT-1.0
+        ├── multinli
+        └── xnli
+```
+
 ## how to contribute
 We have a fork of fastai to propose changes to fastai.text, with a branch for this project:
  https://github.com/n-waves/fastai/tree/ulmfit_multilingual  
