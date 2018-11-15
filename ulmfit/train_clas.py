@@ -5,81 +5,114 @@ Optionally fine-tune LM before.
 import numpy as np
 import pickle
 
+import torch
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai import fit_one_cycle
-from fastai_contrib.utils import PAD, UNK, read_imdb, PAD_TOKEN_ID
+from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists
+from fastai.text.transform import Vocab
 
-from sacremoses import MosesTokenizer
 import fire
 from collections import Counter
 from pathlib import Path
 
 
-def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='models', qrnn=True,
-                   fine_tune=True, clean=True, max_vocab=30000, bs=70, bptt=70):
-    dir_path = Path(dir_path)
+def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_dir='models',
+                   qrnn=False,
+                   fine_tune=True, max_vocab=30000, bs=20, bptt=70, name='imdb-clas',
+                   dataset='imdb', ds_pct=1.0):
+    """
+    :param data_dir: The path to the `data` directory
+    :param lang: the language unicode
+    :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
+                    run on CPU.
+    :param pretrain_name: name of the pretrained model
+    :param model_dir: The path to the directory where the pretrained model is saved
+    :param qrrn: Use a QRNN. Requires installing cupy.
+    :param fine_tune: Fine-tune the pretrained language model
+    :param max_vocab: The maximum size of the vocabulary.
+    :param bs: The batch size.
+    :param bptt: The back-propagation-through-time sequence length.
+    :param name: The name used for both the model and the vocabulary.
+    :param dataset: The dataset used for evaluation. Currently only IMDb and
+                    XNLI are implemented. Assumes dataset is located in `data`
+                    folder and that name of folder is the same as dataset name.
+    """
+    if not torch.cuda.is_available():
+        print('CUDA not available. Setting device=-1.')
+        cuda_id = -1
+    torch.cuda.set_device(cuda_id)
+
+    print(f'Dataset: {dataset}. Language: {lang}.')
+    assert dataset in DATASETS, f'Error: {dataset} processing is not implemented.'
+    assert (dataset == 'imdb' and lang == 'en') or not dataset == 'imdb',\
+        'Error: IMDb is only available in English.'
+
+    data_dir = Path(data_dir)
+    assert data_dir.name == 'data',\
+        f'Error: Name of data directory should be data, not {data_dir.name}.'
+    dataset_dir = data_dir / dataset
     model_dir = Path(model_dir)
-    assert dir_path.exists(), f'Error: {dir_path} does not exist.'
-    assert model_dir.exists(), f'Error: {model_dir} does not exist.'
+    pretrained_fname = (f'lstm_{pretrain_name}', f'itos_{pretrain_name}')
+
+    ensure_paths_exists(data_dir,
+                        dataset_dir,
+                        model_dir,
+                        model_dir/f"{pretrained_fname[0]}.pth",
+                        model_dir/f"{pretrained_fname[1]}.pkl")
 
     if qrnn:
         print('Using QRNNs...')
+    model_name = 'qrnn' if qrnn else 'lstm'
 
-    if clean:
-        # use no preprocessing besides MosesTokenizer
-        tmp_dir = dir_path / 'tmp'
-        tmp_dir.mkdir(exist_ok=True)
-        if not (tmp_dir / 'train_ids.npy').exists():
-            trn_path = dir_path / 'train.csv'
-            tst_path = dir_path / 'test.csv'
-            assert trn_path.exists(), f'Error: {trn_path} does not exist.'
-            assert tst_path.exists(), f'Error: {tst_path} does not exist.'
-            trn_toks, trn_lbls = read_imdb(trn_path, MosesTokenizer(lang))
-            tst_toks, tst_lbls = read_imdb(tst_path, MosesTokenizer(lang))
+    tmp_dir = dataset_dir / 'tmp'
+    tmp_dir.mkdir(exist_ok=True)
+    vocab_file = tmp_dir / f'vocab_{lang}.pkl'
 
-            # split off validation set if it does not exist
-            val_path = dir_path / 'valid.csv'
-            if not val_path.exists():
-                trn_len = int(len(trn_toks) * 0.9)
-                trn_toks, val_toks = trn_toks[:trn_len], trn_toks[trn_len:]
-                trn_lbls, val_lbls = trn_lbls[:trn_len], trn_lbls[trn_len:]
-            else:
-                val_toks, val_lbls = read_imdb(val_path, MosesTokenizer(lang))
+    if not (tmp_dir / f'{TRN}_{lang}_ids.npy').exists():
+        print('Reading the data...')
+        toks, lbls = read_clas_data(dataset_dir, dataset, lang)
 
-            # create the vocabulary
-            cnt = Counter(word for example in trn_toks for word in example)
-            itos = [o for o, c in cnt.most_common(n=max_vocab)]
-            itos.insert(0, PAD)
-            itos.insert(0, UNK)
-            stoi = {w: i for i, w in enumerate(itos)}
-            with open(tmp_dir / 'itos.pkl', 'wb') as f:
-                pickle.dump(itos, f)
+        # create the vocabulary
+        counter = Counter(word for example in toks[TRN] for word in example)
+        itos = [word for word, count in counter.most_common(n=max_vocab)]
+        itos.insert(0, PAD)
+        itos.insert(0, UNK)
+        vocab = Vocab(itos)
+        stoi = vocab.stoi
+        with open(vocab_file, 'wb') as f:
+            pickle.dump(vocab, f)
 
-            trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_toks])
-            val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_toks])
-            tst_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in tst_toks])
-
-            print(f'Train size: {len(trn_ids)}. Valid size: {len(val_ids)}. '
-                  f'Test size: {len(tst_ids)}.')
-
-            for split, ids, lbl in zip(['train', 'valid', 'test'],
-                             [trn_ids, val_ids, tst_ids],
-                             [trn_lbls, val_lbls, tst_lbls]):
-                np.save(tmp_dir / f'{split}_ids.npy', ids)
-                np.save(tmp_dir / f'{split}_lbl.npy', lbl)
-
-        data_lm = TextLMDataBunch.from_id_files(tmp_dir, test='test')
-        data_clas = TextClasDataBunch.from_id_files(tmp_dir, test='test')
+        ids = {}
+        for split in [TRN, VAL, TST]:
+            ids[split] = np.array([([stoi.get(w, stoi[UNK]) for w in s])
+                                   for s in toks[split]])
+            np.save(tmp_dir / f'{split}_{lang}_ids.npy', ids[split])
+            np.save(tmp_dir / f'{split}_{lang}_lbl.npy', lbls[split])
     else:
-        # use fastai peprocessing and tokenization
-        data_lm = TextLMDataBunch.from_csv(dir_path, bs=bs)
-        data_clas = TextClasDataBunch.from_csv(dir_path, vocab=data_lm.train_ds.vocab, bs=bs)
+        print('Loading the pickled data...')
+        ids, lbls = {}, {}
+        for split in [TRN, VAL, TST]:
+            ids[split] = np.load(tmp_dir / f'{split}_{lang}_ids.npy')
+            lbls[split] = np.load(tmp_dir / f'{split}_{lang}_lbl.npy')
+        with open(vocab_file, 'rb') as f:
+            vocab = pickle.load(f)
 
-        # todo implemend save and load
-        #data_lm.save()
-        #data_clas.save()
-        #data_lm = TextLMDataBunch.load(path)
-        #data_clas = TextClasDataBunch.load(path, bs=bs)
+    print(f'Train size: {len(ids[TRN])}. Valid size: {len(ids[VAL])}. '
+          f'Test size: {len(ids[TST])}.')
+
+    if ds_pct < 1.0:
+        print(f"Makeing the dataset smaller {ds_pct}")
+        for split in [TRN, VAL, TST]:
+            ids[split] = ids[split][:int(len(ids[split])*ds_pct)]
+
+
+    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
+                                       valid_ids=ids[VAL], bs=bs, bptt=bptt)
+
+    # TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
+    data_clas = TextClasDataBunch.from_ids(
+        path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
+        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs)
 
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
@@ -88,10 +121,10 @@ def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='model
     learn = language_model_learner(
         data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, qrnn=qrnn,
         pad_token=PAD_TOKEN_ID,
-        pretrained_fnames=(f'lstm_{pretrain_name}', f'itos_{pretrain_name}'),
+        pretrained_fnames=pretrained_fname,
         path=model_dir.parent, model_dir=model_dir.name)
 
-    if fine_tune:
+    if fine_tune and not (model_dir / "enc.pth").exists():
         print('Fine-tuning the language model...')
         learn.unfreeze()
         learn.fit(2, slice(1e-4, 1e-2))
@@ -99,18 +132,27 @@ def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='model
         # save encoder
         learn.save_encoder('enc')
 
+    print("Starting classifier training")
     learn = text_classifier_learner(data_clas, bptt=bptt, pad_token=PAD_TOKEN_ID,
                                   path=model_dir.parent, model_dir=model_dir.name,
                                   qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl)
 
     learn.load_encoder('enc')
+
+    torch.cuda.empty_cache()
     fit_one_cycle(learn, 1, 5e-3, (0.8, 0.7), wd=1e-7)
 
+    torch.cuda.empty_cache()
     learn.freeze_to(-2)
     fit_one_cycle(learn, 1, 5e-3, (0.8, 0.7), wd=1e-7)
 
+    torch.cuda.empty_cache()
     learn.unfreeze()
     fit_one_cycle(learn, 10, 5e-3, (0.8, 0.7), wd=1e-7)
 
+    print(f"Saving models at {learn.path / learn.model_dir}")
+    learn.save(f'{model_name}_{name}')
 
-if __name__ == '__main__': fire.Fire(new_train_clas)
+
+if __name__ == '__main__':
+    fire.Fire(new_train_clas)
