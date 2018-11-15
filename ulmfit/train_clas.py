@@ -7,18 +7,20 @@ import pickle
 
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai import fit_one_cycle
-from fastai_contrib.utils import PAD, UNK, read_imdb, PAD_TOKEN_ID
+from fastai_contrib.utils import PAD, UNK, read_imdb, prepare_imdb, PAD_TOKEN_ID
 
 from sacremoses import MosesTokenizer
 import fire
 from collections import Counter
 from pathlib import Path
 
+CLASSES = ['neg', 'pos', 'unsup']
 
-def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='models', qrnn=True,
-                   fine_tune=True, clean=True, max_vocab=30000, bs=70, bptt=70):
+
+def new_train_clas(dir_path, lang='en', pretrain_name='wt103', model_dir='models', qrnn=False,
+                   fine_tune=False, clean=False, max_vocab=30000, bs=70, bptt=70):
     dir_path = Path(dir_path)
-    model_dir = Path(model_dir)
+    model_dir = dir_path / model_dir
     assert dir_path.exists(), f'Error: {dir_path} does not exist.'
     assert model_dir.exists(), f'Error: {model_dir} does not exist.'
 
@@ -37,7 +39,7 @@ def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='model
             trn_toks, trn_lbls = read_imdb(trn_path, MosesTokenizer(lang))
             tst_toks, tst_lbls = read_imdb(tst_path, MosesTokenizer(lang))
 
-            # split off validation set if it does not exist
+            # split off validation set as 10% of training if it does not exist
             val_path = dir_path / 'valid.csv'
             if not val_path.exists():
                 trn_len = int(len(trn_toks) * 0.9)
@@ -68,18 +70,20 @@ def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='model
                 np.save(tmp_dir / f'{split}_ids.npy', ids)
                 np.save(tmp_dir / f'{split}_lbl.npy', lbl)
 
-        data_lm = TextLMDataBunch.from_id_files(tmp_dir, test='test')
-        data_clas = TextClasDataBunch.from_id_files(tmp_dir, test='test')
+        data_lm = TextLMDataBunch.from_csv(tmp_dir, '...')
+        data_clas = TextClasDataBunch.from_tokens(tmp_dir, '...')
     else:
         # use fastai peprocessing and tokenization
-        data_lm = TextLMDataBunch.from_csv(dir_path, bs=bs)
-        data_clas = TextClasDataBunch.from_csv(dir_path, vocab=data_lm.train_ds.vocab, bs=bs)
+        data_lm = TextLMDataBunch.from_csv(dir_path, csv_name='train.csv', test='test.csv', bs=bs,
+                                           classes=CLASSES)
+        data_clas = TextClasDataBunch.from_csv(dir_path, csv_name='train.csv',
+                                               vocab=data_lm.train_ds.vocab, bs=bs,classes=CLASSES)
 
-        # todo implemend save and load
-        #data_lm.save()
-        #data_clas.save()
-        #data_lm = TextLMDataBunch.load(path)
-        #data_clas = TextClasDataBunch.load(path, bs=bs)
+        # Todo implement save and load
+        # data_lm.save()
+        # data_clas.save()
+        # data_lm = TextLMDataBunch.load(path)
+        # data_clas = TextClasDataBunch.load(path, bs=bs)
 
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
@@ -113,4 +117,5 @@ def new_train_clas(dir_path, lang='en', pretrain_name='wt-103', model_dir='model
     fit_one_cycle(learn, 10, 5e-3, (0.8, 0.7), wd=1e-7)
 
 
-if __name__ == '__main__': fire.Fire(new_train_clas)
+if __name__ == '__main__':
+    fire.Fire(new_train_clas)
