@@ -12,11 +12,21 @@ import csv
 import pathlib
 import tarfile
 from sklearn import model_selection
+from sacremoses import MosesTokenizer
+from typing import Dict, Tuple, List
 
 EOS = '<eos>'
 UNK = '<unk>'
 PAD = '<pad>'
+SEP = '<sep>'  # special separator token for NLI
 PAD_TOKEN_ID = 1
+IMDB, XNLI, TRN, VAL, TST, EN = 'imdb', 'xnli', 'train', 'val', 'test', 'en'
+DATASETS = ['imdb', 'xnli']
+XNLI_PATHS = {
+    TRN: 'XNLI-MT-1.0/multinli/multinli.train.%s.tsv',
+    VAL: 'XNLI-1.0/xnli.dev.tsv',
+    TST: 'XNLI-1.0/xnli.test.tsv'
+}
 
 number_match_re = re.compile(r'^([0-9]+[,.]?)+$')
 number_split_re = re.compile(r'([,.])')
@@ -97,6 +107,104 @@ def prepare_imdb(file_path: str, prepare_lm = False):
         df_val.to_csv(LM_PATH / 'test.csv', header=False, index=False)
 
 
+def read_imdb(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
+    """
+    Reads IMDb data.
+    :param dir_path: the path to the imdb folder
+    :param lang: the language (not used here as IMDb is only available in English)
+    :param split: the split of the data that should be read (train, test, val)
+    :return: a tuple consisting of a list of lists of tokens and a list of labels
+    """
+    file_path = dir_path / 'train.csv' if split == TRN else dir_path / 'test.csv'
+    toks, lbls = [], []
+    mt = MosesTokenizer('en')
+    print(f'Reading {file_path}...')
+    with open(file_path, encoding='utf-8') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            label, text = row
+            lbls.append(label)
+            raw_tokens = mt.tokenize(text, return_str=True).split(' ') + [EOS]
+            tokens = []
+            for token in raw_tokens:
+                if number_match_re.match(token):
+                    tokens += number_split_re.sub(r' @\1@ ', token).split()
+                else:
+                    tokens.append(token)
+            toks.append(tokens)
+    return toks, lbls
+
+
+def read_xnli(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
+    """
+    Reads XNLI data.
+    :param dir_path: the path to the xnli folder
+    :param lang: the language
+    :param split: the split of the data that should be read (train, test, val)
+    :return: a tuple consisting of a list of lists of tokens and a list of labels
+    """
+    file_path = XNLI_PATHS[split]
+    if split == TRN:
+        file_path = file_path % lang
+    elif lang == EN:
+        file_name = 'xnli.dev.en.tsv' if split == VAL else 'xnli.test.en.tsv'
+        file_path = f'XNLI-MT-1.0/xnli/{file_name}'
+    file_path = dir_path / file_path
+    toks, lbls = [], []
+    print(f'Reading {file_path}...')
+    with open(file_path, encoding='utf-8') as f:
+        reader = csv.reader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
+        for i, row in enumerate(reader):
+            if i == 0:  # skip the header
+                continue
+            # the examples are already tokenized with Moses
+            if split == TRN:
+                premise, hypo, label = row
+            else:
+                ex_lang = row[0]
+                if ex_lang != lang:
+                    continue
+                premise, hypo, label = row[-3], row[-2], row[1]
+            # TODO add BOS
+            premise_toks = premise.split(' ') + [EOS]
+            hypo_toks = hypo.split(' ') + [EOS]
+            toks.append(premise_toks + [SEP] + hypo_toks)
+            lbls.append(label)
+    return toks, lbls
+
+
+def read_clas_data(dir_path, dataset, lang) -> Tuple[Dict[str, List[List[str]]], Dict[str, List[str]]]:
+    """
+    Read the dataset from the classification datasets and tokenize them.
+    :param dir_path: the path to the dataset
+    :param dataset: the name of the dataset
+    :param lang: the language
+    :return: a tuple consisting of:
+             1. a dictionary mapping splits to a list of lists of tokens
+             2. a dictionary mapping splits to a list of labels
+    """
+    processors = {
+        'imdb': read_imdb,
+        'xnli': read_xnli
+    }
+    processor = processors[dataset]
+
+    toks, lbls = {}, {}
+    toks[TRN], lbls[TRN] = processor(dir_path, lang, TRN)
+    toks[TST], lbls[TST] = processor(dir_path, lang, TST)
+
+    if dataset == IMDB:
+        # for IMDb, we need to split off a separate validation set
+        # note that we train and fine-tune ULMFiT on the full training set in the paper
+        # to do this, we can just keep the training set the same
+        trn_len = int(len(toks[TRN]) * 0.9)
+        toks[TRN], toks[VAL] = toks[TRN][:trn_len], toks[TRN][trn_len:]
+        lbls[TRN], lbls[VAL] = lbls[TRN][:trn_len], lbls[TRN][trn_len:]
+    else:
+        toks[VAL], lbls[VAL] = processor(dir_path, lang, VAL)
+    return toks, lbls
+
+
 def replace_number(token):
     """Replaces a number and returns a list of one or multiple tokens."""
     if number_match_re.match(token):
@@ -124,23 +232,6 @@ def read_whitespace_file(filepath):
     return np.array(tokens)
 
 
-def read_imdb(file_path, mt):
-    toks, lbls = [], []
-    print(f'Reading {file_path}...')
-    with open(file_path, encoding='utf-8') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            label, text = row
-            lbls.append(label)
-            raw_tokens = mt.tokenize(text, return_str=True).split(' ') + [EOS]
-            tokens = []
-            for token in raw_tokens:
-                if number_match_re.match(token):
-                    tokens += number_split_re.sub(r' @\1@ ', token).split()
-                else:
-                    tokens.append(token)
-            toks.append(tokens)
-    return np.array(toks), np.array(lbls)
 
 
 class DataStump:
