@@ -22,3 +22,5 @@ fi
 
 unzip "${MT_PATH}" -d "${XNLI_DIR}"
 unzip "${XNLI_PATH}" -d "${XNLI_DIR}"
+
+echo "Please note xnli en is already tokenized with Moses"
