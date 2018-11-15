@@ -95,12 +95,13 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt-103', model
     print(f'Train size: {len(ids[TRN])}. Valid size: {len(ids[VAL])}. '
           f'Test size: {len(ids[TST])}.')
 
-    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, trn_ids=ids[TRN],
-                                       val_ids=ids[VAL], bs=bs, bptt=bptt)
+    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
+                                       valid_ids=ids[VAL], bs=bs, bptt=bptt)
     # TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
-        path=tmp_dir, vocab=vocab, trn_ids=ids[TRN], val_ids=ids[VAL],
-        trn_lbls=lbls[TRN], val_lbls=lbls[VAL], bs=bs)
+        path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
+        test_ids=ids[TST], train_lbls=lbls[TRN], valid_lbls=lbls[VAL],
+        test_lbls=lbls[TST], bs=bs)
 
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
