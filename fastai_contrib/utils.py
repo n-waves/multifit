@@ -57,20 +57,20 @@ def prepare_imdb(file_path: str, prepare_lm = False):
     """
 
     file_path = pathlib.Path(file_path)
-    dir_path = pathlib.Path(file_path.stem).resolve()
+    dir_path = pathlib.Path(file_path.parent / 'aclImdb').resolve()
     assert tarfile.is_tarfile(file_path), "this is not a valid targz file"
 
     if not dir_path.exists():
         print(f"Extracting {file_path} to {dir_path}. This may take a long time...")
         tgz_file = tarfile.open(file_path)
-        tgz_file.extractall()
+        tgz_file.extractall(path=dir_path.parent) # the aclImdb.tgz has aclImdb dir packed 
         assert dir_path.exists()
         print(f"Extracted to {dir_path}")
 
-    CLAS_PATH = dir_path
+    CLAS_PATH = dir_path.parent
     CLAS_PATH.mkdir(exist_ok=True)
 
-    LM_PATH = dir_path /'imdb_lm'
+    LM_PATH = dir_path.parent /'imdb_lm'
     LM_PATH.mkdir(exist_ok=True)
 
     # processing the split files to create train.csv and test.csv in fastai format
