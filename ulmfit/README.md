@@ -38,7 +38,7 @@ Use the Python script [create_wikitext.py](./create_wikitext.py) to process the 
 ### Create and Post-Process 
 If you used the automated shell script from previous step, this might look something like
 ```bash
-python create_wikitext.py -i data/wiki_extr/hi -o data/hindi -l hi
+python create_wikitext.py -i data/wiki_extr/hi -o data/wiki/hi -l hi
 ``` 
 for hindi (unicode: 'hi')
 
@@ -46,5 +46,6 @@ This should create two splits of your Wikimedia Dumps: a small and large one.
 
 _**Then**_, use the [postprocess_wikitext.py](./postprocess_wikitext.py) script to finish post processing. This processes numbers, builds a vocab, and limits the vocabulary size. This might look following for Hindi (`hi`)
 ```bash
-python postprocess_wikitext.py -i data/hindi -l hi
+python postprocess_wikitext.py data/wiki/hi-2 hi
+python postprocess_wikitext.py data/wiki/hi-100 hi
 ```
