@@ -6,12 +6,14 @@ Articles are tokenized using the Moses tokenizer. Articles with least than
 """
 import argparse
 from pathlib import Path
+from collections import Counter
 import json
 
 from shutil import copyfile
 
 from sacremoses import MosesTokenizer
-from fastai_contrib.utils import get_sentencepiece, replace_number, UNK
+from fastai_contrib.utils import replace_number, UNK
+from fastai_contrib.tokenizers import get_sentencepiece, SentencepieceTokenizer
 
 
 def get_texts(root):
