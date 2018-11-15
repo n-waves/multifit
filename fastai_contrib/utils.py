@@ -67,7 +67,7 @@ def prepare_imdb(file_path: str, prepare_lm = False):
         assert dir_path.exists()
         print(f"Extracted to {dir_path}")
 
-    CLAS_PATH = dir_path / 'imdb_clas'
+    CLAS_PATH = dir_path
     CLAS_PATH.mkdir(exist_ok=True)
 
     LM_PATH = dir_path /'imdb_lm'

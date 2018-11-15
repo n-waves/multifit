@@ -16,8 +16,9 @@ from collections import Counter
 from pathlib import Path
 
 
-def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt-103', model_dir='models', qrnn=True,
-                   fine_tune=True, max_vocab=30000, bs=70, bptt=70, name='imdb-clas',
+def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_dir='models',
+                   qrnn=False,
+                   fine_tune=True, max_vocab=30000, bs=20, bptt=70, name='imdb-clas',
                    dataset='imdb'):
     """
     :param data_dir: The path to the `data` directory
@@ -95,13 +96,13 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt-103', model
     print(f'Train size: {len(ids[TRN])}. Valid size: {len(ids[VAL])}. '
           f'Test size: {len(ids[TST])}.')
 
-    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, trn_ids=ids[TRN],
-                                       val_ids=ids[VAL], bs=bs, bptt=bptt)
+    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
+                                       valid_ids=ids[VAL], bs=bs, bptt=bptt)
 
     # TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
-        path=tmp_dir, vocab=vocab, trn_ids=ids[TRN], val_ids=ids[VAL],
-        trn_lbls=lbls[TRN], val_lbls=lbls[VAL], bs=bs)
+        path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
+        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs)
 
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
@@ -113,7 +114,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt-103', model
         pretrained_fnames=(f'lstm_{pretrain_name}', f'itos_{pretrain_name}'),
         path=model_dir.parent, model_dir=model_dir.name)
 
-    if fine_tune:
+    if fine_tune and not (model_dir / "enc.pth").exists():
         print('Fine-tuning the language model...')
         learn.unfreeze()
         learn.fit(2, slice(1e-4, 1e-2))
@@ -121,16 +122,21 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt-103', model
         # save encoder
         learn.save_encoder('enc')
 
+    print("Starting classifier training")
     learn = text_classifier_learner(data_clas, bptt=bptt, pad_token=PAD_TOKEN_ID,
                                   path=model_dir.parent, model_dir=model_dir.name,
                                   qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl)
 
     learn.load_encoder('enc')
+
+    torch.cuda.empty_cache()
     fit_one_cycle(learn, 1, 5e-3, (0.8, 0.7), wd=1e-7)
 
+    torch.cuda.empty_cache()
     learn.freeze_to(-2)
     fit_one_cycle(learn, 1, 5e-3, (0.8, 0.7), wd=1e-7)
 
+    torch.cuda.empty_cache()
     learn.unfreeze()
     fit_one_cycle(learn, 10, 5e-3, (0.8, 0.7), wd=1e-7)
 
