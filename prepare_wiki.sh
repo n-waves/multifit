@@ -13,8 +13,8 @@ else
 fi
 echo "Chosen language: ""$LANG"
 
-DUMP_DIR="${ROOT}/wiki/_dumps"
-EXTR_DIR="${ROOT}/wiki/_extr"
+DUMP_DIR="${ROOT}/wiki_dumps"
+EXTR_DIR="${ROOT}/wiki_extr"
 WIKI_DIR="${ROOT}/wiki"
 EXTR="wikiextractor"
 mkdir -p "${ROOT}"

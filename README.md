@@ -21,17 +21,17 @@ data
 │   │   └── models
 │   ├── de-all
 │   │   └── models
-│   ├── _dumps
-│   ├── _extr
-│   │   └── de
-│   │       ├── AA
-│   │       ├── AB
-...
-│   │       └── CC
 │   ├── wikitext-103
 │   │   └── models
 │   └── wikitext-2
 │       └── models
+├── wiki_dumps
+├── wiki_extr
+│   └── de
+│       ├── AA
+│       ├── AB
+...
+        └── CC
 └── xnli
     ├── XNLI-1.0
     └── XNLI-MT-1.0
