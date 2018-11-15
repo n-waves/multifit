@@ -43,6 +43,15 @@ def get_texts(path):
     return np.array(texts), np.array(labels)
 
 
+def ensure_paths_exists(*paths):
+    error = False
+    for path in paths:
+        if not path.exists():
+            print(f'Error: {path} does not exist.')
+            error = True
+    if error:
+        raise FileNotFoundError("One or more required files cannot be found.")
+
 def prepare_imdb(file_path: str, prepare_lm = False):
     """
     function to extract aclImdb and combine into fastai standard format of labels and then text
