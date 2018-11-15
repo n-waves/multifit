@@ -7,6 +7,9 @@ import argparse
 
 from collections import Counter
 from pathlib import Path
+
+import fire
+
 from fastai_contrib.utils import replace_number, UNK
 
 
@@ -76,46 +79,27 @@ def replace_numbers(file_path, unk_path):
             f_out.write(line)
 
 
-def main(args):
+def postprocess_wikitext(path, lang):
 
-    input_path = Path(args.input)
-    assert input_path.exists(), f'Error: {input_path} does not exist.'
-
-    sml_wiki = input_path / f'{args.lang}-2'
-    lrg_wiki = input_path / f'{args.lang}-100'
-    assert sml_wiki.exists(), f'Error: {sml_wiki} does not exist.'
-    assert lrg_wiki.exists(), f'Error: {lrg_wiki} does not exist.'
-
+    wiki_path = Path(path)
+    assert wiki_path.exists(), f'Error: {wiki_path} does not exist.'
+    dest_path = wiki_path.parent / (wiki_path.name + "-unk")
+    dest_path.mkdir(exist_ok=True)
     splits = ['train', 'valid', 'test']
-    for wiki in [sml_wiki, lrg_wiki]:
-        for split in splits:
-            # replace numbers with placeholders
-            file_path = wiki / f'{args.lang}.wiki.{split}.tokens'
-            unk_path = wiki / f'{args.lang}.wiki.{split}.tokens.unk'
-            replace_numbers(file_path, unk_path)
-
-    sml_wiki_train = sml_wiki / f'{args.lang}.wiki.train.tokens'
-    lrg_wiki_train = lrg_wiki / f'{args.lang}.wiki.train.tokens'
-
-    sml_vocab = build_vocab(sml_wiki_train)
-    print(f'{args.lang}-2 vocab size: {len(sml_vocab)}')
-    lrg_vocab = build_vocab(lrg_wiki_train)
-    print(f'{args.lang}-100 vocab size: {len(lrg_vocab)}')
+    for split in splits:
+        # replace numbers with placeholders
+        file_path = wiki_path / f'{lang}.wiki.{split}.tokens'
+        assert file_path.exists(), f"Error: {file_path} does not exist."
+        unk_path = dest_path / file_path.name
+        replace_numbers(file_path, unk_path)
 
     # replace words not in the vocab with <unk>
-    for wiki, vocab in zip([sml_wiki, lrg_wiki], [sml_vocab, lrg_vocab]):
-        for split in splits:
-            unk_path = wiki / f'{args.lang}.wiki.{split}.tokens.unk'
-            limit_vocab(unk_path, vocab)
-
+    wiki_train = dest_path / f'{lang}.wiki.train.tokens'
+    vocab = build_vocab(wiki_train)
+    print(f'{wiki_path} vocab size: {len(vocab)}')
+    for split in splits:
+        unk_path = dest_path / f'{lang}.wiki.{split}.tokens'
+        limit_vocab(unk_path, vocab)
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input', required=True,
-                        help='the directory of the wikitext files')
-    parser.add_argument('-l', '--lang', required=True,
-                        help='the iso code of the language of the Wikipedia '
-                             'documents, e.g. en, fr, de, etc.')
-    args = parser.parse_args()
-    main(args)
+    fire.Fire(postprocess_wikitext)
