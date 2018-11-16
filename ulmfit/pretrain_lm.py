@@ -92,22 +92,25 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
             val_tok = val_tok[:max(20, int(len(val_tok) * ds_pct))]
             print(f"Limiting data sets to {ds_pct*100}%, trn {len(trn_tok)}, val: {len(val_tok)}")
 
-        # create the vocabulary
-        cnt = Counter(word for sent in trn_tok for word in sent)
-        itos = [o for o,c in cnt.most_common(n=max_vocab)]
-        itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
-        assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
-        stoi = {w: i for i, w in enumerate(itos)}
+        itos_fn=dir_path / model_dir / f'itos_{name}.pkl'
+        if not itos_fn.exists():
+            # create the vocabulary
+            cnt = Counter(word for sent in trn_tok for word in sent)
+            itos = [o for o,c in cnt.most_common(n=max_vocab)]
+            itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
+            assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
+
+            # save vocabulary
+            print(f"Saving vocabulary as {dir_path / model_dir}")
+            results['itos_fname'] = itos_fn
+            with open(results['itos_fname'], 'wb') as f:
+                pickle.dump(itos, f)
+        else:
+            print("Loading itos:", itos_fn)
+            itos = np.load(itos_fn)
 
         vocab = Vocab(itos)
         stoi = vocab.stoi
-
-        # save vocabulary
-        print(f"Saving vocabulary as {dir_path / model_dir}")
-        results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
-        with open(results['itos_fname'], 'wb') as f:
-            pickle.dump(itos, f)
-
 
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
@@ -152,9 +155,14 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     else:
         learn.metrics = [accuracy]
 
+    try:
+        learn.load(f'{model_name}_{name}')
+        print("Weights loaded")
+    except FileNotFoundError:
+        print("Starting from random weights")
+        pass
+
     learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
-
-
 
     if not subword and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
