@@ -18,7 +18,7 @@ from pathlib import Path
 
 def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_dir='models',
                    qrnn=False,
-                   fine_tune=True, max_vocab=30000, bs=20, bptt=70, name='imdb-clas',
+                   fine_tune=True, max_vocab=60000, bs=20, bptt=70, name='imdb-clas',
                    dataset='imdb', ds_pct=1.0):
     """
     :param data_dir: The path to the `data` directory
@@ -105,7 +105,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
           f'Test size: {len(ids[TST])}.')
 
     if ds_pct < 1.0:
-        print(f"Makeing the dataset smaller {ds_pct}")
+        print(f"Making the dataset smaller {ds_pct}")
         for split in [TRN, VAL, TST]:
             ids[split] = ids[split][:int(len(ids[split])*ds_pct)]
 
@@ -127,11 +127,13 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         pad_token=PAD_TOKEN_ID,
         pretrained_fnames=pretrained_fname,
         path=model_dir.parent, model_dir=model_dir.name)
-    lm_enc_finetuned  = f"{lm_name}_{dataset}_enc"
+
+    lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
     if fine_tune and not (model_dir / f"lm_enc_finetuned.pth").exists():
         print('Fine-tuning the language model...')
+        learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
         learn.unfreeze()
-        learn.fit(2, slice(1e-4, 1e-2))
+        learn.fit_one_cycle(10, 1e-3, moms=(0.8, 0.7))
 
         # save encoder
         learn.save_encoder(lm_enc_finetuned)
