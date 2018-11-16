@@ -56,8 +56,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
     dir_path = Path(dir_path)
     assert dir_path.exists()
-    model_dir = Path(model_dir)
-    model_dir.mkdir(exist_ok=True)
+    (dir_path/model_dir).mkdir(exist_ok=True)
     print('Batch size:', bs)
     print('Max vocab:', max_vocab)
     model_name = 'qrnn' if qrnn else 'lstm'
@@ -94,6 +93,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
         itos_fn=dir_path / model_dir / f'itos_{name}.pkl'
         if not itos_fn.exists():
+            itos_fn.parent.mkdir(exist_ok=True)
             # create the vocabulary
             cnt = Counter(word for sent in trn_tok for word in sent)
             itos = [o for o,c in cnt.most_common(n=max_vocab)]
