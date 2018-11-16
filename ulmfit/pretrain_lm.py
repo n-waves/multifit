@@ -91,7 +91,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         # save vocabulary
         print(f"Saving vocabulary as {dir_path / model_dir}")
         with open(dir_path / model_dir / f'itos_{name}.pkl', 'wb') as f:
-        pickle.dump(itos, f)
+            pickle.dump(itos, f)
 
 
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
