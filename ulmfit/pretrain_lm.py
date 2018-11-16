@@ -25,7 +25,7 @@ from collections import Counter
 # cupy needs to be installed for QRNN
 
 def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vocab=60000,
-                bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10):
+                bs=70, bptt=70, name='wt-103', num_epochs=10, ds_pct=1.0):
     """
     :param dir_path: The path to the directory of the file.
     :param lang: the language unicode
@@ -39,6 +39,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     :param name: The name used for both the model and the vocabulary.
     :param model_dir: The path to the directory where the models should be saved
     """
+    results = {}
+    model_dir = 'models' # removed from params, as it is absolute models location in train_clas and here it is relative
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
         cuda_id = -1
@@ -77,6 +79,10 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         # read the already whitespace separated data without any preprocessing
         trn_tok = read_whitespace_file(trn_path)
         val_tok = read_whitespace_file(val_path)
+        if ds_pct < 1.0:
+            trn_tok = trn_tok[:max(20, int(len(trn_tok) * ds_pct))]
+            val_tok = val_tok[:max(20, int(len(val_tok) * ds_pct))]
+            print(f"Limiting data sets to {ds_pct*100}%, trn {len(trn_tok)}, val: {len(val_tok)}")
 
         # create the vocabulary
         cnt = Counter(word for sent in trn_tok for word in sent)
@@ -90,7 +96,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
         # save vocabulary
         print(f"Saving vocabulary as {dir_path / model_dir}")
-        with open(dir_path / model_dir / f'itos_{name}.pkl', 'wb') as f:
+        results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
+        with open(results['itos_fname'], 'wb') as f:
             pickle.dump(itos, f)
 
 
@@ -110,7 +117,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
         #dps = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
     else:
         emb_sz, nh, nl = 400, 1150, 3
@@ -118,15 +125,17 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
 
-    fastai.text.learner.default_dropout['language'] = dps
+    fastai.text.learner.default_dropout['language'] = dps * drop_mult
     learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
                            drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
-                           bias=True, qrnn=True, clip=0.12)
+                           bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
     learn.true_wd = False
 
     fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+
+
 
     if not subword and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
@@ -144,6 +153,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     print(f"Saving optimiser state at {opt_state_path}")
     torch.save(learn.opt.opt.state_dict(), opt_state_path)
 
+    results['accuracy'] = learn.validate()[1]
+    return results
 
 if __name__ == '__main__':
     fire.Fire(pretrain_lm)

@@ -114,14 +114,26 @@ def get_texts(path):
     return np.array(texts), np.array(labels)
 
 
-def ensure_paths_exists(*paths):
+def ensure_paths_exists(*paths, message="One or more required files cannot be found."):
     error = False
     for path in paths:
         if not path.exists():
             print(f'Error: {path} does not exist.')
             error = True
     if error:
-        raise FileNotFoundError("One or more required files cannot be found.")
+        raise FileNotFoundError(message)
+
+def get_data_folder():
+    """
+    return data folder to use for future processing
+    """
+    return (pathlib.Path(__file__).parent.parent / "data")
+
+def get_scripts_folder():
+    """
+    return data folder to use for future processing
+    """
+    return (pathlib.Path(__file__).parent.parent)
 
 def prepare_imdb(file_path: str, prepare_lm = False):
     """
