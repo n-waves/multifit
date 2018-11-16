@@ -26,9 +26,9 @@ from collections import Counter
 
 
 def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
-                bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10):
+                bs=70, bptt=70, name='wt-103', num_epochs=10):
     """
-    :param dir_path: The path to the directory of the file.
+    :param dir_path: The path to the directory that contains wiki text
     :param lang: the language unicode
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
                     run on CPU.
@@ -40,6 +40,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
     :param name: The name used for both the model and the vocabulary.
     :param model_dir: The path to the directory where the models should be saved
     """
+
+    model_dir = 'models' # removed from params, as it is absolute models location in train_clas and here it is relative
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
         cuda_id = -1
@@ -55,9 +57,9 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
     if qrnn:
         print('Using QRNNs...')
 
-    trn_path = dir_path / f'{lang}.wiki.train.tokens.unk'
-    val_path = dir_path / f'{lang}.wiki.valid.tokens.unk'
-    tst_path = dir_path / f'{lang}.wiki.test.tokens.unk'
+    trn_path = dir_path / f'{lang}.wiki.train.tokens'
+    val_path = dir_path / f'{lang}.wiki.valid.tokens'
+    tst_path = dir_path / f'{lang}.wiki.test.tokens'
     for path_ in [trn_path, val_path, tst_path]:
         assert path_.exists(), f'Error: {path_} does not exist.'
 
@@ -124,6 +126,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
     if clean and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
         # are the perplexity results comparable to previous work
+
         print(f"Validating model performance with test tokens from: {trn_path}")
         tst_tok = read_whitespace_file(trn_path)
         tst_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in tst_tok])
