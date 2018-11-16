@@ -23,11 +23,13 @@ def check_data_exists():
 def test_pretrain_lm():
     imdb,wt2 = check_data_exists()
     lm_name="end-to-end-test-quick"
+    cuda_id=0
     results = ulmfit.pretrain_lm.pretrain_lm(
         dir_path=wt2,
         lang='en',
+        cuda_id=cuda_id,
         qrnn=True,
-        clean=True,
+        subword=False,
         max_vocab=1000,
         bs=80,
         num_epochs=1,
@@ -40,6 +42,7 @@ def test_pretrain_lm():
                 data_dir=get_data_folder(),
                 lang='en', pretrain_name=lm_name, model_dir=wt2/'models',
                 qrnn=True,
+                cuda_id=cuda_id,
                 fine_tune=True,
                 max_vocab=1000,
                 bs=20, bptt=70, name=lm_name+'-imdb-clas',

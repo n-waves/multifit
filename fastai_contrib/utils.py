@@ -9,6 +9,12 @@ import torch
 from tqdm import tqdm
 import re
 import csv
+
+from functools import reduce
+from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab, default_rules
+from fastai.torch_core import *
+
+import shutil
 import pathlib
 import tarfile
 from sklearn import model_selection
@@ -28,10 +34,74 @@ XNLI_PATHS = {
     TST: 'XNLI-1.0/xnli.test.tsv'
 }
 
+CLASSES = ['neg', 'pos', 'unsup']
+
 number_match_re = re.compile(r'^([0-9]+[,.]?)+$')
 number_split_re = re.compile(r'([,.])')
 
-CLASSES = ['neg', 'pos', 'unsup']
+class SentencepieceTokenizer(BaseTokenizer):
+    def __init__(self, model_dir:PathOrStr):
+        try:
+            import sentencepiece as spm  
+        except ImportError:
+            raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
+        self.tok = spm.SentencePieceProcessor()
+        self.tok.Load(str(pathlib.Path(model_dir) / 'spm.model'))
+    def tokenizer(self, t:str) -> List[str]:
+        return self.tok.EncodeAsPieces(t)
+    def add_special_cases(self, toks:Collection[str]):
+        pass
+
+def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=None,
+                      vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
+                      pad_idx:int=PAD_TOKEN_ID):
+    try:
+        import sentencepiece as spm
+    except ImportError:
+        raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
+    
+    path = pathlib.Path(path)
+    os.makedirs(path / 'models', exist_ok=True)
+    rules = rules if rules else default_rules
+
+    cache_name = 'tmp'
+    
+    # load the text frmo the train tokens file
+    text = [line.rstrip('\n') for line in open(trn_path)]
+    text = list(filter(None, text))
+
+    if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / f'itos_{name}.pkl'):
+        raw_text = reduce(lambda t, rule: rule(t), rules, '\n'.join(text))
+        raw_text_path = path / cache_name / 'all_text.txt'
+        with open(raw_text_path, 'w') as f:
+            f.write(raw_text)
+      
+        sp_params = f'--input={raw_text_path} --pad_id={pad_idx} --unk_id=0' \
+                    f'--character_coverage=1.0 --bos_id=-1 --eos_id=-1 ' \
+                    f'--input_sentence_size={int(input_sentence_size)} ' \
+                    f"--model_prefix={path / 'models' / 'spm'} " \
+                    f'--vocab_size={vocab_size} --model_type={model_type} '
+        spm.SentencePieceTrainer.Train(sp_params)
+  
+        with open(path / 'models' / 'spm.vocab', 'r') as f:
+            vocab = [line.split('\t')[0] for line in f.readlines()]
+            vocab[0] = UNK
+            vocab[pad_idx] = PAD
+  
+        pickle.dump(vocab, open(path / 'models'/ f'itos_{name}.pkl', 'wb'))
+    
+    vocab = Vocab(pickle.load(open(path / 'models'/ f'itos_{name}.pkl', 'rb')))
+    spt = SentencepieceTokenizer(path)
+    tokenizer = Tokenizer(tok_func=lambda lang: spt, rules=rules)
+    
+    clear_cache_directory(path, cache_name)
+
+    return {'tokenizer': tokenizer, 'vocab': vocab}
+
+
+def clear_cache_directory(path:PathOrStr, cache_name:str='tmp'):
+    path = pathlib.Path(path)
+    shutil.rmtree(path / cache_name)
 
 
 def get_texts(path):
@@ -224,7 +294,6 @@ def read_clas_data(dir_path, dataset, lang) -> Tuple[Dict[str, List[List[str]]],
     else:
         toks[VAL], lbls[VAL] = processor(dir_path, lang, VAL)
     return toks, lbls
-
 
 def replace_number(token):
     """Replaces a number and returns a list of one or multiple tokens."""
