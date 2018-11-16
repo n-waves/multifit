@@ -56,9 +56,9 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     if qrnn:
         print('Using QRNNs...')
 
-    trn_path = dir_path / f'{lang}.wiki.train.tokens.unk'
-    val_path = dir_path / f'{lang}.wiki.valid.tokens.unk'
-    tst_path = dir_path / f'{lang}.wiki.test.tokens.unk'
+    trn_path = dir_path / f'{lang}.wiki.train.tokens'
+    val_path = dir_path / f'{lang}.wiki.valid.tokens'
+    tst_path = dir_path / f'{lang}.wiki.test.tokens'
     for path_ in [trn_path, val_path, tst_path]:
         assert path_.exists(), f'Error: {path_} does not exist.'
 

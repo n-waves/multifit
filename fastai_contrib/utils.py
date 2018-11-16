@@ -11,7 +11,6 @@ import re
 import csv
 
 from functools import reduce
-from fastai.text.data import TextDataset
 from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab, default_rules
 from fastai.torch_core import *
 
@@ -80,7 +79,7 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
         sp_params = f'--input={raw_text_path} --pad_id={pad_idx} --unk_id=0' \
                     f'--character_coverage=1.0 --bos_id=-1 --eos_id=-1 ' \
                     f'--input_sentence_size={int(input_sentence_size)} ' \
-                    f'--model_prefix={path / 'models' / 'spm'} ' \
+                    f"--model_prefix={path / 'models' / 'spm'} " \
                     f'--vocab_size={vocab_size} --model_type={model_type} '
         spm.SentencePieceTrainer.Train(sp_params)
   
