@@ -104,7 +104,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
         #dps = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
     else:
         emb_sz, nh, nl = 400, 1150, 3
@@ -112,7 +112,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
         dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
 
-    fastai.text.learner.default_dropout['language'] = dps
+    fastai.text.learner.default_dropout['language'] = dps * drop_mult
     learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
                            drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
                            bias=True, qrnn=qrnn, clip=0.12)
