@@ -32,11 +32,11 @@ def accuracy_bwd(input, targs):
     return accuracy(input[...,1], targs[...,1])
 
 
-def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
-                bs=70, bptt=70, name='wt-103', model_dir='models', num_epochs=10,
-                bidir=False, ds_pct=1.0):
+def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
+                bs=70, bptt=70, name='wt-103', num_epochs=10,  bidir=False, ds_pct=1.0):
     """
-    :param dir_path: The path to the directory of the file.
+    :param dir_path: The path to the directory that contains wiki text
+    :param lang: the language unicode
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
                     run on CPU.
     :param qrrn: Use a QRNN. Requires installing cupy.
@@ -48,6 +48,8 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     :param model_dir: The path to the directory where the models should be saved
     :param bidir: whether the language model is bidirectional
     """
+    results = {}
+    model_dir = 'models' # removed from params, as it is absolute models location in train_clas and here it is relative
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
         cuda_id = -1
@@ -63,9 +65,9 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if qrnn:
         print('Using QRNNs...')
 
-    trn_path = dir_path / 'wiki.train.tokens'
-    val_path = dir_path / 'wiki.valid.tokens'
-    tst_path = dir_path / 'wiki.test.tokens'
+    trn_path = dir_path / f'{lang}.wiki.train.tokens'
+    val_path = dir_path / f'{lang}.wiki.valid.tokens'
+    tst_path = dir_path / f'{lang}.wiki.test.tokens'
     for path_ in [trn_path, val_path, tst_path]:
         assert path_.exists(), f'Error: {path_} does not exist.'
 
@@ -74,8 +76,9 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         trn_tok = read_whitespace_file(trn_path)
         val_tok = read_whitespace_file(val_path)
         if ds_pct < 1.0:
-            trn_tok = trn_tok[:int(len(trn_tok) * ds_pct)]
-            val_tok = val_tok[:int(len(val_tok) * ds_pct)]
+            trn_tok = trn_tok[:max(20, int(len(trn_tok) * ds_pct))]
+            val_tok = val_tok[:max(20, int(len(val_tok) * ds_pct))]
+            print(f"Limiting data sets to {ds_pct*100}%, trn {len(trn_tok)}, val: {len(val_tok)}")
 
         # create the vocabulary
         cnt = Counter(word for sent in trn_tok for word in sent)
@@ -113,7 +116,7 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     if qrnn:
         emb_sz, nh, nl = 400, 1550, 3
         #dps = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
-        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15]) * 0.1
+        dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
     else:
         emb_sz, nh, nl = 400, 1150, 3
@@ -121,11 +124,11 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
         dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
 
-    fastai.text.learner.default_dropout['language'] = dps
+    fastai.text.learner.default_dropout['language'] = dps * drop_mult
 
     lm_learner = bilm_learner if bidir else language_model_learner
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
-                       drop_mult=drop_mult, tie_weights=True,
+                       drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
                        bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
@@ -136,23 +139,34 @@ def pretrain_lm(dir_path, cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
     else:
         learn.metrics = [accuracy]
     # save vocabulary
-    print('Saving vocabulary...')
-    with open(model_dir / f'itos_{name}.pkl', 'wb') as f:
+    print(f"Saving vocabulary as {dir_path / model_dir}")
+    results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
+    with open(results['itos_fname'], 'wb') as f:
         pickle.dump(itos, f)
 
     learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
+
+
     if clean and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
         # are the perplexity results comparable to previous work
+
+        print(f"Validating model performance with test tokens from: {trn_path}")
         tst_tok = read_whitespace_file(trn_path)
         tst_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in tst_tok])
-        logloss, perplexity = validate(model, tst_ids, bptt)
+        logloss, perplexity = validate(learn.model, tst_ids, bptt)
         print('Test logloss:', logloss.item(), 'perplexity:', perplexity.item())
 
+    print(f"Saving models at {learn.path / learn.model_dir}")
     learn.save(f'{model_name}_{name}')
-    torch.save(learn.opt.opt.state_dict(), learn.path / learn.model_dir / f'{model_name}3_{name}_state.pth')
 
+    opt_state_path = learn.path / learn.model_dir / f'{model_name}3_{name}_state.pth'
+    print(f"Saving optimiser state at {opt_state_path}")
+    torch.save(learn.opt.opt.state_dict(), opt_state_path)
+
+    results['accuracy'] = learn.validate()[1]
+    return results
 
 if __name__ == '__main__':
     fire.Fire(pretrain_lm)

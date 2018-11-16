@@ -57,7 +57,7 @@ def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):
                 f_out.write(tokenized + '\n')
 
             total_num_tokens += num_tokens_article + 1
-            if total_num_tokens > num_tokens:
+            if num_tokens is not None and total_num_tokens > num_tokens:
                 break
             if i % 10000 == 0 and i > 0:
                 print('Processed {:,} documents. Total # tokens: {:,}.'.format(i, total_num_tokens))
@@ -76,8 +76,10 @@ def main(args):
 
     sml_wiki = output / f'{args.lang}-2'
     lrg_wiki = output / f'{args.lang}-100'
+    all_wiki = output / f'{args.lang}-all'
     sml_wiki.mkdir(exist_ok=True)
     lrg_wiki.mkdir(exist_ok=True)
+    all_wiki.mkdir(exist_ok=True)
 
     text_iter = get_texts(input_path)
 
@@ -87,15 +89,18 @@ def main(args):
         sml_file_path = sml_wiki / f'{args.lang}.wiki.{split}.tokens'
         write_wikitext(sml_file_path, text_iter, mt, token_num)
         lrg_file_path = lrg_wiki / f'{args.lang}.wiki.{split}.tokens'
-
+        all_file_path = all_wiki / f'{args.lang}.wiki.{split}.tokens'
         # copy the content of the small file to the large file
-        print(f'Copying {sml_file_path} to {lrg_file_path}.')
+        print(f'Copying {sml_file_path} to {lrg_file_path} & {all_file_path}.')
         copyfile(sml_file_path, lrg_file_path)
+        copyfile(sml_file_path, all_file_path)
 
     # add the new articles to the existing ones
     lrg_wiki_train = lrg_wiki / f'{args.lang}.wiki.train.tokens'
     write_wikitext(lrg_wiki_train, text_iter, mt, 98000000, mode='a')
-
+    all_wiki_train = all_wiki / f'{args.lang}.wiki.train.tokens'
+    copyfile(lrg_wiki_train, all_wiki_train)
+    write_wikitext(lrg_wiki_train, text_iter, mt,  None, mode='a') # TODO fix it (change lrg to all)
 
 if __name__ == '__main__':
 
