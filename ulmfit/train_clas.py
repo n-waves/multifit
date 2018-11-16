@@ -52,7 +52,13 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         f'Error: Name of data directory should be data, not {data_dir.name}.'
     dataset_dir = data_dir / dataset
     model_dir = Path(model_dir)
-    pretrained_fname = (f'lstm_{pretrain_name}', f'itos_{pretrain_name}')
+
+
+    if qrnn:
+        print('Using QRNNs...')
+    model_name = 'qrnn' if qrnn else 'lstm'
+
+    pretrained_fname = (f'{model_name}_{pretrain_name}', f'itos_{pretrain_name}')
 
     ensure_paths_exists(data_dir,
                         dataset_dir,
@@ -60,9 +66,6 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
                         model_dir/f"{pretrained_fname[0]}.pth",
                         model_dir/f"{pretrained_fname[1]}.pkl")
 
-    if qrnn:
-        print('Using QRNNs...')
-    model_name = 'qrnn' if qrnn else 'lstm'
 
     tmp_dir = dataset_dir / 'tmp'
     tmp_dir.mkdir(exist_ok=True)
