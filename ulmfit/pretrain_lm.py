@@ -12,9 +12,8 @@ from fastai import *
 from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file,\
-    DataStump, validate, PAD, UNK
+    DataStump, validate, PAD, UNK, get_sentencepiece
 from fastai_contrib.learner import bilm_learner
-
 import pickle
 
 from pathlib import Path
@@ -32,15 +31,15 @@ def accuracy_bwd(input, targs):
     return accuracy(input[...,1], targs[...,1])
 
 
-def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab=60000,
+def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vocab=60000,
                 bs=70, bptt=70, name='wt-103', num_epochs=10,  bidir=False, ds_pct=1.0):
     """
-    :param dir_path: The path to the directory that contains wiki text
+    :param dir_path: The path to the directory of the file.
     :param lang: the language unicode
     :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
                     run on CPU.
-    :param qrrn: Use a QRNN. Requires installing cupy.
-    :param clean: Train on the clean
+    :param qrnn: Use a QRNN. Requires installing cupy.
+    :param subword: Use sub-word tokenization on the cleaned data.
     :param max_vocab: The maximum size of the vocabulary.
     :param bs: The batch size.
     :param bptt: The back-propagation-through-time sequence length.
@@ -71,7 +70,20 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
     for path_ in [trn_path, val_path, tst_path]:
         assert path_.exists(), f'Error: {path_} does not exist.'
 
-    if clean:
+    if subword:
+        # apply sentencepiece tokenization
+        trn_path = dir_path / f'{lang}.wiki.train.tokens'
+        val_path = dir_path / f'{lang}.wiki.valid.tokens'
+
+        read_file(trn_path, 'train')
+        read_file(val_path, 'valid')
+
+        sp = get_sentencepiece(dir_path, trn_path, name)
+
+        data_lm = TextLMDataBunch.from_csv(dir_path, **sp)
+        itos = data_lm.train_ds.vocab.itos
+        stoi = data_lm.train_ds.vocab.stoi
+    else:
         # read the already whitespace separated data without any preprocessing
         trn_tok = read_whitespace_file(trn_path)
         val_tok = read_whitespace_file(val_path)
@@ -89,6 +101,14 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
 
         vocab = Vocab(itos)
         stoi = vocab.stoi
+
+        # save vocabulary
+        print(f"Saving vocabulary as {dir_path / model_dir}")
+        results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
+        with open(results['itos_fname'], 'wb') as f:
+            pickle.dump(itos, f)
+
+
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
@@ -97,16 +117,9 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
         data_lm = TextLMDataBunch.from_ids(path=dir_path, vocab=vocab, train_ids=trn_ids,
                                            valid_ids=val_ids, bs=bs, bptt=bptt,
-                                           lm_type=lm_type)
+                                           lm_type=lm_type
+                                           )
 
-    else:
-        # apply fastai preprocessing and tokenization
-        read_file(trn_path, 'train')
-        read_file(val_path, 'valid')
-
-        data_lm = TextLMDataBunch.from_csv(dir_path, max_vocab=max_vocab)
-        itos = data_lm.train_ds.vocab.itos
-        stoi = data_lm.train_ds.vocab.stoi
 
     print('Size of vocabulary:', len(itos))
     print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
@@ -138,20 +151,14 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, clean=True, max_vocab
         learn.metrics = [accuracy_fwd, accuracy_bwd]
     else:
         learn.metrics = [accuracy]
-    # save vocabulary
-    print(f"Saving vocabulary as {dir_path / model_dir}")
-    results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
-    with open(results['itos_fname'], 'wb') as f:
-        pickle.dump(itos, f)
 
     learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
 
 
-    if clean and max_vocab is None:
+    if not subword and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
         # are the perplexity results comparable to previous work
-
         print(f"Validating model performance with test tokens from: {trn_path}")
         tst_tok = read_whitespace_file(trn_path)
         tst_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in tst_tok])
