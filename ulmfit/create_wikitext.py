@@ -100,7 +100,7 @@ def main(args):
     write_wikitext(lrg_wiki_train, text_iter, mt, 98000000, mode='a')
     all_wiki_train = all_wiki / f'{args.lang}.wiki.train.tokens'
     copyfile(lrg_wiki_train, all_wiki_train)
-    write_wikitext(lrg_wiki_train, text_iter, mt,  None, mode='a') # TODO fix it (change lrg to all)
+    write_wikitext(all_wiki_train, text_iter, mt,  None, mode='a')
 
 if __name__ == '__main__':
 
