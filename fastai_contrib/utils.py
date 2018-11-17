@@ -11,7 +11,7 @@ import re
 import csv
 
 from functools import reduce
-from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab, default_rules
+from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab
 from fastai.torch_core import *
 
 import shutil
@@ -52,6 +52,7 @@ class SentencepieceTokenizer(BaseTokenizer):
     def add_special_cases(self, toks:Collection[str]):
         pass
 
+
 def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=None,
                       vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
                       pad_idx:int=PAD_TOKEN_ID):
@@ -62,7 +63,7 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
     
     path = pathlib.Path(path)
     os.makedirs(path / 'models', exist_ok=True)
-    rules = rules if rules else default_rules
+    rules = rules if rules else None
 
     cache_name = 'tmp'
     
