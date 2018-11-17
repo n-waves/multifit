@@ -126,7 +126,8 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, qrnn=qrnn,
         pad_token=PAD_TOKEN_ID,
         pretrained_fnames=pretrained_fname,
-        path=model_dir.parent, model_dir=model_dir.name)
+        path=model_dir.parent, model_dir=model_dir.name,
+        drop_mult=0.3)
 
     lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
     if fine_tune and not (model_dir / f"lm_enc_finetuned.pth").exists():
@@ -141,20 +142,20 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
     print("Starting classifier training")
     learn = text_classifier_learner(data_clas, bptt=bptt, pad_token=PAD_TOKEN_ID,
                                   path=model_dir.parent, model_dir=model_dir.name,
-                                  qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl)
+                                  qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl, drop_mult=0.5)
 
     learn.load_encoder(lm_enc_finetuned)
 
     learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7), wd=1e-7)
 
     learn.freeze_to(-2)
-    learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
+    learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
 
     learn.freeze_to(-3)
-    learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7), wd=1e-7)
+    learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
 
     learn.unfreeze()
-    learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7), wd=1e-7)
+    learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
     results['accuracy'] = learn.validate()[1]
     print(f"Saving models at {learn.path / learn.model_dir}")
     learn.save(f'{model_name}_{name}')

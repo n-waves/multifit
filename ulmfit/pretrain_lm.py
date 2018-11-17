@@ -140,7 +140,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
 
-    fastai.text.learner.default_dropout['language'] = dps * drop_mult
+    fastai.text.learner.default_dropout['language'] = dps
 
     lm_learner = bilm_learner if bidir else language_model_learner
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
