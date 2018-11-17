@@ -130,7 +130,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         drop_mult=0.3)
 
     lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
-    if fine_tune and not (model_dir / f"lm_enc_finetuned.pth").exists():
+    if fine_tune and not (model_dir/f"{lm_enc_finetuned}.pth").exists():
         print('Fine-tuning the language model...')
         learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
         learn.unfreeze()
