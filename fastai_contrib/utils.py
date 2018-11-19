@@ -224,7 +224,7 @@ def read_imdb(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], Li
         for row in reader:
             label, text = row
             lbls.append(label)
-            raw_tokens = mt.tokenize(text, return_str=True).split(' ') + [EOS]
+            raw_tokens = mt.tokenize(text, return_str=True).split(' ')
             
             tokens = []
             
