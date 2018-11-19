@@ -27,6 +27,34 @@ def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:in
     return learn
 
 
+
+def convert_weights(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:Collection[str]) -> Weights:
+    "Convert the model weights to go with a new vocabulary."
+    print(wgts.keys())
+    if 'fwd_lm.0.encoder.weight' in wgts: #todo share embedding matrix computation
+        wgts = convert_weights_with_prefix(wgts, stoi_wgts, itos_new, prefix='fwd_lm.')
+        return convert_weights_with_prefix(wgts, stoi_wgts, itos_new, prefix='bwd_lm.')
+    else:
+        return convert_weights_with_prefix(wgts, stoi_wgts, itos_new, prefix='')
+
+def convert_weights_with_prefix(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:Collection[str], prefix='') -> Weights:
+    "Convert the model weights to go with a new vocabulary."
+    dec_bias, enc_wgts = wgts[prefix+'1.decoder.bias'], wgts[prefix+'0.encoder.weight']
+    bias_m, wgts_m = dec_bias.mean(0), enc_wgts.mean(0)
+    new_w = enc_wgts.new_zeros((len(itos_new),enc_wgts.size(1))).zero_()
+    new_b = dec_bias.new_zeros((len(itos_new),)).zero_()
+    for i,w in enumerate(itos_new):
+        r = stoi_wgts[w] if w in stoi_wgts else -1
+        new_w[i] = enc_wgts[r] if r>=0 else wgts_m
+        new_b[i] = dec_bias[r] if r>=0 else bias_m
+    wgts[prefix+'0.encoder.weight'] = new_w
+    wgts[prefix+'0.encoder_dp.emb.weight'] = new_w.clone()
+    wgts[prefix+'1.decoder.weight'] = new_w.clone()
+    wgts[prefix+'1.decoder.bias'] = new_b
+    return wgts
+
+
+
 def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int = 70 * 20, emb_sz: int = 400,
                             nh: int = 1150, nl: int = 3,
                             lin_ftrs: Collection[int] = None, ps: Collection[float] = None, pad_token: int = 1,
@@ -37,7 +65,7 @@ def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int =
     if ps is None:  ps = [0.1]
     ds = data.train_ds
     vocab_size, n_class = len(data.vocab.itos), data.c
-    layers = [emb_sz * 3] + lin_ftrs + [n_class]
+    layers = [emb_sz * 3 * 2] + lin_ftrs + [n_class]
     ps = [dps[4]] + ps
     model = get_birnn_classifier(bptt, max_len, n_class, vocab_size, emb_sz, nh, nl, pad_token,
                                layers, ps, input_p=dps[0], weight_p=dps[1], embed_p=dps[2], hidden_p=dps[3],
@@ -59,52 +87,6 @@ def birnn_classifier_split(model:nn.Module) -> List[nn.Module]:
     groups.append([model[1]])
     return groups
 
-# learner extensions
-class RNNLearner(Learner):
-    "Basic class for a Learner in RNN."
-    def __init__(self, data:DataBunch, model:nn.Module, bptt:int=70, split_func:OptSplitFunc=None, clip:float=None,
-                 adjust:bool=False, alpha:float=2., beta:float=1., **kwargs):
-        super().__init__(data, model, **kwargs)
-        self.callbacks.append(RNNTrainer(self, bptt, alpha=alpha, beta=beta, adjust=adjust))
-        if clip: self.callback_fns.append(partial(GradientClipping, clip=clip))
-        if split_func: self.split(split_func)
-        self.metrics = [accuracy]
-
-    def model_path(self, name:str):
-        return self.path/self.model_dir/f'{name}.pth'
-
-    def _get_encoder(self):
-        return self.model.encoder if hasattr(self.model, 'encoder') else self.model[0]
-
-    def save_encoder(self, name:str):
-        "Save the encoder to `name` inside the model directory."
-        torch.save(self._get_encoder().state_dict(), self.model_path(name))
-
-    def load_encoder(self, name:str):
-        "Load the encoder `name` from the model directory."
-        self._get_encoder().load_state_dict(torch.load(self.model_path(name)))
-        self.freeze()
-
-    def load_pretrained(self, wgts_fname:str, itos_fname:str):
-        "Load a pretrained model and adapts it to the data vocabulary."
-        old_itos = pickle.load(open(itos_fname, 'rb'))
-        old_stoi = {v:k for k,v in enumerate(old_itos)}
-        wgts = torch.load(wgts_fname, map_location=lambda storage, loc: storage)
-        wgts = convert_weights(wgts, old_stoi, self.data.train_ds.vocab.itos)
-        self.model.load_state_dict(wgts)
-
-    def get_preds(self, ds_type:DatasetType=DatasetType.Valid, with_loss:bool=False, n_batch:Optional[int]=None, pbar:Optional[PBar]=None,
-                  ordered:bool=False) -> List[Tensor]:
-        "Return predictions and targets on the valid, train, or test set, depending on `ds_type`."
-        self.model.reset()
-        preds = super().get_preds(ds_type=ds_type, with_loss=with_loss, n_batch=n_batch, pbar=pbar)
-        if ordered and hasattr(self.dl(ds_type), 'sampler'):
-            sampler = [i for i in self.dl(ds_type).sampler]
-            reverse_sampler = np.argsort(sampler)
-            preds[0] = preds[0][reverse_sampler,:] if preds[0].dim() > 1 else preds[0][reverse_sampler]
-            preds[1] = preds[1][reverse_sampler,:] if preds[1].dim() > 1 else preds[1][reverse_sampler]
-        return(preds)
-
 
 def accuracy_fwd(input, targs):
     return accuracy(input[...,0], targs[...,0])
@@ -112,3 +94,8 @@ def accuracy_fwd(input, targs):
 
 def accuracy_bwd(input, targs):
     return accuracy(input[...,1], targs[...,1])
+
+
+## Replace code in fastai
+import fastai.text.learner
+fastai.text.learner.convert_weights = convert_weights

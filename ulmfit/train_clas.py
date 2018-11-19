@@ -7,8 +7,9 @@ import pickle
 
 import torch
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
-from fastai import fit_one_cycle
-from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner
+from fastai import fit_one_cycle, accuracy
+from fastai_contrib.data import LanguageModelType
+from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists
 from fastai.text.transform import Vocab
 
@@ -68,19 +69,21 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
                         model_dir/f"{pretrained_fname[0]}.pth",
                         model_dir/f"{pretrained_fname[1]}.pkl")
 
-    data_clas, data_lm = get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct)
-
-    if qrnn:
-        emb_sz, nh, nl = 400, 1550, 3
-    else:
-        emb_sz, nh, nl = 400, 1150, 3
-
     if bidir:
+        print("BiLM")
         classifier_learner = bilm_text_classifier_learner
         lm_learner = bilm_learner
     else:
         classifier_learner = text_classifier_learner
         lm_learner = language_model_learner
+
+    lm_type = LanguageModelType.BiLM if bidir else LanguageModelType.FwdLM
+    data_clas, data_lm = get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_type=lm_type)
+
+    if qrnn:
+        emb_sz, nh, nl = 400, 1550, 3
+    else:
+        emb_sz, nh, nl = 400, 1150, 3
 
     lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
     if fine_tune and not (model_dir/f"{lm_enc_finetuned}.pth").exists():
@@ -91,6 +94,11 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
             pretrained_fnames=pretrained_fname,
             path=model_dir.parent, model_dir=model_dir.name,
             drop_mult=0.3)
+        if bidir:
+            learn.metrics = [accuracy_fwd, accuracy_bwd]
+        else:
+            learn.metrics = [accuracy]
+
         learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
         learn.unfreeze()
         learn.fit_one_cycle(10, 1e-3, moms=(0.8, 0.7))
@@ -131,7 +139,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
     return results
 
 
-def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct):
+def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_type):
     tmp_dir = dataset_dir / 'tmp'
     tmp_dir.mkdir(exist_ok=True)
     vocab_file = tmp_dir / f'vocab_{lang}.pkl'
@@ -170,7 +178,7 @@ def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct):
         for split in [TRN, VAL, TST]:
             ids[split] = ids[split][:int(len(ids[split]) * ds_pct)]
     data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
-                                       valid_ids=ids[VAL], bs=bs, bptt=bptt)
+                                       valid_ids=ids[VAL], bs=bs, bptt=bptt, lm_type=lm_type)
     #  TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
         path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],

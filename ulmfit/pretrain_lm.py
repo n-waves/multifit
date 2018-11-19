@@ -143,7 +143,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
 
-    #learn.true_wd = False
+    learn.true_wd = False
     print("true_wd: ", learn.true_wd)
 
     if bidir:
