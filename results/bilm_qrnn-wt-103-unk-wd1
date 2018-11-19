@@ -1,0 +1,20 @@
+(fastaiv1) n-waves@GV100:~/workspace/ulmfit-multilingual$ python -m ulmfit.pretrain_lm data/wiki/wikitext-103-unk --qrnn=True --cuda-id=0 -
+-name=bilm-wt-103-unk --num_epochs=10  --bs=64  --bidir=True                                                                               
+Batch size: 64                                                                                                                             
+Max vocab: 60000                                                                                                                           
+Using QRNNs...                                                                                                                             
+Loading itos: data/wiki/wikitext-103-unk/models/itos_bilm-wt-103-unk.pkl                                                                   
+Size of vocabulary: 60001                                                                                                                  
+First 10 words in vocab: the, <pad>, ,, ., of, and, to, in, <eos>, a                                                                       
+Starting from random weights                                                                                                               
+epoch  train_loss  valid_loss  accuracy_fwd  accuracy_bwd                                                                                  
+1      4.184118    4.113817    0.308417      0.318290                                                                                      
+2      4.106002    4.039978    0.312220      0.320315                                                                                      
+3      4.160282    4.086650    0.306327      0.314152                                                                                      
+4      4.136789    4.049762    0.309202      0.317373                                                                                      
+5      4.086520    4.001534    0.313158      0.321543                                                                                      
+6      4.036415    3.960494    0.318333      0.325623                                                                                      
+7      3.988382    3.913568    0.324409      0.330398                                                                                      
+8      3.937409    3.874283    0.328386      0.334786                                                                                      
+9      3.912215    3.856325    0.330593      0.337102
+10     3.876535    3.848783    0.331202      0.337649

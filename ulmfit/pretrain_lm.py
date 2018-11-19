@@ -6,14 +6,13 @@ to be split.
 """
 import fastai
 import fire
-import numpy as np
 
 from fastai import *
 from fastai.text import *
 import torch
-from fastai_contrib.utils import read_file, read_whitespace_file,\
-    DataStump, validate, PAD, UNK, get_sentencepiece
-from fastai_contrib.learner import bilm_learner
+from fastai_contrib.utils import read_file, read_whitespace_file, \
+    validate, PAD, UNK, get_sentencepiece
+from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd
 import pickle
 
 from pathlib import Path
@@ -24,11 +23,6 @@ import fastai_contrib.data as contrib_data
 # to install, do:
 # conda install -c pytorch -c fastai fastai pytorch-nightly [cuda92]
 # cupy needs to be installed for QRNN
-
-def accuracy_fwd(input, targs):
-    return accuracy(input[...,0], targs[...,0])
-def accuracy_bwd(input, targs):
-    return accuracy(input[...,1], targs[...,1])
 
 
 def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vocab=60000,
@@ -148,7 +142,9 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
                        bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-    learn.true_wd = False
+
+    #learn.true_wd = False
+    print("true_wd: ", learn.true_wd)
 
     if bidir:
         learn.metrics = [accuracy_fwd, accuracy_bwd]

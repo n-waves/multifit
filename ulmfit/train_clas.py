@@ -8,6 +8,7 @@ import pickle
 import torch
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai import fit_one_cycle
+from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists
 from fastai.text.transform import Vocab
 
@@ -19,7 +20,7 @@ from pathlib import Path
 def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_dir='models',
                    qrnn=False,
                    fine_tune=True, max_vocab=60000, bs=20, bptt=70, name='imdb-clas',
-                   dataset='imdb', ds_pct=1.0):
+                   dataset='imdb', bidir=False, ds_pct=1.0, train=True):
     """
     :param data_dir: The path to the `data` directory
     :param lang: the language unicode
@@ -67,11 +68,73 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
                         model_dir/f"{pretrained_fname[0]}.pth",
                         model_dir/f"{pretrained_fname[1]}.pkl")
 
+    data_clas, data_lm = get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct)
 
+    if qrnn:
+        emb_sz, nh, nl = 400, 1550, 3
+    else:
+        emb_sz, nh, nl = 400, 1150, 3
+
+    if bidir:
+        classifier_learner = bilm_text_classifier_learner
+        lm_learner = bilm_learner
+    else:
+        classifier_learner = text_classifier_learner
+        lm_learner = language_model_learner
+
+    lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
+    if fine_tune and not (model_dir/f"{lm_enc_finetuned}.pth").exists():
+        print('Fine-tuning the language model...')
+        learn = lm_learner(
+            data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, qrnn=qrnn,
+            pad_token=PAD_TOKEN_ID,
+            pretrained_fnames=pretrained_fname,
+            path=model_dir.parent, model_dir=model_dir.name,
+            drop_mult=0.3)
+        learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
+        learn.unfreeze()
+        learn.fit_one_cycle(10, 1e-3, moms=(0.8, 0.7))
+
+        # save encoder
+        learn.save_encoder(lm_enc_finetuned)
+
+
+    learn = classifier_learner(data_clas, bptt=bptt, pad_token=PAD_TOKEN_ID,
+                                  path=model_dir.parent, model_dir=model_dir.name,
+                                  qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl, drop_mult=0.5)
+
+    try:
+        learn.load(f'{model_name}_{name}')
+        print("Loading classifier")
+    except FileNotFoundError:
+        learn.load_encoder(lm_enc_finetuned)
+        print("loading encoder")
+        train = True
+
+    if train:
+        print("Starting classifier training")
+        learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7), wd=1e-7)
+
+        learn.freeze_to(-2)
+        learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
+
+        learn.freeze_to(-3)
+        learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
+
+        learn.unfreeze()
+        learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
+
+        print(f"Saving models at {learn.path / learn.model_dir}")
+        learn.save(f'{model_name}_{name}')
+
+    results['accuracy'] = learn.validate()[1]
+    return results
+
+
+def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct):
     tmp_dir = dataset_dir / 'tmp'
     tmp_dir.mkdir(exist_ok=True)
     vocab_file = tmp_dir / f'vocab_{lang}.pkl'
-
     if not (tmp_dir / f'{TRN}_{lang}_ids.npy').exists():
         print('Reading the data...')
         toks, lbls = read_clas_data(dataset_dir, dataset, lang)
@@ -100,66 +163,20 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
             lbls[split] = np.load(tmp_dir / f'{split}_{lang}_lbl.npy')
         with open(vocab_file, 'rb') as f:
             vocab = pickle.load(f)
-
     print(f'Train size: {len(ids[TRN])}. Valid size: {len(ids[VAL])}. '
           f'Test size: {len(ids[TST])}.')
-
     if ds_pct < 1.0:
         print(f"Making the dataset smaller {ds_pct}")
         for split in [TRN, VAL, TST]:
-            ids[split] = ids[split][:int(len(ids[split])*ds_pct)]
-
-
+            ids[split] = ids[split][:int(len(ids[split]) * ds_pct)]
     data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
                                        valid_ids=ids[VAL], bs=bs, bptt=bptt)
-
-    # TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
+    #  TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
         path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
         train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs)
+    return data_clas, data_lm
 
-    if qrnn:
-        emb_sz, nh, nl = 400, 1550, 3
-    else:
-        emb_sz, nh, nl = 400, 1150, 3
-    learn = language_model_learner(
-        data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, qrnn=qrnn,
-        pad_token=PAD_TOKEN_ID,
-        pretrained_fnames=pretrained_fname,
-        path=model_dir.parent, model_dir=model_dir.name,
-        drop_mult=0.3)
-
-    lm_enc_finetuned  = f"{lm_name}_{dataset}_{name}_enc"
-    if fine_tune and not (model_dir/f"{lm_enc_finetuned}.pth").exists():
-        print('Fine-tuning the language model...')
-        learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
-        learn.unfreeze()
-        learn.fit_one_cycle(10, 1e-3, moms=(0.8, 0.7))
-
-        # save encoder
-        learn.save_encoder(lm_enc_finetuned)
-
-    print("Starting classifier training")
-    learn = text_classifier_learner(data_clas, bptt=bptt, pad_token=PAD_TOKEN_ID,
-                                  path=model_dir.parent, model_dir=model_dir.name,
-                                  qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl, drop_mult=0.5)
-
-    learn.load_encoder(lm_enc_finetuned)
-
-    learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7), wd=1e-7)
-
-    learn.freeze_to(-2)
-    learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
-
-    learn.freeze_to(-3)
-    learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
-
-    learn.unfreeze()
-    learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
-    results['accuracy'] = learn.validate()[1]
-    print(f"Saving models at {learn.path / learn.model_dir}")
-    learn.save(f'{model_name}_{name}')
-    return results
 
 if __name__ == '__main__':
     fire.Fire(new_train_clas)

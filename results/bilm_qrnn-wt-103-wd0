@@ -1,0 +1,20 @@
+(fastaiv1) n-waves@GV100:~/workspace/ulmfit-multilingual$ python -m ulmfit.pretrain_lm
+ki/wikitext-103 --qrnn=True --cuda-id=0 --name=bilm-wt-103 --num_epochs=10  --bs=64  --bidir=True
+Batch size: 64
+Max vocab: 60000
+Using QRNNs...
+Loading itos: data/wiki/wikitext-103/models/itos_bilm-wt-103.pkl
+Size of vocabulary: 60001
+First 10 words in vocab: the, <pad>, ,, ., of, and, to, in, <eos>, a
+Starting from random weights
+epoch  train_loss  valid_loss  accuracy_fwd  accuracy_bwd
+1      4.141750    4.114931    0.307700      0.320260
+2      4.078711    4.061186    0.310221      0.320550
+3      4.108722    4.081286    0.308383      0.316431
+4      4.054437    4.040497    0.311229      0.319658
+5      4.014880    3.966010    0.318588      0.327607
+6      3.926770    3.897305    0.326874      0.333171
+7      3.855364    3.816452    0.335632      0.342045
+8      3.761600    3.745798    0.343413      0.350675
+
+10     3.614097    3.687730    0.351651      0.358280
