@@ -25,16 +25,6 @@ The extracted data should be in the folder `wiki_extr` -> language name e.g.`en`
 
 ## Create and Post Process WikiText
 
-### Get the Dependencies
-
-**Python Fire**: To install Python Fire with pip, run: `pip install fire`
-
-To install Python Fire with conda, run: `conda install fire -c conda-forge`
-
-**Moses Tokenizer**: To install Moses Tokenizer: `pip install -U sacremoses`
-
-Use the Python script [create_wikitext.py](./create_wikitext.py) to process the extracted Wikipedia documents. 
-
 ### Create and Post-Process 
 If you used the automated shell script from previous step, this might look something like
 ```bash
