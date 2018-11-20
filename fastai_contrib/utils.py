@@ -67,7 +67,7 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
     cache_name = 'tmp'
     os.makedirs(path / cache_name, exist_ok=True)
     os.makedirs(path / 'models', exist_ok=True)
-    rules = rules if rules else None
+    rules = rules if rules is not None else []
 
     
     # load the text frmo the train tokens file
@@ -97,7 +97,7 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
     vocab = Vocab(pickle.load(open(path / 'models' / f'itos_{name}.pkl', 'rb')))
     # We cannot use lambdas or local methods here, since `tok_func` needs to be
     # pickle-able in order to be called in subprocesses when multithread tokenizing
-    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang: str(path / 'models'), rules=rules)
+    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang: str(path / 'models'), pre_rules=rules, post_rules=[])
     
     clear_cache_directory(path, cache_name)
 
