@@ -89,17 +89,16 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         itos = [o for o,c in cnt.most_common(n=max_vocab)]
         itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
         assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
-        stoi = {w: i for i, w in enumerate(itos)}
 
         vocab = Vocab(itos)
         stoi = vocab.stoi
 
         # save vocabulary
-        print(f"Saving vocabulary as {dir_path / model_dir}")
-        results['itos_fname'] = dir_path / model_dir / f'itos_{name}.pkl'
-        with open(results['itos_fname'], 'wb') as f:
+        itos_fname = model_dir / f'itos_{name}.pkl'
+        print(f"Saving vocabulary as {itos_fname}")
+        results['itos_fname'] = itos_fname
+        with open(itos_fname, 'wb') as f:
             pickle.dump(itos, f)
-
 
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
@@ -107,7 +106,6 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
         data_lm = TextLMDataBunch.from_ids(path=dir_path, vocab=vocab, train_ids=trn_ids,
                                            valid_ids=val_ids, bs=bs, bptt=bptt)
-
 
     print('Size of vocabulary:', len(itos))
     print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
@@ -134,8 +132,6 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     learn.true_wd = False
 
     fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
-
-
 
     if not subword and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary
