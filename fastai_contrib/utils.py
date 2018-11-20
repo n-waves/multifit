@@ -61,16 +61,17 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
         raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
     
     path = pathlib.Path(path)
+    cache_name = 'tmp'
+    os.makedirs(path / cache_name, exist_ok=True)
     os.makedirs(path / 'models', exist_ok=True)
     rules = rules if rules else default_rules
 
-    cache_name = 'tmp'
     
     # load the text frmo the train tokens file
     text = [line.rstrip('\n') for line in open(trn_path)]
     text = list(filter(None, text))
 
-    if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / f'itos_{name}.pkl'):
+    if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / 'models' / f'itos_{name}.pkl'):
         raw_text = reduce(lambda t, rule: rule(t), rules, '\n'.join(text))
         raw_text_path = path / cache_name / 'all_text.txt'
         with open(raw_text_path, 'w') as f:
@@ -88,11 +89,12 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
             vocab[0] = UNK
             vocab[pad_idx] = PAD
   
-        pickle.dump(vocab, open(path / 'models'/ f'itos_{name}.pkl', 'wb'))
+        pickle.dump(vocab, open(path / 'models' / f'itos_{name}.pkl', 'wb'))
     
-    vocab = Vocab(pickle.load(open(path / 'models'/ f'itos_{name}.pkl', 'rb')))
-    spt = SentencepieceTokenizer(path)
-    tokenizer = Tokenizer(tok_func=lambda lang: spt, rules=rules)
+    vocab = Vocab(pickle.load(open(path / 'models' / f'itos_{name}.pkl', 'rb')))
+    # We cannot use lambdas or local methods here, since `tok_func` needs to be
+    # pickle-able in order to be called in subprocesses when multithread tokenizing
+    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang: str(path / 'models'), rules=rules)
     
     clear_cache_directory(path, cache_name)
 
