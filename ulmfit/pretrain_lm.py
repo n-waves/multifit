@@ -72,7 +72,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
         sp = get_sentencepiece(dir_path, trn_path, name, vocab_size=max_vocab)
 
-        data_lm = TextLMDataBunch.from_csv(dir_path, **sp)
+        data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp)
         itos = data_lm.train_ds.vocab.itos
         stoi = data_lm.train_ds.vocab.stoi
     else:

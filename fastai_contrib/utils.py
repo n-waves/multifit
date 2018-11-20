@@ -97,7 +97,7 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
     vocab = Vocab(pickle.load(open(path / 'models' / f'itos_{name}.pkl', 'rb')))
     # We cannot use lambdas or local methods here, since `tok_func` needs to be
     # pickle-able in order to be called in subprocesses when multithread tokenizing
-    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang=str(path / 'models'), pre_rules=rules, post_rules=[])
+    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang=str(path / 'models'), rules=rules)
     
     clear_cache_directory(path, cache_name)
 
