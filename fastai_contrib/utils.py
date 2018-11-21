@@ -11,7 +11,7 @@ import re
 import csv
 
 from functools import reduce
-from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab, default_rules
+from fastai.text.transform import Tokenizer, BaseTokenizer, Vocab
 from fastai.torch_core import *
 
 import shutil
@@ -47,10 +47,13 @@ class SentencepieceTokenizer(BaseTokenizer):
             raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
         self.tok = spm.SentencePieceProcessor()
         self.tok.Load(str(pathlib.Path(model_dir) / 'spm.model'))
+    
     def tokenizer(self, t:str) -> List[str]:
         return self.tok.EncodeAsPieces(t)
+    
     def add_special_cases(self, toks:Collection[str]):
         pass
+
 
 def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=None,
                       vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
@@ -61,26 +64,27 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
         raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
     
     path = pathlib.Path(path)
-    os.makedirs(path / 'models', exist_ok=True)
-    rules = rules if rules else default_rules
-
     cache_name = 'tmp'
+    os.makedirs(path / cache_name, exist_ok=True)
+    os.makedirs(path / 'models', exist_ok=True)
+    rules = rules if rules is not None else []
+
     
     # load the text frmo the train tokens file
     text = [line.rstrip('\n') for line in open(trn_path)]
     text = list(filter(None, text))
 
-    if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / f'itos_{name}.pkl'):
+    if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / 'models' / f'itos_{name}.pkl'):
         raw_text = reduce(lambda t, rule: rule(t), rules, '\n'.join(text))
         raw_text_path = path / cache_name / 'all_text.txt'
         with open(raw_text_path, 'w') as f:
             f.write(raw_text)
       
-        sp_params = f'--input={raw_text_path} --pad_id={pad_idx} --unk_id=0' \
-                    f'--character_coverage=1.0 --bos_id=-1 --eos_id=-1 ' \
-                    f'--input_sentence_size={int(input_sentence_size)} ' \
+        sp_params = f"--input={raw_text_path} --pad_id={pad_idx} --unk_id=0 " \
+                    f"--character_coverage=1.0 --bos_id=-1 --eos_id=-1 " \
+                    f"--input_sentence_size={int(input_sentence_size)} " \
                     f"--model_prefix={path / 'models' / 'spm'} " \
-                    f'--vocab_size={vocab_size} --model_type={model_type} '
+                    f"--vocab_size={vocab_size} --model_type={model_type} "
         spm.SentencePieceTrainer.Train(sp_params)
   
         with open(path / 'models' / 'spm.vocab', 'r') as f:
@@ -88,11 +92,12 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
             vocab[0] = UNK
             vocab[pad_idx] = PAD
   
-        pickle.dump(vocab, open(path / 'models'/ f'itos_{name}.pkl', 'wb'))
+        pickle.dump(vocab, open(path / 'models' / f'itos_{name}.pkl', 'wb'))
     
-    vocab = Vocab(pickle.load(open(path / 'models'/ f'itos_{name}.pkl', 'rb')))
-    spt = SentencepieceTokenizer(path)
-    tokenizer = Tokenizer(tok_func=lambda lang: spt, rules=rules)
+    vocab = Vocab(pickle.load(open(path / 'models' / f'itos_{name}.pkl', 'rb')))
+    # We cannot use lambdas or local methods here, since `tok_func` needs to be
+    # pickle-able in order to be called in subprocesses when multithread tokenizing
+    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang=str(path / 'models'), rules=rules)
     
     clear_cache_directory(path, cache_name)
 
@@ -198,40 +203,54 @@ def prepare_imdb(file_path: str, prepare_lm = False):
         df_val.to_csv(LM_PATH / 'test.csv', header=False, index=False)
 
 
-def read_imdb(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
+def read_imdb(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], List[str]]:
     """
     Reads IMDb data.
     :param dir_path: the path to the imdb folder
     :param lang: the language (not used here as IMDb is only available in English)
     :param split: the split of the data that should be read (train, test, val)
+    :param spm_path: path to sentencepiece model
     :return: a tuple consisting of a list of lists of tokens and a list of labels
     """
     file_path = dir_path / 'train.csv' if split == TRN else dir_path / 'test.csv'
     toks, lbls = [], []
+    
     mt = MosesTokenizer('en')
+    if spm_path is not None:
+        sp = SentencepieceTokenizer(spm_path)
+
     print(f'Reading {file_path}...')
+    
     with open(file_path, encoding='utf-8') as f:
         reader = csv.reader(f)
         for row in reader:
             label, text = row
             lbls.append(label)
-            raw_tokens = mt.tokenize(text, return_str=True).split(' ') + [EOS]
+            raw_tokens = mt.tokenize(text, return_str=True).split(' ')
+            
             tokens = []
+            
+            # fix up occurences of numbers in text
             for token in raw_tokens:
                 if number_match_re.match(token):
                     tokens += number_split_re.sub(r' @\1@ ', token).split()
                 else:
                     tokens.append(token)
-            toks.append(tokens)
+            
+            if spm_path is not None:
+                tokens = sp.tokenizer(' '.join(tokens))
+
+            toks.append(tokens + [EOS])
     return toks, lbls
 
 
-def read_xnli(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
+def read_xnli(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], List[str]]:
     """
     Reads XNLI data.
     :param dir_path: the path to the xnli folder
     :param lang: the language
     :param split: the split of the data that should be read (train, test, val)
+    :param spm_path: path to sentencepiece model
     :return: a tuple consisting of a list of lists of tokens and a list of labels
     """
     file_path = XNLI_PATHS[split]
@@ -241,6 +260,10 @@ def read_xnli(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
         file_name = 'xnli.dev.en.tsv' if split == VAL else 'xnli.test.en.tsv'
         file_path = f'XNLI-MT-1.0/xnli/{file_name}'
     file_path = dir_path / file_path
+    
+    if spm_path is not None:
+        sp = SentencepieceTokenizer(spm_path)
+
     toks, lbls = [], []
     print(f'Reading {file_path}...')
     with open(file_path, encoding='utf-8') as f:
@@ -256,9 +279,15 @@ def read_xnli(dir_path, lang, split) -> Tuple[List[List[str]], List[str]]:
                 if ex_lang != lang:
                     continue
                 premise, hypo, label = row[-3], row[-2], row[1]
+            
             # TODO add BOS
-            premise_toks = premise.split(' ') + [EOS]
-            hypo_toks = hypo.split(' ') + [EOS]
+            if spm_path is not None:
+                premise_toks = sp.tokenizer(premise) + [EOS]
+                hypo_toks = sp.tokenizer(hypo) + [EOS]
+            else:
+                premise_toks = premise.split(' ') + [EOS]
+                hypo_toks = hypo.split(' ') + [EOS]
+            
             toks.append(premise_toks + [SEP] + hypo_toks)
             lbls.append(label)
     return toks, lbls
