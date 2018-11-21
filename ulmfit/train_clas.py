@@ -85,9 +85,9 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
     else:
         emb_sz, nh, nl = 400, 1150, 3
 
-    lm_enc_finetuned  = f"{lm_name}_{dataset}_{pretrain_name}_enc"
+    lm_enc_finetuned  = f"{lm_name}_{dataset}_enc"
     if fine_tune and not (model_dir/f"{lm_enc_finetuned}.pth").exists():
-        print('Fine-tuning the language model...')
+        print('Fine-tuning the language model...', lm_enc_finetuned)
         learn = lm_learner(
             data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, qrnn=qrnn,
             pad_token=PAD_TOKEN_ID,
