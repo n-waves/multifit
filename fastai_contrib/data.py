@@ -5,8 +5,7 @@ from fastai.text.transform import *
 from fastai.basic_data import *
 from fastai.data_block import *
 
-
-###################### UPDATED CODE
+#region Modified fastai classes
 
 LanguageModelType=Enum('LanguageModelType', 'FwdLM BwdLM BiLM')
 
@@ -24,7 +23,7 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
         if getattr(self.dataset, 'item', None) is not None:
             yield LongTensor(getattr(self.dataset, 'item')).unsqueeze(1),LongTensor([0])
         idx = np.random.permutation(len(self.dataset)) if self.shuffle else range(len(self.dataset))
-        data = self.batchify(np.concatenate([self.dataset.x.items[i] for i in idx]))
+        data = self.batchify(np.concatenate([np.array(self.dataset.x.items[i], dtype=np.int) for i in idx]))
 
         pos, itr = 0,0
         while pos < self.n-1 and itr<len(self):
@@ -57,8 +56,10 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
         y = y.view(-1, 2) if self.lm_type == LanguageModelType.BiLM else y.view(-1)
         return x,y
 
-###################### NEW CODE
-
+#endregion
+#region Replaces fastai classes
 
 import fastai.text.data
 fastai.text.data.LanguageModelLoader = LanguageModelLoader # Replace original LanguageModelLoader with new verion
+
+#endregion

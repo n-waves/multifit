@@ -51,7 +51,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         'Error: IMDb is only available in English.'
 
     data_dir = Path(data_dir)
-    assert data_dir.name == 'data',\
+    assert data_dir.name in ['data', 'test'],\
         f'Error: Name of data directory should be data, not {data_dir.name}.'
     dataset_dir = data_dir / dataset
     model_dir = Path(model_dir)
@@ -112,8 +112,9 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
                                   qrnn=qrnn, emb_sz=emb_sz, nh=nh, nl=nl, drop_mult=0.5)
 
     try:
+        print(f"Loading classifier {model_name}_{name}")
         learn.load(f'{model_name}_{name}')
-        print("Loading classifier")
+
     except FileNotFoundError:
         learn.load_encoder(lm_enc_finetuned)
         print("loading encoder")
@@ -147,9 +148,8 @@ def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_typ
     if not (tmp_dir / f'{TRN}_{lang}_ids.npy').exists():
         print('Reading the data...')
         toks, lbls = read_clas_data(dataset_dir, dataset, lang)
-
         # create the vocabulary
-        counter = Counter(word for example in np.concatenate([toks[TRN],toks[TST],toks[VAL]]) for word in example)
+        counter = Counter(word for example in toks[TRN]+toks[TST]+toks[VAL] for word in example)
         itos = [word for word, count in counter.most_common(n=max_vocab)]
         itos.insert(0, PAD)
         itos.insert(0, UNK)
@@ -176,14 +176,17 @@ def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_typ
           f'Test size: {len(ids[TST])}.')
     if ds_pct < 1.0:
         print(f"Making the dataset smaller {ds_pct}")
-        for split in [TRN, VAL, TST]:
-            ids[split] = ids[split][:int(len(ids[split]) * ds_pct)]
+    for split in [TRN, VAL, TST]:
+        ids[split] = np.array([np.array(e, dtype=np.int) for e in ids[split]])
+        lbls[split] = np.array([np.array(e, dtype=np.int) for e in lbls[split]])
     data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=np.concatenate([ids[TRN],ids[TST]]),
                                        valid_ids=ids[VAL], bs=bs, bptt=bptt, lm_type=lm_type)
     #  TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
         path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
-        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs, classes={l:l for l in lbls[VAL]})
+        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs, classes={l:l for l in lbls[TRN]})
+
+    print(f"Sizes of train_ds {len(data_clas.train_ds)}, valid_ds {len(data_clas.valid_ds)}")
     return data_clas, data_lm
 
 

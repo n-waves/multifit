@@ -5,6 +5,7 @@ from fastai.datasets import untar_data
 from fastai_contrib.models import get_bilm, get_rnn_classifier, get_birnn_classifier
 from fastai.text.learner import *
 
+#region New code
 
 def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:int=3, pad_token:int=1,
                   drop_mult:float=1., tie_weights:bool=True, bias:bool=True, qrnn:bool=False, pretrained_model=None,
@@ -26,11 +27,49 @@ def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:in
         learn.freeze()
     return learn
 
+def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int = 70 * 20, emb_sz: int = 400,
+                            nh: int = 1150, nl: int = 3,
+                            lin_ftrs: Collection[int] = None, ps: Collection[float] = None, pad_token: int = 1,
+                            drop_mult: float = 1., qrnn: bool = False, **kwargs) -> 'TextClassifierLearner':
+    "Create a RNN classifier."
+    dps = default_dropout['classifier'] * drop_mult
+    if lin_ftrs is None: lin_ftrs = [50]
+    if ps is None:  ps = [0.1]
+    ds = data.train_ds
+    vocab_size, n_class = len(data.vocab.itos), data.c
+    layers = [emb_sz * 3] + lin_ftrs + [n_class]
+    ps = [dps[4]] + ps
+    model = get_birnn_classifier(bptt, max_len, n_class, vocab_size, emb_sz, nh, nl, pad_token,
+                               layers, ps, input_p=dps[0], weight_p=dps[1], embed_p=dps[2], hidden_p=dps[3],
+                               qrnn=qrnn)
+    learn = RNNLearner(data, model, bptt, split_func=birnn_classifier_split, **kwargs)
+    return learn
 
+def bilm_split(model:nn.Module) -> List[nn.Module]:
+    "Split a RNN `model` in groups for differential learning rates."
+
+    return [f+b for f,b in zip(lm_split(model.fwd_lm),lm_split(model.bwd_lm))]
+
+def birnn_classifier_split(model:nn.Module) -> List[nn.Module]:
+    "Split a RNN `model` in groups for differential learning rates."
+    f_rnn,b_rnn = model[0].fwd_lm,model[0].bwd_lm
+    groups = [[f_rnn.encoder, f_rnn.encoder_dp,b_rnn.encoder, b_rnn.encoder_dp]]
+    groups += [a for a in zip(f_rnn.rnns, f_rnn.hidden_dps, b_rnn.rnns, b_rnn.hidden_dps, )]
+    groups.append([model[1]])
+    return groups
+
+def accuracy_fwd(input, targs):
+    return accuracy(input[...,0], targs[...,0])
+
+def accuracy_bwd(input, targs):
+    return accuracy(input[...,1], targs[...,1])
+
+
+#endregion
+#region Modified fastai code
 
 def convert_weights(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:Collection[str]) -> Weights:
     "Convert the model weights to go with a new vocabulary."
-    print(wgts.keys())
     if 'fwd_lm.0.encoder.weight' in wgts: #todo share embedding matrix computation
         wgts = convert_weights_with_prefix(wgts, stoi_wgts, itos_new, prefix='fwd_lm.')
         return convert_weights_with_prefix(wgts, stoi_wgts, itos_new, prefix='bwd_lm.')
@@ -53,49 +92,10 @@ def convert_weights_with_prefix(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:
     wgts[prefix+'1.decoder.bias'] = new_b
     return wgts
 
+#endregion
+#region Replace code in fastai
 
-
-def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int = 70 * 20, emb_sz: int = 400,
-                            nh: int = 1150, nl: int = 3,
-                            lin_ftrs: Collection[int] = None, ps: Collection[float] = None, pad_token: int = 1,
-                            drop_mult: float = 1., qrnn: bool = False, **kwargs) -> 'TextClassifierLearner':
-    "Create a RNN classifier."
-    dps = default_dropout['classifier'] * drop_mult
-    if lin_ftrs is None: lin_ftrs = [50]
-    if ps is None:  ps = [0.1]
-    ds = data.train_ds
-    vocab_size, n_class = len(data.vocab.itos), data.c
-    layers = [emb_sz * 3] + lin_ftrs + [n_class]
-    ps = [dps[4]] + ps
-    model = get_birnn_classifier(bptt, max_len, n_class, vocab_size, emb_sz, nh, nl, pad_token,
-                               layers, ps, input_p=dps[0], weight_p=dps[1], embed_p=dps[2], hidden_p=dps[3],
-                               qrnn=qrnn)
-    learn = RNNLearner(data, model, bptt, split_func=birnn_classifier_split, **kwargs)
-    return learn
-
-
-def bilm_split(model:nn.Module) -> List[nn.Module]:
-    "Split a RNN `model` in groups for differential learning rates."
-
-    return [f+b for f,b in zip(lm_split(model.fwd_lm),lm_split(model.bwd_lm))]
-
-def birnn_classifier_split(model:nn.Module) -> List[nn.Module]:
-    "Split a RNN `model` in groups for differential learning rates."
-    f_rnn,b_rnn = model[0].fwd_lm,model[0].bwd_lm
-    groups = [[f_rnn.encoder, f_rnn.encoder_dp,b_rnn.encoder, b_rnn.encoder_dp]]
-    groups += [a for a in zip(f_rnn.rnns, f_rnn.hidden_dps, b_rnn.rnns, b_rnn.hidden_dps, )]
-    groups.append([model[1]])
-    return groups
-
-
-def accuracy_fwd(input, targs):
-    return accuracy(input[...,0], targs[...,0])
-
-
-def accuracy_bwd(input, targs):
-    return accuracy(input[...,1], targs[...,1])
-
-
-## Replace code in fastai
 import fastai.text.learner
 fastai.text.learner.convert_weights = convert_weights
+
+#endregion

@@ -2,6 +2,8 @@ from fastai.torch_core import *
 from fastai.layers import *
 from fastai.text.models import *
 
+#region New code
+
 class BiLMModel(nn.Module):
 
     def __init__(self, fwd_lm:nn.Module, bwd_lm:nn.Module):
@@ -146,3 +148,5 @@ def get_birnn_classifier(bptt:int, max_seq:int, n_class:int, vocab_sz:int, emb_s
     model = SequentialRNN(BiLMModel(fwd_rnn_enc, bwd_rnn_enc), AvgPoolingLinearClassifier(layers, drops))
     model.reset()
     return model
+
+#endregion
