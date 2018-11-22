@@ -136,7 +136,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save(f'{model_name}_{name}')
 
-    results['accuracy'] = learn.metrics[-1][0]
+    results['accuracy'] = learn.recorder.metrics[-1][0]
     return results
 
 
@@ -149,7 +149,7 @@ def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_typ
         toks, lbls = read_clas_data(dataset_dir, dataset, lang)
 
         # create the vocabulary
-        counter = Counter(word for example in toks[TRN] for word in example)
+        counter = Counter(word for example in np.concatenate([toks[TRN],toks[TST],toks[VAL]]) for word in example)
         itos = [word for word, count in counter.most_common(n=max_vocab)]
         itos.insert(0, PAD)
         itos.insert(0, UNK)
@@ -178,12 +178,12 @@ def get_datasets(dataset, dataset_dir, bptt, bs, lang, max_vocab, ds_pct, lm_typ
         print(f"Making the dataset smaller {ds_pct}")
         for split in [TRN, VAL, TST]:
             ids[split] = ids[split][:int(len(ids[split]) * ds_pct)]
-    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=ids[TRN],
+    data_lm = TextLMDataBunch.from_ids(path=tmp_dir, vocab=vocab, train_ids=np.concatenate([ids[TRN],ids[TST]]),
                                        valid_ids=ids[VAL], bs=bs, bptt=bptt, lm_type=lm_type)
     #  TODO TextClasDataBunch allows tst_ids as input, but not tst_lbls?
     data_clas = TextClasDataBunch.from_ids(
         path=tmp_dir, vocab=vocab, train_ids=ids[TRN], valid_ids=ids[VAL],
-        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs)
+        train_lbls=lbls[TRN], valid_lbls=lbls[VAL], bs=bs, classes={l:l for l in lbls[VAL]})
     return data_clas, data_lm
 
 

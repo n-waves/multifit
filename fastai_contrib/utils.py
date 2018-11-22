@@ -225,7 +225,7 @@ def read_imdb(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], Li
         reader = csv.reader(f)
         for row in reader:
             label, text = row
-            lbls.append(label)
+            lbls.append(int(label))
             raw_tokens = mt.tokenize(text, return_str=True).split(' ')
             
             tokens = []

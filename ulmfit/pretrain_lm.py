@@ -42,7 +42,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     :param bidir: whether the language model is bidirectional
     """
     results = {}
-    model_dir = 'models' # removed from params, as it is absolute models location in train_clas and here it is relative
+
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
         cuda_id = -1
@@ -50,7 +50,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
     dir_path = Path(dir_path)
     assert dir_path.exists()
-    (dir_path/model_dir).mkdir(exist_ok=True)
+    model_dir = dir_path / 'models'  # removed from params, as it is absolute models location in train_clas and here it is relative
+    model_dir.mkdir(exist_ok=True)
     print('Batch size:', bs)
     print('Max vocab:', max_vocab)
     model_name = 'qrnn' if qrnn else 'lstm'
@@ -93,11 +94,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
             itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
             assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
 
-            vocab = Vocab(itos)
-            stoi = vocab.stoi
-
             # save vocabulary
-
             print(f"Saving vocabulary as {itos_fname}")
             results['itos_fname'] = itos_fname
             with open(itos_fname, 'wb') as f:
@@ -139,7 +136,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
     lm_learner = bilm_learner if bidir else language_model_learner
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
-                       drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
+                       drop_mult=drop_mult, tie_weights=True, model_dir=model_dir.name,
                        bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
