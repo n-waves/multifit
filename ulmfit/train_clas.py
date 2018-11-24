@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_dir='models',
-                   qrnn=False,
+                   qrnn=False, num_lm_epochs=10,
                    fine_tune=True, max_vocab=60000, bs=20, bptt=70, name='imdb-clas',
                    dataset='imdb', bidir=False, ds_pct=1.0, train=True):
     """
@@ -101,7 +101,7 @@ def new_train_clas(data_dir, lang='en', cuda_id=0, pretrain_name='wt103', model_
 
         learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
         learn.unfreeze()
-        learn.fit_one_cycle(10, 1e-3, moms=(0.8, 0.7))
+        if num_lm_epochs > 0: learn.fit_one_cycle(num_lm_epochs, 1e-3, moms=(0.8, 0.7))
 
         # save encoder
         learn.save_encoder(lm_enc_finetuned)

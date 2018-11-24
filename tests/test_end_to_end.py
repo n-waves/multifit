@@ -11,10 +11,8 @@ from fastai_contrib.utils import *
 It is a mixture of a pytest unit test and woven together to compose an end to end functional test. 
 """
 
-
-def delete_test_models():
-    data = get_data_folder()
-
+import fastai.core
+fastai.core.turn_off_parallel_execution=True
 
 def copy_head(src_fn, dst_fn, n=1000):
     with src_fn.open("r") as s, dst_fn.open("w") as d:
@@ -35,7 +33,7 @@ def get_test_data():
     test_wt.mkdir(exist_ok=True, parents=True)
     test_imdb.mkdir(exist_ok=True, parents=True)
 
-    sz=10
+    sz=1
     # we use the same text to see if models can overfit
     copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.train.tokens', n=10*sz)
     copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.valid.tokens', n=6*sz)
@@ -71,10 +69,11 @@ def test_ulmfit_default_end_to_end():
         cuda_id=cuda_id,
         fine_tune=True,
         max_vocab=1000,
-        bs=2, bptt=70, name=lm_name + '-imdb-clas',
+        num_lm_epochs=0,
+        bs=4, # minimum size is 4 otherwise it somewhere becomes 1 and fit stops working
+        bptt=70,
+        name=lm_name + '-imdb-clas',
         dataset='imdb')
-
-    delete_test_models()
 
 
 def test_ulmfit_sentencepiece_end_to_end():
@@ -89,8 +88,8 @@ def test_ulmfit_sentencepiece_end_to_end():
         cuda_id=cuda_id,
         qrnn=True,
         subword=True,
-        max_vocab=1000,
-        bs=80,
+        max_vocab=100,
+        bs=2,
         num_epochs=1,
         name=lm_name,
     )
@@ -100,8 +99,7 @@ def test_ulmfit_sentencepiece_end_to_end():
     # NOTE: ds_pct is not available for sentencepiece -- tests are on the complete dataset
     #       sentencepiece for finetuning/classification is currently not implemented
 
-    delete_test_models()
-
 
 if __name__ == "__main__":
     fire.Fire()  # allows using all functions via CLI e.g. python utils.py prepare_imdb aclImdb.tgz
+
