@@ -1,0 +1,24 @@
+ime python -m ulmfit.pretrain_lm data/wiki/wikitext-103-unk --qrnn=True --cuda-id=0 --name=wt-103-wd1 --num_epochs=10  --bs=32
+Batch size: 32
+Max vocab: 60000
+Using QRNNs...
+Saving vocabulary as data/wiki/wikitext-103-unk/models
+Size of vocabulary: 60001
+First 10 words in vocab: the, <pad>, ,, ., of, and, to, in, <eos>, a
+true_wd:  True
+Starting from random weights
+epoch  train_loss  valid_loss  accuracy
+1      4.355600    4.271729    0.306827
+2      4.384312    4.288582    0.299482
+3      4.527577    4.366407    0.289836
+4      4.519645    4.387311    0.288076
+5      4.514816    4.371242    0.289862
+6      4.506230    4.337718    0.294208
+7      4.444272    4.295349    0.298786
+8      4.432104    4.257432    0.301785
+9      4.416849    4.242803    0.304147
+10     4.389035    4.239752    0.304871
+Saving models at data/wiki/wikitext-103-unk/models
+Saving optimiser state at data/wiki/wikitext-103-unk/models/qrnn3_wt-103-wd1_state.pth
+itos_fname: data/wiki/wikitext-103-unk/models/itos_wt-103-wd1.pkl
+accuracy:   tensor(0.2829)

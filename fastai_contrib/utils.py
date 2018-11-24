@@ -55,7 +55,7 @@ class SentencepieceTokenizer(BaseTokenizer):
         pass
 
 
-def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=None,
+def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, pre_rules:ListRules=None, post_rules:ListRules=None,
                       vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
                       pad_idx:int=PAD_TOKEN_ID):
     try:
@@ -67,15 +67,15 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
     cache_name = 'tmp'
     os.makedirs(path / cache_name, exist_ok=True)
     os.makedirs(path / 'models', exist_ok=True)
-    rules = rules if rules is not None else []
-
+    pre_rules = pre_rules if pre_rules is not None else []
+    post_rules = post_rules if post_rules is not None else []
     
     # load the text frmo the train tokens file
     text = [line.rstrip('\n') for line in open(trn_path)]
     text = list(filter(None, text))
 
     if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / 'models' / f'itos_{name}.pkl'):
-        raw_text = reduce(lambda t, rule: rule(t), rules, '\n'.join(text))
+        raw_text = reduce(lambda t, rule: rule(t), pre_rules, '\n'.join(text))
         raw_text_path = path / cache_name / 'all_text.txt'
         with open(raw_text_path, 'w') as f:
             f.write(raw_text)
@@ -86,18 +86,18 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, rules:ListRules=N
                     f"--model_prefix={path / 'models' / 'spm'} " \
                     f"--vocab_size={vocab_size} --model_type={model_type} "
         spm.SentencePieceTrainer.Train(sp_params)
-  
+
         with open(path / 'models' / 'spm.vocab', 'r') as f:
             vocab = [line.split('\t')[0] for line in f.readlines()]
             vocab[0] = UNK
             vocab[pad_idx] = PAD
   
         pickle.dump(vocab, open(path / 'models' / f'itos_{name}.pkl', 'wb'))
-    
+    # todo add post rules
     vocab = Vocab(pickle.load(open(path / 'models' / f'itos_{name}.pkl', 'rb')))
     # We cannot use lambdas or local methods here, since `tok_func` needs to be
     # pickle-able in order to be called in subprocesses when multithread tokenizing
-    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang=str(path / 'models'), rules=rules)
+    tokenizer = Tokenizer(tok_func=SentencepieceTokenizer, lang=str(path / 'models'), pre_rules=pre_rules, post_rules=post_rules)
     
     clear_cache_directory(path, cache_name)
 
@@ -127,7 +127,7 @@ def ensure_paths_exists(*paths, message="One or more required files cannot be fo
     if error:
         raise FileNotFoundError(message)
 
-def get_data_folder():
+def get_data_folder() -> Path:
     """
     return data folder to use for future processing
     """
@@ -225,7 +225,7 @@ def read_imdb(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], Li
         reader = csv.reader(f)
         for row in reader:
             label, text = row
-            lbls.append(label)
+            lbls.append(int(label))
             raw_tokens = mt.tokenize(text, return_str=True).split(' ')
             
             tokens = []
@@ -317,7 +317,8 @@ def read_clas_data(dir_path, dataset, lang) -> Tuple[Dict[str, List[List[str]]],
         # for IMDb, we need to split off a separate validation set
         # note that we train and fine-tune ULMFiT on the full training set in the paper
         # to do this, we can just keep the training set the same
-        trn_len = int(len(toks[TRN]) * 0.9)
+        val_len = max(int(len(toks[TRN]) * 0.1), 2) # fastai does not work with validation set of size 1
+        trn_len = len(toks[TRN]) - val_len
         toks[TRN], toks[VAL] = toks[TRN][:trn_len], toks[TRN][trn_len:]
         lbls[TRN], lbls[VAL] = lbls[TRN][:trn_len], lbls[TRN][trn_len:]
     else:

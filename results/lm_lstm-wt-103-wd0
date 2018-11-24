@@ -1,0 +1,22 @@
+(fastaiv1) pczapla@galatea ~/w/ulmfit-multilingual ❯❯❯ time python -m ulmfit.pretrain_lm data/wiki/wikitext-103 --qrnn=False --cuda-id=1 --name=wt-103 --num_epochs=10  --bs=32
+Batch size: 32
+Max vocab: 60000
+Loading itos: data/wiki/wikitext-103/models/itos_wt-103.pkl
+Size of vocabulary: 60001
+First 10 words in vocab: the, <pad>, ,, ., of, and, to, in, <eos>, a
+Starting from random weights
+epoch  train_loss  valid_loss  accuracy
+1      4.317837    4.245714    0.309034
+2      4.347099    4.251623    0.306932
+3      4.360198    4.302850    0.302014
+4      4.329998    4.264225    0.306828
+5      4.301852    4.209807    0.311763
+6      4.218213    4.131647    0.319867
+7      4.167365    4.047796    0.327259
+8      4.095695    3.980298    0.336255
+9      4.032371    3.919622    0.343671
+10     3.983160    3.906227    0.345863
+Saving models at data/wiki/wikitext-103/models
+Saving optimiser state at data/wiki/wikitext-103/models/lstm3_wt-103_state.pth
+accuracy: tensor(0.3461)
+python -m ulmfit.pretrain_lm data/wiki/wikitext-103 --qrnn=False --cuda-id=1   44147.64s user 16746.69s system 99% cpu 16:58:47.57 total

@@ -1,0 +1,26 @@
+pretraining
+0 - 8 lost, about 0.30 0.32 after 5 epochs
+8      3.744213    4.021358    0.308377      0.325672
+9      3.700674    4.021499    0.308637      0.325881
+10     3.674045    4.022058    0.308656      0.325903
+--- crash---
+$ python -m ulmfit.train_clas --data_dir data --model_dir data/wiki/wikitext-103/models --pretrain_name=bilm-wt-103 --qrnn=True --name 'concat-2x' --cuda-id=0 --bs 40 --train=True --bidir=True
+Dataset: imdb. Language: en.
+Using QRNNs...
+BiLM
+Loading the pickled data...
+Train size: 22500. Valid size: 2500. Test size: 25000.
+loading encoder
+Starting classifier training
+epoch  train_loss  valid_loss  accuracy
+1      0.346874    0.276838    0.881200
+epoch  train_loss  valid_loss  accuracy
+1      0.321121    0.243946    0.901200
+epoch  train_loss  valid_loss  accuracy
+1      0.303174    0.234627    0.908400
+epoch  train_loss  valid_loss  accuracy
+1      0.295207    0.227533    0.912800
+2      0.269754    0.221328    0.914400
+Saving models at data/wiki/wikitext-103/models
+accuracy: tensor(0.9144)
+

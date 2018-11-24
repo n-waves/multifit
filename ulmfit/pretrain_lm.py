@@ -6,26 +6,27 @@ to be split.
 """
 import fastai
 import fire
-import numpy as np
 
 from fastai import *
 from fastai.text import *
 import torch
-from fastai_contrib.utils import read_file, read_whitespace_file,\
-    DataStump, validate, PAD, UNK, get_sentencepiece
-
+from fastai_contrib.utils import read_file, read_whitespace_file, \
+    validate, PAD, UNK, get_sentencepiece
+from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd
 import pickle
 
 from pathlib import Path
 
 from collections import Counter
+import fastai_contrib.data as contrib_data
 
 # to install, do:
 # conda install -c pytorch -c fastai fastai pytorch-nightly [cuda92]
 # cupy needs to be installed for QRNN
 
+
 def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vocab=60000,
-                bs=70, bptt=70, name='wt-103', num_epochs=10, ds_pct=1.0):
+                bs=70, bptt=70, name='wt-103', num_epochs=10,  bidir=False, ds_pct=1.0):
     """
     :param dir_path: The path to the directory of the file.
     :param lang: the language unicode
@@ -38,9 +39,10 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     :param bptt: The back-propagation-through-time sequence length.
     :param name: The name used for both the model and the vocabulary.
     :param model_dir: The path to the directory where the models should be saved
+    :param bidir: whether the language model is bidirectional
     """
     results = {}
-    model_dir = 'models' # removed from params, as it is absolute models location in train_clas and here it is relative
+
     if not torch.cuda.is_available():
         print('CUDA not available. Setting device=-1.')
         cuda_id = -1
@@ -48,7 +50,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
     dir_path = Path(dir_path)
     assert dir_path.exists()
-    model_dir = Path(model_dir)
+    model_dir = dir_path / 'models'  # removed from params, as it is absolute models location in train_clas and here it is relative
     model_dir.mkdir(exist_ok=True)
     print('Batch size:', bs)
     print('Max vocab:', max_vocab)
@@ -72,7 +74,9 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
 
         sp = get_sentencepiece(dir_path, trn_path, name, vocab_size=max_vocab)
 
-        data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp)
+        lm_type = contrib_data.LanguageModelType.BiLM if bidir else  contrib_data.LanguageModelType.FwdLM
+
+        data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp, bs=bs, bptt=bptt, lm_type=lm_type)
         itos = data_lm.train_ds.vocab.itos
         stoi = data_lm.train_ds.vocab.stoi
     else:
@@ -84,28 +88,35 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
             val_tok = val_tok[:max(20, int(len(val_tok) * ds_pct))]
             print(f"Limiting data sets to {ds_pct*100}%, trn {len(trn_tok)}, val: {len(val_tok)}")
 
-        # create the vocabulary
-        cnt = Counter(word for sent in trn_tok for word in sent)
-        itos = [o for o,c in cnt.most_common(n=max_vocab)]
-        itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
-        assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
+        itos_fname = model_dir / f'itos_{name}.pkl'
+        if not itos_fname.exists():
+            # create the vocabulary
+            cnt = Counter(word for sent in trn_tok for word in sent)
+            itos = [o for o,c in cnt.most_common(n=max_vocab)]
+            itos.insert(1, PAD)  #  set pad id to 1 to conform to fast.ai standard
+            assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
 
+            # save vocabulary
+            print(f"Saving vocabulary as {itos_fname}")
+            results['itos_fname'] = itos_fname
+            with open(itos_fname, 'wb') as f:
+                pickle.dump(itos, f)
+        else:
+            print("Loading itos:", itos_fname)
+            itos = np.load(itos_fname)
         vocab = Vocab(itos)
         stoi = vocab.stoi
-
-        # save vocabulary
-        itos_fname = model_dir / f'itos_{name}.pkl'
-        print(f"Saving vocabulary as {itos_fname}")
-        results['itos_fname'] = itos_fname
-        with open(itos_fname, 'wb') as f:
-            pickle.dump(itos, f)
 
         trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
         val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
+        lm_type = contrib_data.LanguageModelType.BiLM if bidir else  contrib_data.LanguageModelType.FwdLM
+
         # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
         data_lm = TextLMDataBunch.from_ids(path=dir_path, vocab=vocab, train_ids=trn_ids,
-                                           valid_ids=val_ids, bs=bs, bptt=bptt)
+                                           valid_ids=val_ids, bs=bs, bptt=bptt,
+                                           lm_type=lm_type
+                                           )
 
     print('Size of vocabulary:', len(itos))
     print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
@@ -123,15 +134,31 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         dps = np.array([0.25, 0.1, 0.2, 0.02, 0.15])
         drop_mult = 0.1
 
-    fastai.text.learner.default_dropout['language'] = dps * drop_mult
-    learn = language_model_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
-                           drop_mult=drop_mult, tie_weights=True, model_dir=model_dir,
-                           bias=True, qrnn=qrnn, clip=0.12)
+    fastai.text.learner.default_dropout['language'] = dps
+
+    lm_learner = bilm_learner if bidir else language_model_learner
+    learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
+                       drop_mult=drop_mult, tie_weights=True, model_dir=model_dir.name,
+                       bias=True, qrnn=qrnn, clip=0.12)
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-    learn.true_wd = False
 
-    fit_one_cycle(learn, num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+    learn.true_wd = False
+    print("true_wd: ", learn.true_wd)
+
+    if bidir:
+        learn.metrics = [accuracy_fwd, accuracy_bwd]
+    else:
+        learn.metrics = [accuracy]
+
+    try:
+        learn.load(f'{model_name}_{name}')
+        print("Weights loaded")
+    except FileNotFoundError:
+        print("Starting from random weights")
+        pass
+
+    learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
 
     if not subword and max_vocab is None:
         # only if we use the unpreprocessed version and the full vocabulary

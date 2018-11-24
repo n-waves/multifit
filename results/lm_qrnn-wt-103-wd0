@@ -1,0 +1,20 @@
+time python -m ulmfit.pretrain_lm data/wiki/wikitext-103 --qrnn=True --cuda-id=1 --name=wt-103 --num_epochs=10  --bs=32                             ✘ 1
+Batch size: 32
+Max vocab: 60000
+Using QRNNs...
+Size of vocabulary: 60001
+First 10 words in vocab: the, <pad>, ,, ., of, and, to, in, <eos>, a
+Saving vocabulary as data/wiki/wikitext-103/models
+epoch  train_loss  valid_loss  accuracy
+1      4.328219    4.268609    0.306414
+2      4.351323    4.282290    0.300560
+3      4.376134    4.345460    0.294145
+4      4.394314    4.319661    0.298142
+5      4.337362    4.265630    0.303437
+6      4.295763    4.199119    0.309354
+7      4.165526    4.121037    0.318062
+8      4.151789    4.060387    0.325899
+9      4.066542    4.014568    0.332732
+10     4.013142    3.997691    0.335299
+Saving models at data/wiki/wikitext-103/models
+Saving optimiser state at data/wiki/wikitext-103/models/qrnn3_wt-103_state.pth
