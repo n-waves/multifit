@@ -50,17 +50,18 @@ def test_ulmfit_default_end_to_end():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-default'
     cuda_id = 0
-    results = ulmfit.pretrain_lm.pretrain_lm(
+    exp = ulmfit.pretrain_lm.Experiment(
         dir_path=wt2,
         lang='en',
-        cuda_id=cuda_id,
         qrnn=True,
         subword=False,
         max_vocab=1000,
         bs=2,
-        num_epochs=1,
         name=lm_name)
-    assert results['accuracy'] > 0.02
+
+    exp.train_lm(num_epochs=1)
+
+    assert exp.results['accuracy'] > 0.02
 
     results = ulmfit.train_clas.new_train_clas(
         data_dir=test_data,
@@ -82,7 +83,7 @@ def test_ulmfit_sentencepiece_end_to_end():
     imdb, wt2 = get_test_data()
     lm_name = 'end-to-end-test-spm'
     cuda_id = 0
-    results = ulmfit.pretrain_lm.pretrain_lm(
+    exp = ulmfit.pretrain_lm.Experiment(
         dir_path=wt2,
         lang='en',
         cuda_id=cuda_id,
@@ -90,11 +91,10 @@ def test_ulmfit_sentencepiece_end_to_end():
         subword=True,
         max_vocab=100,
         bs=2,
-        num_epochs=1,
         name=lm_name,
     )
-
-    assert results['accuracy'] > 0.30
+    exp.train_lm(num_epochs=1)
+    assert exp.results['accuracy'] > 0.30
 
     # NOTE: ds_pct is not available for sentencepiece -- tests are on the complete dataset
     #       sentencepiece for finetuning/classification is currently not implemented
