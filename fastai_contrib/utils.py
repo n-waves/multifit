@@ -70,11 +70,11 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, pre_rules:ListRul
     pre_rules = pre_rules if pre_rules is not None else []
     post_rules = post_rules if post_rules is not None else []
     
-    # load the text frmo the train tokens file
-    text = [line.rstrip('\n') for line in open(trn_path)]
-    text = list(filter(None, text))
 
     if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / 'models' / f'itos_{name}.pkl'):
+        # load the text frmo the train tokens file
+        text = [line.rstrip('\n') for line in open(trn_path)]
+        text = list(filter(None, text))
         raw_text = reduce(lambda t, rule: rule(t), pre_rules, '\n'.join(text))
         raw_text_path = path / cache_name / 'all_text.txt'
         with open(raw_text_path, 'w') as f:
@@ -337,7 +337,7 @@ def read_file(file_path, outname):
     with open(file_path, encoding='utf8') as f:
         text = f.readlines()
     df = pd.DataFrame(
-        {'text': np.array(text), 'labels': np.zeros(len(text))},
+        {'text': text, 'labels': np.zeros(len(text))},
         columns=['labels', 'text'])
     df.to_csv(file_path.parent / f'{outname}.csv', header=False, index=False)
 
