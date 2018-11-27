@@ -143,7 +143,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
                        drop_mult=drop_mult, tie_weights=True, model_dir=model_dir.name,
                        bias=True, qrnn=qrnn, clip=0.12, 
-                       callbacks=[lambda lrn: SaveModelCallback(lrn, every='epoch')])
+                       callback_fns=[lambda lrn: SaveModelCallback(lrn, every='epoch')])
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
 
