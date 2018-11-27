@@ -9,6 +9,7 @@ import fire
 
 from fastai import *
 from fastai.text import *
+from fastai.callbacks.tracker import SaveModelCallback
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
     validate, PAD, UNK, get_sentencepiece
@@ -69,14 +70,16 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
         trn_path = dir_path / f'{lang}.wiki.train.tokens'
         val_path = dir_path / f'{lang}.wiki.valid.tokens'
 
-        read_file(trn_path, 'train')
-        read_file(val_path, 'valid')
-
-        sp = get_sentencepiece(dir_path, trn_path, name, vocab_size=max_vocab)
-
         lm_type = contrib_data.LanguageModelType.BiLM if bidir else  contrib_data.LanguageModelType.FwdLM
-
-        data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp, bs=bs, bptt=bptt, lm_type=lm_type)
+        try:
+            data_lm = TextLMDataBunch.load(dir_path, bs=bs, bptt=bptt, lm_type=lm_type)
+            print("Saved DataBunch loaded")
+        except FileNotFoundError:
+            read_file(trn_path, 'train')
+            read_file(val_path, 'valid')
+            sp = get_sentencepiece(dir_path, trn_path, name, vocab_size=max_vocab)
+            data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp, bs=bs, bptt=bptt, lm_type=lm_type)
+            data_lm.save();
         itos = data_lm.train_ds.vocab.itos
         stoi = data_lm.train_ds.vocab.stoi
     else:
@@ -139,7 +142,8 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     lm_learner = bilm_learner if bidir else language_model_learner
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
                        drop_mult=drop_mult, tie_weights=True, model_dir=model_dir.name,
-                       bias=True, qrnn=qrnn, clip=0.12)
+                       bias=True, qrnn=qrnn, clip=0.12, 
+                       callbacks=[SaveModelCallback(every='epoch')])
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
 
