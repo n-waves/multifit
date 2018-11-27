@@ -79,7 +79,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
             read_file(val_path, 'valid')
             sp = get_sentencepiece(dir_path, trn_path, name, vocab_size=max_vocab)
             data_lm = TextLMDataBunch.from_csv(dir_path, 'train.csv', **sp, bs=bs, bptt=bptt, lm_type=lm_type)
-            data_lm.save();
+            data_lm.save()
         itos = data_lm.train_ds.vocab.itos
         stoi = data_lm.train_ds.vocab.stoi
     else:
@@ -143,7 +143,7 @@ def pretrain_lm(dir_path, lang='en', cuda_id=0, qrnn=True, subword=False, max_vo
     learn = lm_learner(data_lm, bptt=bptt, emb_sz=emb_sz, nh=nh, nl=nl, pad_token=1,
                        drop_mult=drop_mult, tie_weights=True, model_dir=model_dir.name,
                        bias=True, qrnn=qrnn, clip=0.12, 
-                       callbacks=[SaveModelCallback(every='epoch')])
+                       callbacks=[lambda lrn: SaveModelCallback(lrn, every='epoch')])
     # compared to standard Adam, we set beta_1 to 0.8
     learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
 
