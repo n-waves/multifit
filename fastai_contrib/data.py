@@ -16,8 +16,9 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
                  max_len:int=25):
         self.dataset,self.bs,self.bptt,self.lm_type,self.shuffle = dataset,bs,bptt,lm_type,shuffle
         self.first,self.i,self.iter = True,0,0
-        self.n = len(np.concatenate(dataset.x.items)) // self.bs
+        self.n = len(np.concatenate(dataset.x.items)) // self.bs if len(dataset.x.items) > 0 else 0
         self.max_len,self.num_workers = max_len,0
+        self.init_kwargs = dict(bs=bs, bptt=bptt, lm_type=lm_type, shuffle=shuffle, max_len=max_len)
 
     def __iter__(self):
         if getattr(self.dataset, 'item', None) is not None:
@@ -41,12 +42,9 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
     def __getattr__(self,k:str)->Any: return getattr(self.dataset, k)
 
     @property
-    def batch_size(self):
-        return self.bs
-
+    def batch_size(self): return self.bs
     @batch_size.setter
-    def batch_size(self, v):
-        self.bs = v
+    def batch_size(self, v): self.bs = v
 
     def batchify(self, data:np.ndarray) -> LongTensor:
         "Split the corpus `data` in batches."
