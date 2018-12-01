@@ -39,7 +39,7 @@ class CLSHyperParams(LMHyperParams):
 
         try:
             learn.load('cls_last')
-            print("Loading last classfier")
+            print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder("enc_best")
 
