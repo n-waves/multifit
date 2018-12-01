@@ -59,11 +59,11 @@ def test_ulmfit_default_end_to_end():
         bs=2,
         name=lm_name)
 
-    exp.train_lm(num_lm_epochs=1)
+    exp.train_lm(num_epochs=1)
 
     #assert exp.results['accuracy'] > 0.02
 
-    exp2 = ulmfit.train_clas.CLSHyperParams.based_on(exp.model_dir, test_data/'imdb')
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4,)
 
 def test_ulmfit_sentencepiece_end_to_end():
@@ -82,7 +82,7 @@ def test_ulmfit_sentencepiece_end_to_end():
         bs=2,
         name=lm_name,
     )
-    exp.train_lm(num_lm_epochs=1)
+    exp.train_lm(num_epochs=1)
     #assert exp.results['accuracy'] > 0.30
 
     # NOTE: ds_pct is not available for sentencepiece -- tests are on the complete dataset
@@ -90,5 +90,5 @@ def test_ulmfit_sentencepiece_end_to_end():
 
 
 if __name__ == "__main__":
-    fire.Fire()  # allows using all functions via CLI e.g. python utils.py prepare_imdb aclImdb.tgz
+    fire.Fire()  # allows using all functions via CLI
 

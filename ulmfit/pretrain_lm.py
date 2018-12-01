@@ -66,7 +66,7 @@ class LMHyperParams:
     bs: int = 70
 
     lang: str = 'en'
-    name: str = ''
+    name: str = None
     cuda_id: InitVar[int] = 0
 
     def __post_init__(self, cuda_id):
@@ -78,8 +78,8 @@ class LMHyperParams:
         self.base_lm_path = Path(self.base_lm_path) if self.base_lm_path is not None else None
 
         assert self.dataset_path.exists()
-        self.cache_dir = self.dataset_path / 'models' / self.tok_name
-        self.model_dir = self.cache_dir / self.full_name
+        self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
+        self.model_dir = self.cache_dir / self.model_name
 
         self.model_dir.mkdir(exist_ok=True, parents=True)
         print('Batch size:', self.bs)
@@ -88,14 +88,23 @@ class LMHyperParams:
         print('Model dir:', self.model_dir)
         self.dps = np.array(self.dps)
         if self.nh is None: self.nh = 1550 if self.qrnn else 1150
+        if self.name is None: self.name = self.lang
 
-    @classmethod
-    def based_on(cls, base_lm_path, dataset_path, **kwargs) -> 'LMHyperParams':
-        with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
-        d['dataset_path'] = dataset_path
-        d['base_lm_path'] = base_lm_path
-        d.update(kwargs)
-        return cls(**d)
+    @property
+    def tokenizer_prefix(self): return f"{'sp' if self.subword else 'v'}{self.max_vocab // 1000}k"
+
+    @property
+    def model_prefix(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
+
+    @property
+    def model_name(self): return f"{self.model_prefix}_{self.name}.m"
+
+    @property
+    def pretrained_fnames(self): return [self.base_lm_path / 'lm_best', self.base_lm_path / '../itos'] if self.base_lm_path else None
+
+    @property
+    def lm_type(self):
+        return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
 
     def save_info(self):
         from dataclasses import asdict
@@ -105,38 +114,22 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    @property
-    def tok_name(self):
-        pref = 'sp' if self.subword else 'v'
-        voc_size = self.max_vocab // 1000
-        return f"{pref}{voc_size}k"
-
-    @property
-    def full_name(self): return f"{self.model_name}_{self.name}.m"
-
-    # todo rework
-    @property
-    def model_name(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
-
-    @property
-    def pretrained_fnames(self): return [self.base_lm_path / 'lm_best', self.base_lm_path / '../itos'] if self.base_lm_path else None
-
-    def train_lm(self, num_lm_epochs=10, data_lm=None):
+    def train_lm(self, num_epochs=10, data_lm=None):
         data_lm = self.load_wiki_data() if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm)
 
-        if num_lm_epochs > 0:
+        if num_epochs > 0:
             if self.pretrained_fnames :
                 learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
                 learn.unfreeze()
-                if num_lm_epochs > 0: learn.fit_one_cycle(num_lm_epochs, 1e-3, moms=(0.8, 0.7))
+                if num_epochs > 0: learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7))
             else:
                 try:
                     learn.load("lm_best")
                     print("Weights loaded")
                 except FileNotFoundError:
                     print("Starting from random weights")
-                learn.fit_one_cycle(num_lm_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+                learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
             opt_state_path = self.model_dir / 'opt_state.pth'
             print(f"Saving optimiser state at {opt_state_path}")
             torch.save(learn.opt.opt.state_dict(), opt_state_path)
@@ -160,10 +153,6 @@ class LMHyperParams:
         print("true_wd: ", learn.true_wd)
         learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
         return learn
-
-    @property
-    def lm_type(self):
-        return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
 
     def load_wiki_data(self):
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
@@ -221,6 +210,14 @@ class LMHyperParams:
         print('Size of vocabulary:', len(itos))
         print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
         return data_lm
+
+    @classmethod
+    def from_lm(cls, dataset_path, base_lm_path, **kwargs) -> 'LMHyperParams':
+        with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
+        d['dataset_path'] = dataset_path
+        d['base_lm_path'] = base_lm_path
+        d.update(kwargs)
+        return cls(**d)
 
 def validate_lm(self):
     if not self.exp.subword and self.exp.max_vocab is None:
