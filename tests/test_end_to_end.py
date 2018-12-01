@@ -76,7 +76,7 @@ def test_ulmfit_fastai_end_to_end():
         lang='en',
         cuda_id=cuda_id,
         qrnn=True,
-        tokenizer=ulmfit.pretrain_lm.Tokenizers.FASTAI,
+        tokenizer='f',
         max_vocab=100,
         bs=2,
         name=lm_name,

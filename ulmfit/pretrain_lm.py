@@ -85,6 +85,7 @@ class LMHyperParams:
         torch.cuda.set_device(cuda_id)
         self.dataset_path = Path(self.dataset_path)
         self.base_lm_path = Path(self.base_lm_path) if self.base_lm_path is not None else None
+        self.tokenizer = Tokenizers(self.tokenizer) if isinstance(self.tokenizer, str) else self.tokenizer
 
         assert self.dataset_path.exists()
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
@@ -98,7 +99,6 @@ class LMHyperParams:
         self.dps = np.array(self.dps)
         if self.nh is None: self.nh = 1550 if self.qrnn else 1150
         if self.name is None: self.name = self.lang
-        self.tokenizer = Tokenizers[self.tokenizer] if isinstance(self.tokenizer, str) else self.tokenizer
 
     @property
     def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
