@@ -181,9 +181,7 @@ class LMHyperParams:
 
             sp = get_sentencepiece(self.dataset_path, trn_path, self.name, vocab_size=self.max_vocab)
 
-            lm_type = contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
-
-            data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=self.bs, bptt=self.bptt, lm_type=lm_type)
+            data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=self.bs, bptt=self.bptt, lm_type=self.lm_type)
             itos = data_lm.train_ds.vocab.itos
             stoi = data_lm.train_ds.vocab.stoi
         elif self.tokenizer is Tokenizers.MOSES:
@@ -219,12 +217,12 @@ class LMHyperParams:
                                                lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.FASTAI:
             try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.')
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path), valid_df=read_file(val_path),
-                                     test_df=read_file(tst_path), classes=None)
+                                     test_df=read_file(tst_path), classes=None, lm_type=self.lm_type)
                 data_lm.save('.')
         else:
             raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
