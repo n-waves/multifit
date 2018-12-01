@@ -54,7 +54,6 @@ def test_ulmfit_default_end_to_end():
         dataset_path=wt2,
         lang='en',
         qrnn=True,
-        subword=False,
         max_vocab=1000,
         bs=2,
         name=lm_name)
@@ -65,6 +64,24 @@ def test_ulmfit_default_end_to_end():
 
     exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4,)
+
+def test_ulmfit_fastai_end_to_end():
+    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
+    """
+    imdb, wt2 = get_test_data()
+    lm_name = 'end-to-end-test-fastai'
+    cuda_id = 0
+    exp = ulmfit.pretrain_lm.LMHyperParams(
+        dataset_path=wt2,
+        lang='en',
+        cuda_id=cuda_id,
+        qrnn=True,
+        tokenizer=ulmfit.pretrain_lm.Tokenizers.FASTAI,
+        max_vocab=100,
+        bs=2,
+        name=lm_name,
+    )
+    exp.train_lm(num_epochs=1)
 
 def test_ulmfit_sentencepiece_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
@@ -77,7 +94,7 @@ def test_ulmfit_sentencepiece_end_to_end():
         lang='en',
         cuda_id=cuda_id,
         qrnn=True,
-        subword=True,
+        tokenizer=ulmfit.pretrain_lm.Tokenizers.SUBWORD,
         max_vocab=100,
         bs=2,
         name=lm_name,

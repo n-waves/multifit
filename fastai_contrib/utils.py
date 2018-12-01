@@ -332,14 +332,17 @@ def replace_number(token):
     return token
 
 
-def read_file(file_path, outname):
+def read_file(file_path, outname=None):
     """Reads a text file and writes it to a .csv."""
     with open(file_path, encoding='utf8') as f:
         text = f.readlines()
     df = pd.DataFrame(
         {'text': np.array(text), 'labels': np.zeros(len(text))},
         columns=['labels', 'text'])
-    df.to_csv(file_path.parent / f'{outname}.csv', header=False, index=False)
+    if outname is not None:
+        df.to_csv(file_path.parent / f'{outname}.csv', header=False, index=False)
+    return df
+
 
 
 def read_whitespace_file(filepath):

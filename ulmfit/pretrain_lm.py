@@ -41,7 +41,16 @@ import fastai_contrib.data as contrib_data
 # :param model_dir: The path to the directory where the models should be saved
 # :param bidir: whether the language model is bidirectional
 # """
+class Tokenizers(Enum):
+    SUBWORD='sb'
+    MOSES='v'
+    FASTAI='f'
 
+# tokenizers ={
+#     Tok.MOSES: MosesTok,
+#     Tok.SUBWORD: SentencepieceTok,
+#     Tok.FASTAI: FastaiTok
+# }
 
 @dataclass
 class LMHyperParams:
@@ -51,7 +60,7 @@ class LMHyperParams:
     bidir: bool =False
     qrnn: bool = True
     max_vocab: int = 60000
-    subword: bool = False
+    tokenizer: Tokenizers = Tokenizers.MOSES
 
     emb_sz:int = 400
     nh: int = None
@@ -89,9 +98,10 @@ class LMHyperParams:
         self.dps = np.array(self.dps)
         if self.nh is None: self.nh = 1550 if self.qrnn else 1150
         if self.name is None: self.name = self.lang
+        self.tokenizer = Tokenizers[self.tokenizer] if type(self.tokenizer) is str else self.tokenizer
 
     @property
-    def tokenizer_prefix(self): return f"{'sp' if self.subword else 'v'}{self.max_vocab // 1000}k"
+    def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
 
     @property
     def model_prefix(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
@@ -111,6 +121,7 @@ class LMHyperParams:
         vals = {k: (str(v) if isinstance(v, Path) else v) for k,v in asdict(self).items()}
         vals.pop('name', None)
         vals.pop('lang', None)
+        vals['tokenizer'] = self.tokenizer.value
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
@@ -160,7 +171,7 @@ class LMHyperParams:
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
-        if self.subword:
+        if self.tokenizer is Tokenizers.SUBWORD:
             # apply sentencepiece tokenization
             trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
             val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
@@ -175,7 +186,7 @@ class LMHyperParams:
             data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=self.bs, bptt=self.bptt, lm_type=lm_type)
             itos = data_lm.train_ds.vocab.itos
             stoi = data_lm.train_ds.vocab.stoi
-        else:
+        elif self.tokenizer is Tokenizers.MOSES:
             # read the already whitespace separated data without any preprocessing
             trn_tok = read_whitespace_file(trn_path)
             val_tok = read_whitespace_file(val_path)
@@ -206,6 +217,17 @@ class LMHyperParams:
             data_lm = TextLMDataBunch.from_ids(path=self.dataset_path, vocab=vocab, train_ids=trn_ids,
                                                valid_ids=val_ids, bs=self.bs, bptt=self.bptt,
                                                lm_type=self.lm_type)
+        elif self.tokenizer is Tokenizers.FASTAI:
+            try:
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.')
+                print("Tokenized data loaded")
+            except FileNotFoundError:
+                print("Running tokenization")
+                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path), valid_df=read_file(val_path),
+                                     test_df=read_file(tst_path), classes=None)
+                data_lm.save('.')
+        else:
+            raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
         itos, stoi, trn_path = data_lm.vocab.itos, data_lm.vocab.stoi, data_lm.path
         print('Size of vocabulary:', len(itos))
         print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
@@ -216,6 +238,16 @@ class LMHyperParams:
         with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
         d['dataset_path'] = dataset_path
         d['base_lm_path'] = base_lm_path
+
+        subword = d.pop('subword', False)
+        tokenizer = d.pop('tokenizer', None)
+        if tokenizer is not None:
+            d['tokenizer'] = Tokenizers(tokenizer)
+        elif subword:
+            d['tokenizer'] = Tokenizers.SUBWORD
+        else:
+            d['tokenizer'] = Tokenizers.MOSES
+
         d.update(kwargs)
         return cls(**d)
 
