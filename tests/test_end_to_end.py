@@ -102,6 +102,25 @@ def test_ulmfit_fastai_bidir_end_to_end():
     )
     exp.train_lm(num_epochs=1)
 
+def test_ulmfit_moses_fa_bidir_end_to_end():
+    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
+    """
+    imdb, wt2 = get_test_data()
+    lm_name = 'end-to-end-test-fastai'
+    cuda_id = 0
+    exp = ulmfit.pretrain_lm.LMHyperParams(
+        dataset_path=wt2,
+        lang='en',
+        cuda_id=cuda_id,
+        qrnn=True,
+        bidir=True,
+        tokenizer='vf',
+        max_vocab=100,
+        bs=2,
+        name=lm_name,
+    )
+    exp.train_lm(num_epochs=1)
+
 def test_ulmfit_sentencepiece_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """

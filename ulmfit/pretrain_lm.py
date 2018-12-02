@@ -44,6 +44,7 @@ import fastai_contrib.data as contrib_data
 class Tokenizers(Enum):
     SUBWORD='sb'
     MOSES='v'
+    MOSES_FA='vf'
     FASTAI='f'
 
 # tokenizers ={
@@ -182,8 +183,6 @@ class LMHyperParams:
             sp = get_sentencepiece(self.dataset_path, trn_path, self.name, vocab_size=self.max_vocab)
 
             data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=self.bs, bptt=self.bptt, lm_type=self.lm_type)
-            itos = data_lm.train_ds.vocab.itos
-            stoi = data_lm.train_ds.vocab.stoi
         elif self.tokenizer is Tokenizers.MOSES:
             # read the already whitespace separated data without any preprocessing
             trn_tok = read_whitespace_file(trn_path)
@@ -209,12 +208,22 @@ class LMHyperParams:
             trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
             val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
 
-
-
             # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
             data_lm = TextLMDataBunch.from_ids(path=self.dataset_path, vocab=vocab, train_ids=trn_ids,
                                                valid_ids=val_ids, bs=self.bs, bptt=self.bptt,
                                                lm_type=self.lm_type)
+        elif self.tokenizer is Tokenizers.MOSES_FA:
+            try:
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
+                print("Tokenized data loaded")
+            except FileNotFoundError:
+                print("Running tokenization")
+
+                pretokenized = Tokenizer(tok_func=BaseTokenizer, lang='en', pre_rules=None, post_rules=None)
+                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path),
+                                                  valid_df=read_file(val_path), tokenizer=pretokenized,
+                                                  test_df=read_file(tst_path), classes=None, lm_type=self.lm_type)
+                data_lm.save('.')
         elif self.tokenizer is Tokenizers.FASTAI:
             try:
                 data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
