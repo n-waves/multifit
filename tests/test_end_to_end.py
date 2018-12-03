@@ -68,7 +68,7 @@ def test_ulmfit_default_end_to_end():
 def test_ulmfit_fastai_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """
-    imdb, wt2 = get_test_data()
+    test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-fastai'
     cuda_id = 0
     exp = ulmfit.pretrain_lm.LMHyperParams(
@@ -82,11 +82,13 @@ def test_ulmfit_fastai_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1)
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_fastai_bidir_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """
-    imdb, wt2 = get_test_data()
+    test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-fastai'
     cuda_id = 0
     exp = ulmfit.pretrain_lm.LMHyperParams(
@@ -101,11 +103,13 @@ def test_ulmfit_fastai_bidir_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1)
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_moses_fa_bidir_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """
-    imdb, wt2 = get_test_data()
+    test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-fastai'
     cuda_id = 0
     exp = ulmfit.pretrain_lm.LMHyperParams(
@@ -120,11 +124,13 @@ def test_ulmfit_moses_fa_bidir_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1)
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_sentencepiece_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """
-    imdb, wt2 = get_test_data()
+    test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-spm'
     cuda_id = 0
     exp = ulmfit.pretrain_lm.LMHyperParams(
@@ -138,10 +144,9 @@ def test_ulmfit_sentencepiece_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1)
-    #assert exp.results['accuracy'] > 0.30
-
-    # NOTE: ds_pct is not available for sentencepiece -- tests are on the complete dataset
-    #       sentencepiece for finetuning/classification is currently not implemented
+    # not supported yet
+    # exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    # exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 
 if __name__ == "__main__":

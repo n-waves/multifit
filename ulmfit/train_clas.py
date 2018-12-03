@@ -2,27 +2,46 @@
 Train a classifier on top of a language model trained with `pretrain_lm.py`.
 Optionally fine-tune LM before.
 """
+from sacremoses import MosesTokenizer
+
 import fastai
 import numpy as np
 import pickle
+
+from fastai import *
+from fastai.text import *
 
 import torch
 from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai import fit_one_cycle, accuracy
 from fastai_contrib.data import LanguageModelType
 from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
-from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists
+from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
+    get_sentencepiece
 from fastai.text.transform import Vocab
+
 
 import fire
 from collections import Counter
 from pathlib import Path
 
-from ulmfit.pretrain_lm import LMHyperParams
+from ulmfit.pretrain_lm import LMHyperParams, Tokenizers
 
+class MosesTokenizerFunc(BaseTokenizer):
+    "Wrapper around a MosesTokenizer to make it a `BaseTokenizer`."
+    def __init__(self, lang:str):
+        self.tok = MosesTokenizer(lang)
+
+    def tokenizer(self, t:str) -> List[str]:
+        return self.tok.tokenize(t, return_str=False, escape=False)
+
+    def add_special_cases(self, toks:Collection[str]):
+        for w in toks:
+            assert len(self.tokenizer(w))==1, f"Tokenizer is unable to keep {w} as one token!"
 
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
+    use_test_for_validation=False
 
     def __post_init__(self, *args, **kwargs):
         super().__post_init__(*args, **kwargs)
@@ -66,11 +85,72 @@ class CLSHyperParams(LMHyperParams):
         learn = classifier_learner(data_clas, bptt=self.bptt, pad_token=PAD_TOKEN_ID,
             path=self.model_dir.parent, model_dir=self.model_dir.name,
             qrnn=self.qrnn, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, drop_mult=self.drop_mult)
-
-        learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
+        learn.true_wd = False
+        print("true_wd: ", learn.true_wd)
         return learn
 
     def load_cls_data(self, bs):
+        if self.dataset_dir.name == 'imdb':
+            return self.load_cls_data_imdb(bs)
+        else:
+            assert self.tokenizer is Tokenizers.MOSES, "XNLI does not support other tokenizers than Moses"
+            return self.load_cls_data_old_for_xnli(bs)
+
+    def load_cls_data_imdb(self, bs):
+        trn_df = pd.read_csv(self.dataset_path / 'train.csv', header=None)
+        tst_df = pd.read_csv(self.dataset_path / 'test.csv', header=None)
+
+        if self.use_test_for_validation:
+            val_len = max(int(len(tst_df) * 0.1), 2)
+            tst_len = len(tst_df) - val_len
+            val_df = trn_df[tst_len:]
+        else:
+            val_len = max(int(len(trn_df) * 0.1), 2)
+            trn_len = len(trn_df) - val_len
+            trn_df, val_df = trn_df[trn_len:], trn_df[trn_len:]
+
+        if self.tokenizer is Tokenizers.SUBWORD:
+            #TODO Fix me to make sure it trains correct dictionary
+            args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv', self.name, vocab_size=self.max_vocab)
+        elif self.tokenizer is Tokenizers.MOSES:
+            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
+        elif self.tokenizer is Tokenizers.MOSES_FA:
+            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en')) # use default pre/post rules
+        elif self.tokenizer is Tokenizers.FASTAI:
+            args = dict()
+        else:
+            raise ValueError(
+                f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
+
+        try:
+            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type)
+            print("Tokenized data loaded")
+        except FileNotFoundError:
+            print("Running tokenization")
+
+            # wikitext is pretokenized with Moses
+
+            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=trn_df,
+                                              valid_df=val_df, test_df=tst_df,
+                                              lm_type=self.lm_type, **args)
+            data_lm.save('lm')
+
+        args['vocab'] = data_lm.vocab # make sure we use the same vocab for classifcation
+        try:
+            data_cls = TextClasDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
+            print("Tokenized data loaded")
+        except FileNotFoundError:
+            print("Running tokenization")
+            data_cls = TextClasDataBunch.from_df(path=self.cache_dir, train_df=trn_df,
+                                              valid_df=val_df, test_df=tst_df,
+                                              **args)
+            data_cls.save('.')
+        print('Size of vocabulary:', len(data_lm.vocab.itos))
+        print('First 20 words in vocab:', data_lm.vocab.itos[:20])
+        return data_cls, data_lm
+
+
+    def load_cls_data_old_for_xnli(self, bs):
         tmp_dir = self.cache_dir
         tmp_dir.mkdir(exist_ok=True)
         vocab_file = tmp_dir / f'vocab_{self.lang}.pkl'

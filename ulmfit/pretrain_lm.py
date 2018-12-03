@@ -219,6 +219,7 @@ class LMHyperParams:
             except FileNotFoundError:
                 print("Running tokenization")
 
+                # wikitext is pretokenized with Moses
                 pretokenized = Tokenizer(tok_func=BaseTokenizer, lang='en', pre_rules=None, post_rules=None)
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path),
                                                   valid_df=read_file(val_path), tokenizer=pretokenized,
@@ -237,7 +238,7 @@ class LMHyperParams:
             raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
         itos, stoi, trn_path = data_lm.vocab.itos, data_lm.vocab.stoi, data_lm.path
         print('Size of vocabulary:', len(itos))
-        print('First 10 words in vocab:', ', '.join([itos[i] for i in range(10)]))
+        print('First 20 words in vocab:', data_lm.vocab.itos[:20])
         return data_lm
 
     @classmethod
