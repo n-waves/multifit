@@ -103,7 +103,7 @@ def test_ulmfit_fastai_bidir_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(str(test_data / 'imdb'), str(exp.model_dir))
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_moses_fa_bidir_end_to_end():

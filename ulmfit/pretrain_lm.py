@@ -243,6 +243,8 @@ class LMHyperParams:
 
     @classmethod
     def from_lm(cls, dataset_path, base_lm_path, **kwargs) -> 'LMHyperParams':
+        base_lm_path = Path(base_lm_path)
+        dataset_path = Path(dataset_path)
         with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
         d['dataset_path'] = dataset_path
         d['base_lm_path'] = base_lm_path
