@@ -124,13 +124,13 @@ class CLSHyperParams(LMHyperParams):
 
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type)
-            print(f"Tokenized data loaded, trn.trn {len(data_trn.train_ds)}, trn.val {len(data_trn.valid_ds)}")
+            print(f"Tokenized data loaded, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
         except FileNotFoundError:
-            print("Running tokenization")
+            print("Running tokenization, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
 
             # wikitext is pretokenized with Moses
 
-            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=trn_df,
+            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=pd.concat([trn_df,tst_df]),
                                               valid_df=val_df, test_df=tst_df,
                                               lm_type=self.lm_type, **args)
             data_lm.save('lm')
@@ -140,7 +140,7 @@ class CLSHyperParams(LMHyperParams):
             data_cls = TextClasDataBunch.load(self.cache_dir, '.')
             print(f"Tokenized data loaded, cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
         except FileNotFoundError:
-            print("Running tokenization")
+            print("Running tokenization, cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
             data_cls = TextClasDataBunch.from_df(path=self.cache_dir, train_df=trn_df,
                                               valid_df=val_df, test_df=tst_df,
                                               **args)
