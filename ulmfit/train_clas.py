@@ -137,7 +137,7 @@ class CLSHyperParams(LMHyperParams):
 
         args['vocab'] = data_lm.vocab # make sure we use the same vocab for classifcation
         try:
-            data_cls = TextClasDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
+            data_cls = TextClasDataBunch.load(self.cache_dir, '.')
             print("Tokenized data loaded")
         except FileNotFoundError:
             print("Running tokenization")

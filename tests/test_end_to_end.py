@@ -68,6 +68,11 @@ def test_ulmfit_works_with_relative_paths():
     exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=1, unfreeze=False, bs=4,)
 
+    # should work for the second time as well
+
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
+
 
 def test_ulmfit_default_end_to_end():
     """  Test ulmfit with (default) Moses tokenizer on small wikipedia dataset.
