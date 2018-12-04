@@ -103,11 +103,11 @@ class CLSHyperParams(LMHyperParams):
         if self.use_test_for_validation:
             val_len = max(int(len(tst_df) * 0.1), 2)
             tst_len = len(tst_df) - val_len
-            val_df = trn_df[tst_len:]
+            val_df = trn_df[:tst_len]
         else:
             val_len = max(int(len(trn_df) * 0.1), 2)
             trn_len = len(trn_df) - val_len
-            trn_df, val_df = trn_df[trn_len:], trn_df[trn_len:]
+            trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
 
         if self.tokenizer is Tokenizers.SUBWORD:
             #TODO Fix me to make sure it trains correct dictionary
@@ -124,7 +124,7 @@ class CLSHyperParams(LMHyperParams):
 
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type)
-            print("Tokenized data loaded")
+            print(f"Tokenized data loaded, trn.trn {len(data_trn.train_ds)}, trn.val {len(data_trn.valid_ds)}")
         except FileNotFoundError:
             print("Running tokenization")
 
@@ -138,7 +138,7 @@ class CLSHyperParams(LMHyperParams):
         args['vocab'] = data_lm.vocab # make sure we use the same vocab for classifcation
         try:
             data_cls = TextClasDataBunch.load(self.cache_dir, '.')
-            print("Tokenized data loaded")
+            print(f"Tokenized data loaded, cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
         except FileNotFoundError:
             print("Running tokenization")
             data_cls = TextClasDataBunch.from_df(path=self.cache_dir, train_df=trn_df,
