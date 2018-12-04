@@ -44,6 +44,31 @@ def get_test_data():
     return test_data, test_wt
 
 
+def test_ulmfit_works_with_relative_paths():
+    """  Test ulmfit with (default) Moses tokenizer on small wikipedia dataset.
+    """
+    os.chdir(get_data_folder()/"..")
+
+
+    test_data, wt2 = get_test_data()
+    lm_name = 'end-to-end-test-default'
+    cuda_id = 0
+    exp = ulmfit.pretrain_lm.LMHyperParams(
+        dataset_path=wt2.relative_to(Path.cwd()),
+        lang='en',
+        qrnn=True,
+        max_vocab=1000,
+        bs=2,
+        name=lm_name)
+
+    exp.train_lm(num_epochs=1)
+
+    #assert exp.results['accuracy'] > 0.02
+
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=1, unfreeze=False, bs=4,)
+
+
 def test_ulmfit_default_end_to_end():
     """  Test ulmfit with (default) Moses tokenizer on small wikipedia dataset.
     """
