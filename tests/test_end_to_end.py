@@ -40,6 +40,7 @@ def get_test_data():
     copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.test.tokens', n=6*sz)
     copy_head(imdb / 'train.csv', test_imdb / 'train.csv', n=10*sz)
     copy_head(imdb / 'train.csv', test_imdb / 'test.csv', n=6*sz)
+    copy_head(imdb / 'train.csv', test_imdb / 'unsup.csv', n=1*sz)
 
     return test_data, test_wt
 

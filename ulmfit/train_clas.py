@@ -99,6 +99,12 @@ class CLSHyperParams(LMHyperParams):
     def load_cls_data_imdb(self, bs):
         trn_df = pd.read_csv(self.dataset_path / 'train.csv', header=None)
         tst_df = pd.read_csv(self.dataset_path / 'test.csv', header=None)
+        unsp_df = pd.read_csv(self.dataset_path / 'unsup.csv', header=None)
+
+        lm_trn_df = pd.concat([unsp_df, trn_df, tst_df])
+        val_len = max(int(len(lm_trn_df) * 0.1), 2)
+        lm_trn_df = lm_trn_df[val_len:]
+        lm_val_df = lm_trn_df[:val_len]
 
         if self.use_test_for_validation:
             val_len = max(int(len(tst_df) * 0.1), 2)
@@ -127,12 +133,9 @@ class CLSHyperParams(LMHyperParams):
             print(f"Tokenized data loaded, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
         except FileNotFoundError:
             print(f"Running tokenization...")
-
-            # wikitext is pretokenized with Moses
-
-            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=pd.concat([trn_df,tst_df]),
-                                              valid_df=val_df, test_df=tst_df,
-                                              lm_type=self.lm_type, max_vocab=self.max_vocab, **args)
+            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=lm_trn_df, valid_df=lm_val_df,
+                                              max_vocab=self.max_vocab, bs=bs, lm_type=self.lm_type, **args)
+            print(f"Saving tokenized: cls.trn {len(data_lm.train_ds)}, cls.val {len(data_lm.valid_ds)}")
             data_lm.save('lm')
             print(f"  cls.trn {len(data_lm.train_ds)}, cls.val {len(data_lm.valid_ds)}")
 
