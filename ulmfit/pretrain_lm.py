@@ -41,6 +41,10 @@ import fastai_contrib.data as contrib_data
 # :param model_dir: The path to the directory where the models should be saved
 # :param bidir: whether the language model is bidirectional
 # """
+LM_BEST = "lm_best"
+ENC_BEST = "enc_best"
+
+
 class Tokenizers(Enum):
     SUBWORD='sb'
     MOSES='v'
@@ -127,44 +131,52 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=10, data_lm=None):
+    def train_lm(self, num_epochs=20, data_lm=None, true_wd=False, drop_mult=0.1):
         data_lm = self.load_wiki_data() if data_lm is None else data_lm
-        learn = self.create_lm_learner(data_lm)
+        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
+        learn.true_wd = true_wd
+        try:
+            learn.load("lm_best_with_opt")
+            print("Continuing training")
+        except FileNotFoundError:
+            pass
         if num_epochs > 0:
-            if self.pretrained_fnames :
-                learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7)) # TODO Fix the learning rates
-                learn.unfreeze()
-                if num_epochs > 0: learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7))
+            if self.pretrained_fnames or self.pretrained_model:
+                print("Training lm from: ", self.pretrained_fnames or self.pretrained_model)
+                if learn.true_wd:
+                    learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
+                    learn.unfreeze()
+                    learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7))
+                else:
+                    learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7), wd=1e-7)  # TODO Fix the learning rates
+                    learn.unfreeze()
+                    learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7), wd=1e-7)
             else:
-                try:
-                    learn.load("lm_best")
-                    print("Weights loaded")
-                except FileNotFoundError:
-                    print("Starting from random weights")
-                learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
-            opt_state_path = self.model_dir / 'opt_state.pth'
-            print(f"Saving optimiser state at {opt_state_path}")
-            torch.save(learn.opt.opt.state_dict(), opt_state_path)
-        learn.save_encoder("enc_best")
-        learn.save("lm_best", with_opt=False)
+                print("Training lm from random weights")
+                if not learn.true_wd: learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+                else:                 learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7)) # TODO find proper values
+        learn.save("lm_best_with_opt", with_opt=False)
+        learn.save_encoder(ENC_BEST)
+        learn.save(LM_BEST, with_opt=False)
         print(learn.path)
 
         self.save_info()
         return learn
 
-    def create_lm_learner(self, data_lm):
-        fastai.text.learner.default_dropout['language'] = self.dps
+    def create_lm_learner(self, data_lm, dps=None, **kwargs):
+        fastai.text.learner.default_dropout['language'] = dps or self.dps
         lm_learner = bilm_learner if self.bidir else language_model_learner
 
-        learn = lm_learner(data_lm, bptt=self.bptt, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, pad_token=PAD_TOKEN_ID,
-                           drop_mult=self.drop_mult, tie_weights=True, model_dir= self.model_dir.relative_to(data_lm.path),
-                           bias=True, qrnn=self.qrnn, clip=self.clip, pretrained_fnames=self.pretrained_fnames,
-                           pretrained_model=self.pretrained_model)
+        trn_args = dict(drop_mult=self.drop_mult, tie_weights=True, clip=self.clip, bptt=self.bptt,
+                        pretrained_fnames=self.pretrained_fnames,
+                        pretrained_model=self.pretrained_model)
+        trn_args.update(kwargs)
+        print ("Training args: ", trn_args, "dps: ", dps)
+        learn = lm_learner(data_lm, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, pad_token=PAD_TOKEN_ID,
+                           bias=True, qrnn=self.qrnn, model_dir=self.model_dir.relative_to(data_lm.path), **trn_args)
         # compared to standard Adam, we set beta_1 to 0.8
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-        learn.true_wd = False
-        print("true_wd: ", learn.true_wd)
         learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
         return learn
 
