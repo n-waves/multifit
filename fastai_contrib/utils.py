@@ -69,13 +69,12 @@ def get_sentencepiece(path:PathOrStr, trn_path:Path, name:str, pre_rules:ListRul
     os.makedirs(path / 'models', exist_ok=True)
     pre_rules = pre_rules if pre_rules is not None else []
     post_rules = post_rules if post_rules is not None else []
-    
-    # load the text frmo the train tokens file
-    text = [line.rstrip('\n') for line in open(trn_path)]
-    text = list(filter(None, text))
 
     if not os.path.isfile(path / 'models' / 'spm.model') or not os.path.isfile(path / 'models' / f'itos_{name}.pkl'):
-        raw_text = reduce(lambda t, rule: rule(t), pre_rules, '\n'.join(text))
+        # load the text from the train tokens file
+        text = [line.rstrip('\n') for line in open(trn_path)]
+        text = list(filter(None, text))
+        raw_text = reduce(lambda t, rule: rule(t), pre_rules, '\n'.join(text)) # FIXME: possibly does not work with pre_rules
         raw_text_path = path / cache_name / 'all_text.txt'
         with open(raw_text_path, 'w') as f:
             f.write(raw_text)
@@ -187,20 +186,8 @@ def prepare_imdb(file_path: str, prepare_lm = False):
     print(f"Writing them to {CLAS_PATH}")
     df_trn[df_trn['labels'] != 2].to_csv(CLAS_PATH / 'train.csv', header=False, index=False)
     df_val.to_csv(CLAS_PATH / 'test.csv', header=False, index=False)
-
+    df_trn[df_trn['labels'] == 2].to_csv(CLAS_PATH / 'unsup.csv', header=False, index=False)
     (CLAS_PATH / 'classes.txt').open('w', encoding='utf-8').writelines(f'{o}\n' for o in CLASSES)
-
-    if prepare_lm:
-        print("Preparing LM data")
-        trn_texts, val_texts = model_selection.train_test_split(
-            np.concatenate([trn_texts, val_texts]), test_size=0.1)
-        print(f"trn_texts has {len(trn_texts)} samples, while val_texts has {len(val_texts)} rows")
-        print(f"Writing them to {LM_PATH}")
-        df_trn = pd.DataFrame({'text': trn_texts, 'labels': [0] * len(trn_texts)}, columns=col_names)
-        df_val = pd.DataFrame({'text': val_texts, 'labels': [0] * len(val_texts)}, columns=col_names)
-
-        df_trn.to_csv(LM_PATH / 'train.csv', header=False, index=False)
-        df_val.to_csv(LM_PATH / 'test.csv', header=False, index=False)
 
 
 def read_imdb(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], List[str]]:
@@ -353,9 +340,6 @@ def read_whitespace_file(filepath):
             # newlines are replaced with EOS
             tokens.append(line.split() + [EOS])
     return np.array(tokens)
-
-
-
 
 class DataStump:
     """Placeholder class as LanguageModelLoader requires object with ids attribute."""
