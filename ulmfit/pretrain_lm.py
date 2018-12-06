@@ -228,7 +228,7 @@ class LMHyperParams:
                                                lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.MOSES_FA:
             try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=self.bs)
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
@@ -238,16 +238,18 @@ class LMHyperParams:
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path),
                                                   valid_df=read_file(val_path), tokenizer=pretokenized,
                                                   test_df=read_file(tst_path), classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab)
+                                                  max_vocab=self.max_vocab, bs=self.bs)
                 data_lm.save('.')
         elif self.tokenizer is Tokenizers.FASTAI:
             try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type)
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=self.bs)
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path), valid_df=read_file(val_path),
-                                     test_df=read_file(tst_path), classes=None, lm_type=self.lm_type, max_vocab=self.max_vocab,)
+                                                  test_df=read_file(tst_path), classes=None, lm_type=self.lm_type,
+                                                  max_vocab=self.max_vocab,bs=self.bs,
+                                                  )
                 data_lm.save('.')
         else:
             raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
