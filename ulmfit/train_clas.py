@@ -70,7 +70,7 @@ class CLSHyperParams(LMHyperParams):
                 learn.freeze_to(-2)
                 learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
                 learn.freeze_to(-3)
-                learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
+                learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
                 learn.unfreeze()
                 learn.fit_one_cycle(2, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
         else:
@@ -117,13 +117,13 @@ class CLSHyperParams(LMHyperParams):
 
         if use_test_for_validation:
             val_len = max(int(len(tst_df) * 0.1), 2)
-            tst_len = len(tst_df) - val_len
-            val_df = trn_df[:tst_len]
+            val_df = tst_df
+            cls_cache = 'notst'
         else:
             val_len = max(int(len(trn_df) * 0.1), 2)
             trn_len = len(trn_df) - val_len
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
-
+            cls_cache = '.'
 
         if self.tokenizer is Tokenizers.SUBWORD:
             #TODO Fix me to make sure it trains correct dictionary
@@ -151,7 +151,7 @@ class CLSHyperParams(LMHyperParams):
 
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_cls = TextClasDataBunch.load(self.cache_dir, '.', bs=bs)
+            data_cls = TextClasDataBunch.load(self.cache_dir, cls_cache, bs=bs)
             print(f"Tokenized data loaded, cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
         except FileNotFoundError:
             args['vocab'] = data_lm.vocab  # make sure we use the same vocab for classifcation
@@ -159,7 +159,7 @@ class CLSHyperParams(LMHyperParams):
             data_cls = TextClasDataBunch.from_df(path=self.cache_dir, train_df=trn_df, valid_df=val_df,
                                                  test_df=tst_df, max_vocab=self.max_vocab, bs=bs, **args)
             print(f"Saving tokenized: cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
-            data_cls.save('.')
+            data_cls.save(cls_cache)
         print('Size of vocabulary:', len(data_lm.vocab.itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
         return data_cls, data_lm
