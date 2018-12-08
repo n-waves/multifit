@@ -75,7 +75,7 @@ class LMHyperParams:
     # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
     # for training on smaller datasets, more dropout is necessary
     drop_mult = 0.1
-    dps = [0.25, 0.1, 0.2, 0.02, 0.15]
+    dps = (0.25, 0.1, 0.2, 0.02, 0.15)
     clip: float = 0.12
     bptt: int = 70
     bs: int = 70
@@ -131,7 +131,7 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, true_wd=False, drop_mult=0.1):
+    def train_lm(self, num_epochs=20, data_lm=None, true_wd=False, drop_mult=0.1, lr=5e-3):
         data_lm = self.load_wiki_data() if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
@@ -145,17 +145,20 @@ class LMHyperParams:
             if self.pretrained_fnames or self.pretrained_model:
                 print("Training lm from: ", self.pretrained_fnames or self.pretrained_model)
                 if learn.true_wd:
+                    learn.freeze_to(-1)
                     learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7))
                     learn.unfreeze()
                     learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7))
                 else:
+                    learn.freeze_to(-1)
                     learn.fit_one_cycle(1, 1e-2, moms=(0.8, 0.7), wd=1e-7)  # TODO Fix the learning rates
                     learn.unfreeze()
                     learn.fit_one_cycle(num_epochs, 1e-3, moms=(0.8, 0.7), wd=1e-7)
             else:
                 print("Training lm from random weights")
-                if not learn.true_wd: learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
-                else:                 learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7)) # TODO find proper values
+                learn.unfreeze()
+                if not learn.true_wd: learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7), wd=1e-7)
+                else:                 learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7)) # TODO find proper values
         learn.save("lm_best_with_opt", with_opt=False)
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
