@@ -145,7 +145,7 @@ def get_birnn_classifier(bptt:int, max_seq:int, n_class:int, vocab_sz:int, emb_s
     bwd_rnn_enc = MultiBatchRNNCore(bptt, max_seq, vocab_sz, emb_sz, n_hid, n_layers, pad_token=pad_token, bidir=bidir,
                                 qrnn=qrnn, hidden_p=hidden_p, input_p=input_p, embed_p=embed_p, weight_p=weight_p)
 
-    model = SequentialRNN(BiLMModel(fwd_rnn_enc, bwd_rnn_enc), AvgPoolingLinearClassifier(layers, drops))
+    model = SequentialRNN(BiLMModel(fwd_rnn_enc, bwd_rnn_enc), BiPoolingLinearClassifier(layers, drops))
     model.reset()
     return model
 
