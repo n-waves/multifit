@@ -44,6 +44,8 @@ class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
     use_test_for_validation=False
 
+    bicls_head:str = 'BiPoolingLinearClassifier'
+
     def __post_init__(self, *args, **kwargs):
         super().__post_init__(*args, **kwargs)
         self.dataset_dir=self.dataset_path
@@ -92,7 +94,10 @@ class CLSHyperParams(LMHyperParams):
         fastai.text.learner.default_dropout['language'] = dps or self.dps
         trn_args=dict(drop_mult=self.drop_mult, bptt=self.bptt, clip=self.clip,)
         trn_args.update(kwargs)
-        classifier_learner = bilm_text_classifier_learner if self.bidir else text_classifier_learner
+        classifier_learner = text_classifier_learner
+        if self.bidir:
+            classifier_learner = bilm_text_classifier_learner
+            trn_args['bicls_head'] = self.bicls_head
         learn = classifier_learner(data_clas,  pad_token=PAD_TOKEN_ID,
             path=self.model_dir.parent, model_dir=self.model_dir.name,
             qrnn=self.qrnn, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, **trn_args)
@@ -116,7 +121,6 @@ class CLSHyperParams(LMHyperParams):
         lm_val_df = lm_trn_df[:val_len]
 
         if use_test_for_validation:
-            val_len = max(int(len(tst_df) * 0.1), 2)
             val_df = tst_df
             cls_cache = 'notst'
         else:
@@ -126,8 +130,11 @@ class CLSHyperParams(LMHyperParams):
             cls_cache = '.'
 
         if self.tokenizer is Tokenizers.SUBWORD:
-            #TODO Fix me to make sure it trains correct dictionary
-            args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv', self.name, vocab_size=self.max_vocab)
+            args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
+                                     self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
+            if self.tokenizer is Tokenizers.SUBWORD:
+                args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
+                                         self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
         elif self.tokenizer is Tokenizers.MOSES:
             args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
         elif self.tokenizer is Tokenizers.MOSES_FA:
