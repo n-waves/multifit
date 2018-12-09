@@ -53,9 +53,11 @@ class CLSHyperParams(LMHyperParams):
     @property
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
-    def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5):
-        data_clas, data_lm = self.load_cls_data(bs)
 
+    def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
+                  use_test_for_validation=False):
+        data_clas, data_lm = self.load_cls_data(bs, use_test_for_validation=use_test_for_validation)
+    
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls)
         try:
