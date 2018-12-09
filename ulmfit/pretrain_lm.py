@@ -57,6 +57,22 @@ class Tokenizers(Enum):
 #     Tok.FASTAI: FastaiTok
 # }
 
+def istitle(line):
+    return len(re.findall(r'^ = [^=]* = $', line)) != 0
+
+def read_wiki_articles(filename):
+    articles = []
+    with open(filename, encoding='utf8') as f:
+        lines = f.readlines()
+    current_article = ''
+    for i,line in enumerate(lines):
+        current_article += line
+        if i < len(lines)-2 and lines[i+1] == ' \n' and istitle(lines[i+2]):
+            articles.append(current_article)
+            current_article = ''
+    articles.append(current_article)
+    return pd.DataFrame({'texts':np.array(articles)})
+
 @dataclass
 class LMHyperParams:
     dataset_path: str # data_dir
@@ -175,7 +191,7 @@ class LMHyperParams:
                         pretrained_fnames=self.pretrained_fnames,
                         pretrained_model=self.pretrained_model)
         trn_args.update(kwargs)
-        print ("Training args: ", trn_args, "dps: ", dps)
+        print ("Training args: ", trn_args, "dps: ", dps or self.dps)
         learn = lm_learner(data_lm, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, pad_token=PAD_TOKEN_ID,
                            bias=True, qrnn=self.qrnn, model_dir=self.model_dir.relative_to(data_lm.path), **trn_args)
         # compared to standard Adam, we set beta_1 to 0.8
@@ -230,6 +246,7 @@ class LMHyperParams:
                                                valid_ids=val_ids, bs=self.bs, bptt=self.bptt,
                                                lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.MOSES_FA:
+
             try:
                 data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=self.bs)
                 print("Tokenized data loaded")
@@ -238,10 +255,10 @@ class LMHyperParams:
 
                 # wikitext is pretokenized with Moses
                 pretokenized = Tokenizer(tok_func=BaseTokenizer, lang='en', pre_rules=None, post_rules=None)
-                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path),
-                                                  valid_df=read_file(val_path), tokenizer=pretokenized,
-                                                  test_df=read_file(tst_path), classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab, bs=self.bs)
+                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
+                                                  valid_df=read_wiki_articles(val_path), tokenizer=pretokenized,
+                                                  classes=None, lm_type=self.lm_type,
+                                                  max_vocab=self.max_vocab, bs=self.bs, text_cols='texts')
                 data_lm.save('.')
         elif self.tokenizer is Tokenizers.FASTAI:
             try:
@@ -249,10 +266,10 @@ class LMHyperParams:
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
-                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_file(trn_path), valid_df=read_file(val_path),
-                                                  test_df=read_file(tst_path), classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab,bs=self.bs,
-                                                  )
+                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
+                                                  valid_df=read_wiki_articles(val_path),
+                                                  classes=None, lm_type=self.lm_type,
+                                                  max_vocab=self.max_vocab,bs=self.bs, text_cols='texts')
                 data_lm.save('.')
         else:
             raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")

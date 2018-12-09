@@ -104,7 +104,7 @@ class CLSHyperParams(LMHyperParams):
         return learn
 
     def load_cls_data(self, bs, **kwargs):
-        if self.dataset_dir.name == 'imdb':
+        if 'imdb' in self.dataset_dir.name:
             return self.load_cls_data_imdb(bs, **kwargs)
         else:
             assert self.tokenizer is Tokenizers.MOSES, "XNLI does not support other tokenizers than Moses"
