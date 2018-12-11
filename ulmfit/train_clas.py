@@ -9,6 +9,7 @@ import numpy as np
 import pickle
 
 from fastai import *
+from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 
 import torch
@@ -57,7 +58,7 @@ class CLSHyperParams(LMHyperParams):
     def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False):
         data_clas, data_lm = self.load_cls_data(bs, use_test_for_validation=use_test_for_validation)
-    
+
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls)
         try:
@@ -90,11 +91,19 @@ class CLSHyperParams(LMHyperParams):
                 learn.fit_one_cycle(2, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
+        self.validate_cls('cls_last')
+        self.validate_cls('cls_best')
         return learn
+
+    def validate_cls(self, save_name='cls_last', bs=40):
+        data_clas, data_lm = self.load_cls_data(bs, use_test_for_validation=True)
+        learn = self.create_cls_learner(data_clas, drop_mult=0.1)
+        learn.load(save_name)
+        print(f"Loss and accuracy using ({save_name}):", learn.validate())
 
     def create_cls_learner(self, data_clas, dps=None, **kwargs):
         fastai.text.learner.default_dropout['language'] = dps or self.dps
-        trn_args=dict(drop_mult=self.drop_mult, bptt=self.bptt, clip=self.clip,)
+        trn_args=dict(bptt=self.bptt, clip=self.clip,)
         trn_args.update(kwargs)
         classifier_learner = text_classifier_learner
         if self.bidir:
@@ -103,6 +112,8 @@ class CLSHyperParams(LMHyperParams):
         learn = classifier_learner(data_clas,  pad_token=PAD_TOKEN_ID,
             path=self.model_dir.parent, model_dir=self.model_dir.name,
             qrnn=self.qrnn, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, **trn_args)
+        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
+                               partial(SaveModelCallback, every='improvement', name='cls_best')]
         return learn
 
     def load_cls_data(self, bs, **kwargs):

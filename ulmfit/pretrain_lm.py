@@ -10,6 +10,7 @@ import fastai
 import fire
 
 from fastai import *
+from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
@@ -90,11 +91,9 @@ class LMHyperParams:
 
     # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
     # for training on smaller datasets, more dropout is necessary
-    drop_mult = 0.1
-    dps = (0.25, 0.1, 0.2, 0.02, 0.15)
+    dps = (0.25, 0.1, 0.2, 0.02, 0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
-    bs: int = 70
 
     lang: str = 'en'
     name: str = None
@@ -114,7 +113,6 @@ class LMHyperParams:
         self.model_dir = self.cache_dir / self.model_name
 
         self.model_dir.mkdir(exist_ok=True, parents=True)
-        print('Batch size:', self.bs)
         print('Max vocab:', self.max_vocab)
         print('Cache dir:', self.cache_dir)
         print('Model dir:', self.model_dir)
@@ -147,16 +145,16 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, true_wd=False, drop_mult=0.1, lr=5e-3):
-        data_lm = self.load_wiki_data() if data_lm is None else data_lm
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3):
+        data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
         learn.true_wd = true_wd
-        try:
-            learn.load("lm_best_with_opt")
-            print("Continuing training")
-        except FileNotFoundError:
-            pass
+        # try:
+        #     learn.load("lm_best_with_opt")
+        #     print("Continuing training")
+        # except FileNotFoundError:
+        #     pass
         if num_epochs > 0:
             if self.pretrained_fnames or self.pretrained_model:
                 print("Training lm from: ", self.pretrained_fnames or self.pretrained_model)
@@ -187,7 +185,7 @@ class LMHyperParams:
         fastai.text.learner.default_dropout['language'] = dps or self.dps
         lm_learner = bilm_learner if self.bidir else language_model_learner
 
-        trn_args = dict(drop_mult=self.drop_mult, tie_weights=True, clip=self.clip, bptt=self.bptt,
+        trn_args = dict(tie_weights=True, clip=self.clip, bptt=self.bptt,
                         pretrained_fnames=self.pretrained_fnames,
                         pretrained_model=self.pretrained_model)
         trn_args.update(kwargs)
@@ -197,9 +195,11 @@ class LMHyperParams:
         # compared to standard Adam, we set beta_1 to 0.8
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
         learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
+        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
+                               partial(SaveModelCallback, every='epoch', name='lm')]
         return learn
 
-    def load_wiki_data(self):
+    def load_wiki_data(self, bs=70):
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
         val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
@@ -215,7 +215,7 @@ class LMHyperParams:
 
             sp = get_sentencepiece(self.dataset_path, trn_path, self.name, vocab_size=self.max_vocab)
 
-            data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=self.bs, bptt=self.bptt, lm_type=self.lm_type)
+            data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=bs, bptt=self.bptt, lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.MOSES:
             # read the already whitespace separated data without any preprocessing
             trn_tok = read_whitespace_file(trn_path)
@@ -243,12 +243,12 @@ class LMHyperParams:
 
             # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
             data_lm = TextLMDataBunch.from_ids(path=self.dataset_path, vocab=vocab, train_ids=trn_ids,
-                                               valid_ids=val_ids, bs=self.bs, bptt=self.bptt,
+                                               valid_ids=val_ids, bs=bs, bptt=self.bptt,
                                                lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.MOSES_FA:
 
             try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=self.bs)
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
@@ -258,18 +258,18 @@ class LMHyperParams:
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
                                                   valid_df=read_wiki_articles(val_path), tokenizer=pretokenized,
                                                   classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab, bs=self.bs, text_cols='texts')
+                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
                 data_lm.save('.')
         elif self.tokenizer is Tokenizers.FASTAI:
             try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=self.bs)
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
                 print("Tokenized data loaded")
             except FileNotFoundError:
                 print("Running tokenization")
                 data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
                                                   valid_df=read_wiki_articles(val_path),
                                                   classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab,bs=self.bs, text_cols='texts')
+                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
                 data_lm.save('.')
         else:
             raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
@@ -285,7 +285,8 @@ class LMHyperParams:
         with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
         d['dataset_path'] = dataset_path
         d['base_lm_path'] = base_lm_path
-
+        d.pop('bs', None)
+        d.pop('drop_mult', None)
         subword = d.pop('subword', False)
         tokenizer = d.pop('tokenizer', None)
         if tokenizer is not None:
