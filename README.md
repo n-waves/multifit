@@ -1,6 +1,18 @@
 # ulmfit-multilingual
 Temporary repository used for collaboration on application of for multiple languages.
 
+# How to train classifier
+
+```
+$ python -m ulmfit lm --dataset-path data/wiki/wikitext-103 --bidir=False --qrnn=False --tokenizer=vf --name 'bs40' --bs=40 --cuda-id=0  -  train 20 --drop-mult=0.9
+...
+Model dir: data/wiki/wikitext-103/models/vf60k/lstm_bs40.m
+...
+$ python -m ulmfit cls --dataset-path data/imdb --base-lm-path data/wiki/wikitext-103/models/vf60k/lstm_bs40.m - train 20   
+```
+ 
+
+
 ## data directory strucutre
 
 Directory structure after changes to the way we process wiki dumps.
