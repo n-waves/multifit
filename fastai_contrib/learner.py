@@ -1,3 +1,5 @@
+from torch.nn import CrossEntropyLoss
+
 from fastai import GradientClipping, accuracy
 from fastai.callbacks import *
 from fastai.basic_data import *
@@ -25,6 +27,7 @@ def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:in
         fnames = [learn.path/learn.model_dir/f'{fn}.{ext}' for fn,ext in zip(pretrained_fnames, ['pth', 'pkl'])]
         learn.load_pretrained(*fnames)
         learn.freeze()
+    learn.loss_func = CrossEntropyLoss()  # I'm not sure why fast ai is using CrossEntropyFlat but it breaks bilm
     return learn
 
 def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int = 70 * 20, emb_sz: int = 400,
