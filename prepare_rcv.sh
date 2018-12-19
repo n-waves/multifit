@@ -38,7 +38,7 @@ do
   mkdir -p "${DATA_DIR}/${LANGUAGE}"
   for FILE_EXT in train.1000 train.2000 train.5000 train.10000 dev test
   do
-    wget -c $MLDOC/mldoc-indices/$LANGUAGE.$FILE_EXT -P "${DATA_DIR}/tmp"
+    wget -cq $MLDOC/mldoc-indices/$LANGUAGE.$FILE_EXT -P "${DATA_DIR}/tmp"
 
     python $DATA_DIR/tmp/generate_documents.py \
         --indices-file $DATA_DIR/tmp/$LANGUAGE.$FILE_EXT \
