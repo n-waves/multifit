@@ -20,14 +20,14 @@ wget -c $MLDOC/generate_documents.py -P "${DATA_DIR}/tmp"
 
 if [ ! -d "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus" ]; then
   wget -c --user $RCV_USER --password $RCV_PASSWORD $RCV_URL/rcv2.tar.xz -P "${DATA_DIR}/tmp"  
-  tar xvf "${DATA_DIR}/tmp/rcv2.tar.xz" -C "${DATA_DIR}/tmp/"
+  tar xf "${DATA_DIR}/tmp/rcv2.tar.xz" -C "${DATA_DIR}/tmp/"
 else
   echo "RCV2 already exists. Skipping download."
 fi
 
 if [ ! -d "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus/english" ]; then
   wget -c --user $RCV_USER --password $RCV_PASSWORD $RCV_URL/rcv1.tar.xz -P "${DATA_DIR}/tmp"
-  tar xvf "${DATA_DIR}/tmp/rcv1.tar.xz" -C "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus/"
+  tar xf "${DATA_DIR}/tmp/rcv1.tar.xz" -C "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus/"
   mv "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus/rcv1" "${DATA_DIR}/tmp/RCV2_Multilingual_Corpus/english"
 else
   echo "RCV1 already exists. Skipping download."
