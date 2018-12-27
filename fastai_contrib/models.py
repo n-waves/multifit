@@ -29,7 +29,7 @@ class BiLMModel(nn.Module):
             b = input[..., 1]
         elif len(input.shape) == 2: # sl, bs - support during classification mode
             f = input
-            b = torch.flip(input, [0])
+            b = torch.flip(input, [1]) # todo test if we are duplicating the backward pass correctly
         else:
             raise AttributeError(f"Inorrect size of input, {input.shape}")
         fwd_o = self.fwd_lm(f)
