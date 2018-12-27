@@ -23,40 +23,15 @@ from pathlib import Path
 from collections import Counter
 import fastai_contrib.data as contrib_data
 
-# to install, do:
-# conda install -c pytorch -c fastai fastai pytorch-nightly [cuda92]
-# cupy needs to be installed for QRNN
-
-
-# """
-# :param dir_path: The path to the directory of the file.
-# :param lang: the language unicode
-# :param cuda_id: The id of the GPU. Uses GPU 0 by default or no GPU when
-#                 run on CPU.
-# :param qrnn: Use a QRNN. Requires installing cupy.
-# :param subword: Use sub-word tokenization on the cleaned data.
-# :param max_vocab: The maximum size of the vocabulary.
-# :param bs: The batch size.
-# :param bptt: The back-propagation-through-time sequence length.
-# :param name: The name used for both the model and the vocabulary.
-# :param model_dir: The path to the directory where the models should be saved
-# :param bidir: whether the language model is bidirectional
-# """
 LM_BEST = "lm_best"
 ENC_BEST = "enc_best"
 
 
 class Tokenizers(Enum):
-    SUBWORD='sb'
+    SUBWORD='sp'
     MOSES='v'
     MOSES_FA='vf'
     FASTAI='f'
-
-# tokenizers ={
-#     Tok.MOSES: MosesTok,
-#     Tok.SUBWORD: SentencepieceTok,
-#     Tok.FASTAI: FastaiTok
-# }
 
 def istitle(line):
     return len(re.findall(r'^ = [^=]* = $', line)) != 0
@@ -195,9 +170,14 @@ class LMHyperParams:
         # compared to standard Adam, we set beta_1 to 0.8
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
         learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
-        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
+        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history"),
                                partial(SaveModelCallback, every='epoch', name='lm')]
         return learn
+
+    def load_train_text(self):
+        trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
+        with open(trn_path) as f:
+            return [line.rstrip('\n') for line in f]
 
     def load_wiki_data(self, bs=70):
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
@@ -206,16 +186,25 @@ class LMHyperParams:
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
         if self.tokenizer is Tokenizers.SUBWORD:
-            # apply sentencepiece tokenization
-            trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
-            val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
+            sp = get_sentencepiece(self.cache_dir,
+                                   self.load_train_text,
+                                   self.name,
+                                   vocab_size=self.max_vocab,
+                                   use_moses=False,
+                                   lang=self.lang)
 
-            read_file(trn_path, 'train')
-            read_file(val_path, 'valid')
+            try:
+                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
+                print("Tokenized data loaded")
+            except FileNotFoundError:
+                print("Running tokenization")
+                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
+                                                  valid_df=read_wiki_articles(val_path),
+                                                  classes=None, lm_type=self.lm_type, **sp,
+                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
+                data_lm.save('.')
 
-            sp = get_sentencepiece(self.dataset_path, trn_path, self.name, vocab_size=self.max_vocab)
 
-            data_lm = TextLMDataBunch.from_csv(self.dataset_path, 'train.csv', **sp, bs=bs, bptt=self.bptt, lm_type=self.lm_type)
         elif self.tokenizer is Tokenizers.MOSES:
             # read the already whitespace separated data without any preprocessing
             trn_tok = read_whitespace_file(trn_path)

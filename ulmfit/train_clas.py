@@ -139,11 +139,18 @@ class CLSHyperParams(LMHyperParams):
             cls_cache = '.'
 
         if self.tokenizer is Tokenizers.SUBWORD:
-            args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
-                                     self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
-            if self.tokenizer is Tokenizers.SUBWORD:
-                args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
-                                         self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
+            shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
+            shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
+            shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
+
+            args = get_sentencepiece(self.cache_dir,
+                                     lambda: trn_df[1],
+                                     self.name,
+                                     vocab_size=self.max_vocab,
+                                     lang='en',
+                                     use_moses=True)
+
+            # TODO remove migration of tokens for SentencePiece as more than 50% of tokens are different in imdb
         elif self.tokenizer is Tokenizers.MOSES:
             args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
         elif self.tokenizer is Tokenizers.MOSES_FA:
