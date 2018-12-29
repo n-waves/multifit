@@ -4,7 +4,6 @@ Utility methods for data processing.
 import pandas as pd
 import numpy as np
 import fire
-from fastai import F, to_device
 import torch
 from tqdm import tqdm
 import re

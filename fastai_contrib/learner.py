@@ -1,6 +1,6 @@
 from torch.nn import CrossEntropyLoss
 
-from fastai import GradientClipping, accuracy
+from fastai.metrics import accuracy
 from fastai.callbacks import *
 from fastai.basic_data import *
 from fastai.datasets import untar_data
