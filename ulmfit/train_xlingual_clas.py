@@ -50,7 +50,7 @@ class XLingualCLSHyperParams(CLSHyperParams):
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
             data_lm = TextLMDataBunch.load(src_path, 'xlm', lm_type=self.lm_type, bs=bs)
-            print(f"Tokenized data loaded, xlm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
+            print(f"Tokenized data loaded, xlm.trn {len(data_lm.train_ds)}, xlm.val {len(data_lm.valid_ds)}")
         except FileNotFoundError:
             print(f"Running tokenization...")
             data_lm = TextLMDataBunch.from_csv(path=src_path, csv_name=xcvs_name, bs=bs, lm_type=self.lm_type, **kwargs, **args)
