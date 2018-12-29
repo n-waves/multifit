@@ -75,7 +75,7 @@ class XLingualCLSHyperParams(CLSHyperParams):
 
     def validate_cls(self, save_name='cls_last', bs=40):
         args = self.get_tokenizer_args()
-        data_clas, data_lm = self.load_cls_data_full(bs, use_test_for_validation=True)
+        data_clas, data_lm = self.load_cls_data(bs, use_test_for_validation=True)
         data_eval = [
             TextClasDataBunch.from_csv(path=Path(tgt_path), csv_name=self.csv_name, **args)
             for tgt_path in self.target_paths
