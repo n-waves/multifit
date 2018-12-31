@@ -59,7 +59,7 @@ class LanguageModelLoader(): # copy of the original LanguageModelLoader
         seq_len = min(seq_len, data.shape[1] - 1 - i)
         x = data[:,i:i+seq_len]
         y = data[:,i+1:i+1+seq_len]
-        #y = y.view(-1, 2) if self.lm_type == LanguageModelType.BiLM else y.view(-1)
+        y = y.contiguous().view(-1, 2) if self.lm_type == LanguageModelType.BiLM else y.contiguous().view(-1)
         return x,y
 
 #endregion

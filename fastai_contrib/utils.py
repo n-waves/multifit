@@ -31,6 +31,8 @@ CLASSES = ['neg', 'pos', 'unsup']
 number_match_re = re.compile(r'^([0-9]+[,.]?)+$')
 number_split_re = re.compile(r'([,.])')
 
+# FIXME: coping of tokens from one sentencepiece model to another does not work for 50% of tokens
+# FIXME: tokens in sentencepiece are uppercase eventhough post-transformation will convert them to lowercase
 class MosesTokenizerFunc(BaseTokenizer):
     "Wrapper around a MosesTokenizer to make it a `BaseTokenizer`."
     def __init__(self, lang:str):
@@ -278,7 +280,6 @@ def read_clas_data(dir_path, dataset, lang) -> Tuple[Dict[str, List[List[str]]],
              2. a dictionary mapping splits to a list of labels
     """
     processors = {
-        'imdb': read_imdb,
         'xnli': read_xnli
     }
     processor = processors[dataset]

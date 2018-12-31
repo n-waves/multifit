@@ -56,7 +56,7 @@ def test_ulmfit_works_with_relative_paths():
     exp = ulmfit.pretrain_lm.LMHyperParams(
         dataset_path=wt2.relative_to(Path.cwd()),
         lang='en',
-        qrnn=True,
+        qrnn=False,
         max_vocab=1000,
         name=lm_name,
         cuda_id=cuda_id)
@@ -83,7 +83,7 @@ def test_ulmfit_default_end_to_end():
     exp = ulmfit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
-        qrnn=True,
+        qrnn=False,
         max_vocab=1000,
         name=lm_name,
         cuda_id=cuda_id)
@@ -105,7 +105,7 @@ def test_ulmfit_fastai_end_to_end():
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
-        qrnn=True,
+        qrnn=False,
         tokenizer='f',
         max_vocab=100,
         name=lm_name,
@@ -124,7 +124,7 @@ def test_ulmfit_fastai_bidir_end_to_end():
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
-        qrnn=True,
+        qrnn=False,
         bidir=True,
         tokenizer='f',
         max_vocab=100,
@@ -144,7 +144,7 @@ def test_ulmfit_moses_fa_bidir_end_to_end():
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
-        qrnn=True,
+        qrnn=False,
         bidir=True,
         tokenizer='vf',
         max_vocab=100,
@@ -168,15 +168,15 @@ def test_ulmfit_sentencepiece_end_to_end():
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
-        qrnn=True,
+        qrnn=False,
         tokenizer=ulmfit.pretrain_lm.Tokenizers.SUBWORD,
-        max_vocab=100,
+        max_vocab=200,
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2)
     # not supported yet
-    # exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
-    # exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 
 if __name__ == "__main__":
