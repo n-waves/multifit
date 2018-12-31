@@ -1,13 +1,11 @@
 from torch.nn import CrossEntropyLoss
 
-from fastai.metrics import accuracy
-from fastai.callbacks import *
-from fastai.basic_data import *
-from fastai.datasets import untar_data
-from fastai_contrib.models import get_bilm, get_rnn_classifier, get_birnn_classifier
-from fastai.text.learner import *
+from fastai import *
+from fastai.text import *
 
 #region New code
+from fastai_contrib.models import *
+
 
 def bilm_learner(data:DataBunch, bptt:int=70, emb_sz:int=400, nh:int=1150, nl:int=3, pad_token:int=1,
                   drop_mult:float=1., tie_weights:bool=True, bias:bool=True, qrnn:bool=False, pretrained_model=None,
@@ -92,10 +90,14 @@ def convert_weights_with_prefix(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:
         bias_m, wgts_m = dec_bias.mean(0), enc_wgts.mean(0)
         new_w = enc_wgts.new_zeros((len(itos_new),enc_wgts.size(1))).zero_()
         new_b = dec_bias.new_zeros((len(itos_new),)).zero_()
+        unk_tokens=[]
         for i,w in enumerate(itos_new):
             r = stoi_wgts[w] if w in stoi_wgts else -1
+            if r < 0:
+                unk_tokens.append(w)
             new_w[i] = enc_wgts[r] if r>=0 else wgts_m
             new_b[i] = dec_bias[r] if r>=0 else bias_m
+        print(f"Unknown tokens {len(unk_tokens)}, first 100: {unk_tokens[:100]}")
         wgts[prefix+'0.encoder.weight'] = new_w
         wgts[prefix+'0.encoder_dp.emb.weight'] = new_w.clone()
         wgts[prefix+'1.decoder.weight'] = new_w.clone()

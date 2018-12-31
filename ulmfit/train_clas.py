@@ -5,15 +5,12 @@ Optionally fine-tune LM before.
 from sacremoses import MosesTokenizer
 
 import fastai
-import numpy as np
-import pickle
+import torch
 
 from fastai import *
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 
-import torch
-from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
 from fastai_contrib.data import LanguageModelType
 from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
@@ -90,8 +87,8 @@ class CLSHyperParams(LMHyperParams):
                 learn.fit_one_cycle(2, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
-        self.validate_cls('cls_last')
-        self.validate_cls('cls_best')
+        self.validate_cls('cls_last', bs=bs)
+        self.validate_cls('cls_best', bs=bs)
         return learn
 
     def validate_cls(self, save_name='cls_last', bs=40):
@@ -142,11 +139,18 @@ class CLSHyperParams(LMHyperParams):
             cls_cache = '.'
 
         if self.tokenizer is Tokenizers.SUBWORD:
-            args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
-                                     self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
-            if self.tokenizer is Tokenizers.SUBWORD:
-                args = get_sentencepiece(self.dataset_path, self.dataset_path / 'train.csv',
-                                         self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
+            shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
+            shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
+            shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
+
+            args = get_sentencepiece(self.cache_dir,
+                                     lambda: trn_df[1],
+                                     self.name,
+                                     vocab_size=self.max_vocab,
+                                     lang='en',
+                                     use_moses=True)
+
+            # TODO remove migration of tokens for SentencePiece as more than 50% of tokens are different in imdb
         elif self.tokenizer is Tokenizers.MOSES:
             args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
         elif self.tokenizer is Tokenizers.MOSES_FA:
