@@ -35,7 +35,7 @@ class Tokenizers(Enum):
     FASTAI='f'
 
 def istitle(line):
-    return len(re.findall(r'^ = [^=]* = $', line)) != 0
+    return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
 
 def read_wiki_articles(filename):
     articles = []
@@ -48,6 +48,7 @@ def read_wiki_articles(filename):
             articles.append(current_article)
             current_article = ''
     articles.append(current_article)
+    print(f"Wiki text was split to {len(articles)} articles")
     return pd.DataFrame({'texts':np.array(articles)})
 
 @dataclass
