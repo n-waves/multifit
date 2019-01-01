@@ -14,7 +14,8 @@ from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
-    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID
+    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, MosesTokenizerFunc, \
+    replace_std_toks
 from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd, bilm_text_classifier_learner
 import pickle
 
@@ -111,6 +112,30 @@ class LMHyperParams:
     def lm_type(self):
         return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
 
+    def tokenzier_to_fastai_args(self, trn_data_loading_func, add_moses):
+        tok_func = MosesTokenizerFunc if add_moses else BaseTokenizer
+        if self.tokenizer is Tokenizers.SUBWORD:
+            if self.base_lm_path: # ensure we are using the same sentence piece model
+                shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
+                shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
+                shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
+            args = get_sentencepiece(self.cache_dir,
+                                     trn_data_loading_func,
+                                     vocab_size=self.max_vocab,
+                                     use_moses=add_moses,
+                                     lang=self.lang)
+
+        elif self.tokenizer is Tokenizers.MOSES:
+            args = dict(tokenizer=Tokenizer(tok_func=tok_func, lang=self.lang, pre_rules=[replace_std_toks], post_rules=[]))
+        elif self.tokenizer is Tokenizers.MOSES_FA:
+            args = dict(tokenizer=Tokenizer(tok_func=tok_func, lang=self.lang))  # use default pre/post rules
+        elif self.tokenizer is Tokenizers.FASTAI:
+            args = dict()
+        else:
+            raise ValueError(
+                f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
+        return args
+
     def save_info(self):
         from dataclasses import asdict
         vals = {k: (str(v) if isinstance(v, Path) else v) for k,v in asdict(self).items()}
@@ -125,11 +150,6 @@ class LMHyperParams:
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
         learn.true_wd = true_wd
-        # try:
-        #     learn.load("lm_best_with_opt")
-        #     print("Continuing training")
-        # except FileNotFoundError:
-        #     pass
         if num_epochs > 0:
             if self.pretrained_fnames or self.pretrained_model:
                 print("Training lm from: ", self.pretrained_fnames or self.pretrained_model)
@@ -185,83 +205,19 @@ class LMHyperParams:
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
-        if self.tokenizer is Tokenizers.SUBWORD:
-            sp = get_sentencepiece(self.cache_dir,
-                                   self.load_train_text,
-                                   self.name,
-                                   vocab_size=self.max_vocab,
-                                   use_moses=False,
-                                   lang=self.lang)
 
-            try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
-                print("Tokenized data loaded")
-            except FileNotFoundError:
-                print("Running tokenization")
-                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
-                                                  valid_df=read_wiki_articles(val_path),
-                                                  classes=None, lm_type=self.lm_type, **sp,
-                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
-                data_lm.save('.')
+        args = self.tokenzier_to_fastai_args(trn_data_loading_func=self.load_train_text, add_moses=False)
+        try:
+            data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
+            print("Tokenized data loaded")
+        except FileNotFoundError:
+            print("Running tokenization")
+            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
+                                              valid_df=read_wiki_articles(val_path),
+                                              classes=None, lm_type=self.lm_type, max_vocab=self.max_vocab,
+                                              bs=bs, text_cols='texts', **args)
+            data_lm.save('.')
 
-
-        elif self.tokenizer is Tokenizers.MOSES:
-            # read the already whitespace separated data without any preprocessing
-            trn_tok = read_whitespace_file(trn_path)
-            val_tok = read_whitespace_file(val_path)
-            itos_fname = self.cache_dir / f'itos.pkl'
-            if not itos_fname.exists():
-                # create the vocabulary
-                cnt = Counter(word for sent in trn_tok for word in sent)
-                itos = [o for o, c in cnt.most_common(n=self.max_vocab)]
-                itos.insert(1, PAD)  #   set pad id to 1 to conform to fast.ai standard
-                assert UNK in itos, f'Unknown words are expected to have been replaced with {UNK} in the data.'
-
-                # save vocabulary
-                print(f"Saving vocabulary as {itos_fname}")
-                with open(itos_fname, 'wb') as f:
-                    pickle.dump(itos, f)
-            else:
-                print("Loading itos:", itos_fname)
-                itos = np.load(itos_fname)
-            vocab = Vocab(itos)
-            stoi = vocab.stoi
-
-            trn_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in trn_tok])
-            val_ids = np.array([([stoi.get(w, stoi[UNK]) for w in s]) for s in val_tok])
-
-            # data_lm = TextLMDataBunch.from_ids(dir_path, trn_ids, [], val_ids, [], len(itos))
-            data_lm = TextLMDataBunch.from_ids(path=self.dataset_path, vocab=vocab, train_ids=trn_ids,
-                                               valid_ids=val_ids, bs=bs, bptt=self.bptt,
-                                               lm_type=self.lm_type)
-        elif self.tokenizer is Tokenizers.MOSES_FA:
-
-            try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
-                print("Tokenized data loaded")
-            except FileNotFoundError:
-                print("Running tokenization")
-
-                # wikitext is pretokenized with Moses
-                pretokenized = Tokenizer(tok_func=BaseTokenizer, lang='en', pre_rules=None, post_rules=None)
-                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
-                                                  valid_df=read_wiki_articles(val_path), tokenizer=pretokenized,
-                                                  classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
-                data_lm.save('.')
-        elif self.tokenizer is Tokenizers.FASTAI:
-            try:
-                data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
-                print("Tokenized data loaded")
-            except FileNotFoundError:
-                print("Running tokenization")
-                data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
-                                                  valid_df=read_wiki_articles(val_path),
-                                                  classes=None, lm_type=self.lm_type,
-                                                  max_vocab=self.max_vocab, bs=bs, text_cols='texts')
-                data_lm.save('.')
-        else:
-            raise ValueError(f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
         itos, stoi, trn_path = data_lm.vocab.itos, data_lm.vocab.stoi, data_lm.path
         print('Size of vocabulary:', len(itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
