@@ -10,32 +10,19 @@ import torch
 from fastai import *
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
+from fastai_contrib import utils
 
 from fastai_contrib.data import LanguageModelType
 from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
-    get_sentencepiece
+    get_sentencepiece, MosesTokenizerFunc
 from fastai.text.transform import Vocab
-
 
 import fire
 from collections import Counter
 from pathlib import Path
 
 from ulmfit.pretrain_lm import LMHyperParams, Tokenizers, ENC_BEST
-
-
-class MosesTokenizerFunc(BaseTokenizer):
-    "Wrapper around a MosesTokenizer to make it a `BaseTokenizer`."
-    def __init__(self, lang:str):
-        self.tok = MosesTokenizer(lang)
-
-    def tokenizer(self, t:str) -> List[str]:
-        return self.tok.tokenize(t, return_str=False, escape=False)
-
-    def add_special_cases(self, toks:Collection[str]):
-        for w in toks:
-            assert len(self.tokenizer(w))==1, f"Tokenizer is unable to keep {w} as one token!"
 
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
@@ -138,28 +125,7 @@ class CLSHyperParams(LMHyperParams):
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
             cls_cache = '.'
 
-        if self.tokenizer is Tokenizers.SUBWORD:
-            shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
-            shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
-            shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
-
-            args = get_sentencepiece(self.cache_dir,
-                                     lambda: trn_df[1],
-                                     self.name,
-                                     vocab_size=self.max_vocab,
-                                     lang='en',
-                                     use_moses=True)
-
-            # TODO remove migration of tokens for SentencePiece as more than 50% of tokens are different in imdb
-        elif self.tokenizer is Tokenizers.MOSES:
-            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
-        elif self.tokenizer is Tokenizers.MOSES_FA:
-            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en')) # use default pre/post rules
-        elif self.tokenizer is Tokenizers.FASTAI:
-            args = dict()
-        else:
-            raise ValueError(
-                f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
+        args = self.tokenzier_to_fastai_args(trn_data_loading_func=lambda: trn_df[1], add_moses=True)
 
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
@@ -235,3 +201,6 @@ class CLSHyperParams(LMHyperParams):
 
 if __name__ == '__main__':
     fire.Fire(CLSHyperParams)
+
+##
+

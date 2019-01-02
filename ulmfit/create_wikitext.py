@@ -24,7 +24,7 @@ def get_texts(root):
                     if text.strip() == title:
                         # print('No content continuing...')
                         continue
-                    yield text
+                    yield (f"={title}=\n"+text)
 
 
 def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):

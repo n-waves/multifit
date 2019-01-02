@@ -12,11 +12,15 @@ from sklearn import model_selection
 from sacremoses import MosesTokenizer
 from typing import Dict, Tuple, List
 
-EOS = '<eos>'
-BOS = '<bos>'
-UNK = '<unk>'
-PAD = '<pad>'
-SEP = '<sep>'  # special separator token for NLI
+EOS = 'xxeos' # fastai does not use eos, but we do
+SEP = 'xxsep' # special separator token for NLI
+
+def replace_std_toks(x:str) -> str:
+    "Replace standard token names with fastai supported tokens"
+    # We change tokens to f'xx{token_name}' as it is not split by Moses tokenizer,
+    # while f'<{token_name}>' is being split to: '<' f'{token_name}' '>'
+    return x.replace('<unk>', UNK).replace('<bos>', BOS).replace('<eos>', EOS)
+
 PAD_TOKEN_ID = 1
 IMDB, XNLI, TRN, VAL, TST, EN = 'imdb', 'xnli', 'train', 'val', 'test', 'en'
 DATASETS = ['imdb', 'xnli']
@@ -31,11 +35,10 @@ CLASSES = ['neg', 'pos', 'unsup']
 number_match_re = re.compile(r'^([0-9]+[,.]?)+$')
 number_split_re = re.compile(r'([,.])')
 
-# FIXME: coping of tokens from one sentencepiece model to another does not work for 50% of tokens
-# FIXME: tokens in sentencepiece are uppercase eventhough post-transformation will convert them to lowercase
 class MosesTokenizerFunc(BaseTokenizer):
     "Wrapper around a MosesTokenizer to make it a `BaseTokenizer`."
     def __init__(self, lang:str):
+        super().__init__(lang=lang)
         self.tok = MosesTokenizer(lang)
 
     def tokenizer(self, t:str) -> List[str]:
@@ -69,9 +72,9 @@ class SentencePieceTokenizer(Tokenizer):
         toks = tok.sp.EncodeAsPieces(" ".join(toks))
         return toks
 
-def get_sentencepiece(cache_dir:PathOrStr, load_text, name:str, pre_rules:ListRules=None, post_rules:ListRules=None,
+def get_sentencepiece(cache_dir:PathOrStr, load_text,pre_rules:ListRules=None, post_rules:ListRules=None,
                       vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
-                      pad_idx:int=PAD_TOKEN_ID, use_moses=False, lang='en'):
+                      use_moses=False, lang='en'):
     try:
         import sentencepiece as spm
     except ImportError:
