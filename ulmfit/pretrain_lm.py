@@ -41,15 +41,15 @@ def read_wiki_articles(filename):
     articles = []
     with open(filename, encoding='utf8') as f:
         lines = f.readlines()
-    current_article = ''
+    current_article = []
     for i,line in enumerate(lines):
-        current_article += line
-        if i < len(lines)-2 and lines[i+1] == ' \n' and istitle(lines[i+2]):
-            articles.append(current_article)
-            current_article = ''
-    articles.append(current_article)
+        current_article.append(line)
+        if i < len(lines)-2 and lines[i+1].strip() == "" and istitle(lines[i+2]):
+            articles.append("".join(current_article))
+            current_article = []
+    articles.append("".join(current_article))
     print(f"Wiki text was split to {len(articles)} articles")
-    return pd.DataFrame({'texts':np.array(articles)})
+    return pd.DataFrame({'texts': np.array(articles, dtype=np.object)})
 
 @dataclass
 class LMHyperParams:
