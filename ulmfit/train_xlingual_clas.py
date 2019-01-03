@@ -1,9 +1,6 @@
 from dataclasses import dataclass
-from ulmfit.train_clas import CLSHyperParams, MosesTokenizerFunc
-from ulmfit.pretrain_lm import LMHyperParams, Tokenizers, ENC_BEST
-from fastai.text import TextLMDataBunch, TextClasDataBunch, language_model_learner, text_classifier_learner
-from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
-    get_sentencepiece
+from ulmfit.train_clas import CLSHyperParams
+from fastai.text import TextLMDataBunch, TextClasDataBunch
 
 from typing import List
 from pathlib import Path
@@ -19,24 +16,8 @@ class XLingualCLSHyperParams(CLSHyperParams):
         super().__post_init__(*args, **kwargs)
         self.target_paths = [] if self.target_paths is None else self.target_paths
 
-    def get_tokenizer_args(self):
-        if self.tokenizer is Tokenizers.SUBWORD:
-            args = get_sentencepiece(self.base_lm_path.parent, self.base_lm_path.parent / 'train.csv',
-                                     self.name, vocab_size=self.max_vocab, pre_rules=[], post_rules=[])
-        elif self.tokenizer is Tokenizers.MOSES:
-            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en', pre_rules=[], post_rules=[]))
-        elif self.tokenizer is Tokenizers.MOSES_FA:
-            args = dict(tokenizer=Tokenizer(tok_func=MosesTokenizerFunc, lang='en')) # use default pre/post rules
-        elif self.tokenizer is Tokenizers.FASTAI:
-            args = dict()
-        else:
-            raise ValueError(
-                f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
-
-        return args
-
     def load_cls_data(self, bs, force=False, use_test_for_validation=False, **kwargs):
-        args = self.get_tokenizer_args()
+        args = self.tokenzier_to_fastai_args(trn_data_loading_func=lambda: trn_df[1], add_moses=True)
         src_path = self.dataset_path
         csv_name = self.csv_name
         tgt_paths = [Path(tgt_path) for tgt_path in self.target_paths]
@@ -74,7 +55,7 @@ class XLingualCLSHyperParams(CLSHyperParams):
         return data_cls, data_lm
 
     def validate_cls(self, save_name='cls_last', bs=40):
-        args = self.get_tokenizer_args()
+        args = self.tokenzier_to_fastai_args(trn_data_loading_func=lambda: trn_df[1], add_moses=True)
         data_clas, data_lm = self.load_cls_data(bs, use_test_for_validation=True)
         data_eval = [
             TextClasDataBunch.from_csv(path=Path(tgt_path), csv_name=self.csv_name, **args)
