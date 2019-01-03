@@ -12,7 +12,6 @@ import fire
 from fastai import *
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
-from fastai.callbacks.tracker import SaveModelCallback
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
     validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, MosesTokenizerFunc, \
