@@ -272,6 +272,7 @@ def get_birnn_classifier(bptt:int, max_seq:int, n_class:int, vocab_sz:int, emb_s
     head = BiPoolingLinearClassifier
     if bicls_head == 'BiPoolingLinearClassifier': head = BiPoolingLinearClassifier
     elif bicls_head == 'AvgPoolingLinearClassifier': head = AvgPoolingLinearClassifier
+    elif bicls_head == 'BiAttentionPoolingClassifier': head = BiAttentionPoolingClassifier
 
     model = SequentialRNN(BiLMModel(fwd_rnn_enc, bwd_rnn_enc), head(layers, drops))
     model.reset()
