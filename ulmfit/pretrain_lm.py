@@ -56,6 +56,7 @@ class LMHyperParams:
     dataset_path: str # data_dir
 
     base_lm_path: str = None
+    backwards: str = False
     bidir: bool =False
     qrnn: bool = True
     max_vocab: int = 60000
@@ -77,6 +78,8 @@ class LMHyperParams:
     cuda_id: InitVar[int] = 0
 
     def __post_init__(self, cuda_id):
+        if self.bidir and self.backwards:
+            raise ValueError('Both "backwards" and "bidir" options cannot be enabled at the same time')
         if not torch.cuda.is_available():
             print('CUDA not available. Setting device=-1.')
             cuda_id = -1
@@ -101,7 +104,16 @@ class LMHyperParams:
     def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
 
     @property
-    def model_prefix(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
+    def model_direction(self):
+        if self.bidir:
+            return 'bi'
+        if self.backwards:
+            return 'bwd'
+        else:
+            return ''
+
+    @property
+    def model_prefix(self): return self.model_direction + ('qrnn' if self.qrnn else 'lstm')
 
     @property
     def model_name(self): return f"{self.model_prefix}_{self.name}.m"
@@ -111,7 +123,12 @@ class LMHyperParams:
 
     @property
     def lm_type(self):
-        return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
+        if self.bidir:
+            return contrib_data.LanguageModelType.BiLM
+        if self.backwards:
+            return contrib_data.LanguageModelType.BwdLM
+        else:
+            return contrib_data.LanguageModelType.FwdLM
 
     def tokenzier_to_fastai_args(self, trn_data_loading_func, add_moses):
         tok_func = MosesTokenizerFunc if add_moses else BaseTokenizer
