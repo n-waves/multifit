@@ -71,6 +71,9 @@ class LMHyperParams:
     dps = (0.25, 0.1, 0.2, 0.02, 0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
+    # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
+    rnn_alpha: float = 2  # activation regularization (AR)
+    rnn_beta: float = 1  # temporal activation regularization (TAR)
 
     lang: str = 'en'
     name: str = None
@@ -183,7 +186,8 @@ class LMHyperParams:
 
         trn_args = dict(tie_weights=True, clip=self.clip, bptt=self.bptt,
                         pretrained_fnames=self.pretrained_fnames,
-                        pretrained_model=self.pretrained_model)
+                        pretrained_model=self.pretrained_model,
+                        alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)
         print ("Training args: ", trn_args, "dps: ", dps or self.dps)
         learn = lm_learner(data_lm, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, pad_token=PAD_TOKEN_ID,
