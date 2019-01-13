@@ -116,7 +116,7 @@ class LMHyperParams:
     def lm_type(self):
         return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
 
-    def tokenzier_to_fastai_args(self, trn_data_loading_func, add_moses):
+    def tokenizer_to_fastai_args(self, trn_data_loading_func, add_moses):
         tok_func = MosesTokenizerFunc if add_moses else BaseTokenizer
         if self.tokenizer is Tokenizers.SUBWORD:
             if self.base_lm_path: # ensure we are using the same sentence piece model
@@ -211,7 +211,7 @@ class LMHyperParams:
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
 
-        args = self.tokenzier_to_fastai_args(trn_data_loading_func=self.load_train_text, add_moses=False)
+        args = self.tokenizer_to_fastai_args(trn_data_loading_func=self.load_train_text, add_moses=False)
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
             print("Tokenized data loaded")

@@ -125,7 +125,7 @@ class CLSHyperParams(LMHyperParams):
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
             cls_cache = '.'
 
-        args = self.tokenzier_to_fastai_args(trn_data_loading_func=lambda: trn_df[1], add_moses=True)
+        args = self.tokenizer_to_fastai_args(trn_data_loading_func=lambda: trn_df[1], add_moses=True)
 
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
