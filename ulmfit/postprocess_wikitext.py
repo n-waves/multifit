@@ -53,7 +53,7 @@ def limit_vocab(unk_path, vocab):
             tokens = [''] + tokens
             line = ' '.join(tokens)
             f_out.write(line)
-    print(f'{unk_path.name}. # of tokens: {total_num_tokens}')
+    print(f'{unk_path.name}. # of tokens: {total_num_tokens}')
     temp_file_path.replace(unk_path)
 
 
@@ -100,6 +100,7 @@ def postprocess_wikitext(path, lang):
     for split in splits:
         unk_path = dest_path / f'{lang}.wiki.{split}.tokens'
         limit_vocab(unk_path, vocab)
+
 
 if __name__ == '__main__':
     fire.Fire(postprocess_wikitext)
