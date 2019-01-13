@@ -172,7 +172,7 @@ class LMHyperParams:
                 learn.unfreeze()
                 if not learn.true_wd: learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7), wd=1e-7)
                 else:                 learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7)) # TODO find proper values
-        learn.save("lm_best_with_opt", with_opt=False)
+        learn.save("lm_best_with_opt", with_opt=True)
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
         print(learn.path)
