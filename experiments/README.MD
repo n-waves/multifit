@@ -1,6 +1,6 @@
 **ULMFiT - Russia - Experiments Readme** 
 ----------------------------------------
-Hello. I'm working on ULMFiT for Russian language. I forked from https://github.com/n-waves/ulmfit-multilingual and mostly inspired by @piotr.czapla work  https://forums.fast.ai/t/multilingual-ulmfit/28117
+Hello. I'm working on ULMFiT for Russian language. I forked from https://github.com/n-waves/ulmfit-multilingual and mostly inspired by Piotr Czapla work  https://forums.fast.ai/t/multilingual-ulmfit/28117
 
 As for now, I did:
 - pretraining language model from wiki-dump on 100M
