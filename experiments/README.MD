@@ -6,6 +6,7 @@ As for now, I did:
 - pretraining language model from wiki-dump on 100M
 - finetuning LM and experimenting on ruSentEval task (http://www.dialog-21.ru/evaluation/2016/sentiment/) 
 with different sizes of data samples and achieved ~ .98 F1 score, but only positive vs negative (data from http://study.mokoron.com/)
+- work on “Rusentiment” classification task (http://text-machine.cs.uml.edu/projects/rusentiment/), which is multiclass and noisier than the previous one. I’ve performed some experiments and managed to replicate SOTA (~0.73 F1 score)
 
 I'm currently working on "Rusentiment" classification task (http://text-machine.cs.uml.edu/projects/rusentiment/), 
 which is multiclass and noisier than the previous one. I've performed some first experiments and get close to benchmark results.
