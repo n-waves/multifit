@@ -1,6 +1,6 @@
-= DE =
-== VF60k LSTM nl 3 ==
-=== LM ===
+# DE
+## VF60k LSTM nl 3
+### LM 
 ```
 python -m ulmfit lm --dataset-path data/wiki/de-100 --cuda-id=1 --tokenizer='vf' --nl 3 --name 'nl3' --max-vocab 60000  --lang de --qrnn=False - train 10 --bs=50 --drop_mult=0
 Max vocab: 60000
@@ -27,10 +27,10 @@ epoch     train_loss  valid_loss  accuracy
 data/wiki/de-100/models/vf60k
 Saving info data/wiki/de-100/models/vf60k/lstm_nl3.m/info.json
 ```
-=== MLDocs ===
+### MLDocs
 ...
-== SP30k LSTM nl 4 ==
-=== LM ===
+## SP30k LSTM nl 4
+### LM
 ```
 python -m ulmfit lm --dataset-path data/wiki/de-100 --cuda-id=0 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 30000  --lang sp --qrnn=False - train 10 --bs=50 --drop_mult=0
 1,2.833101,3.174348,0.472863
@@ -46,7 +46,7 @@ python -m ulmfit lm --dataset-path data/wiki/de-100 --cuda-id=0 --tokenizer='sp'
 data/wiki/de-100/models/sp30k/lstm_nl4.m/lm-history.csv
 ```
 
-=== MLDocs ===
+### MLDocs
 ```
 python -m ulmfit cls --dataset-path data/mldoc/de-1  --base-lm-path data/wiki/de-100/models/sp30k/lstm_nl4.m  --lang=de --name 'nl4' - train 20 --bs 40     ✘ 1
 Max vocab: 30000
