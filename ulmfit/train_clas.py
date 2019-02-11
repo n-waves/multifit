@@ -89,16 +89,21 @@ class CLSHyperParams(LMHyperParams):
         print(f"Loss and accuracy using ({save_name}):", learn.validate(data_tst.valid_dl))
 
     def create_cls_learner(self, data_clas, dps=None, **kwargs):
-        fastai.text.learner.default_dropout['language'] = dps or self.dps
-        trn_args=dict(bptt=self.bptt, clip=self.clip,)
+        assert self.bidir == False, "bidirectional model is not yet supported"
+        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn, bidir=self.bidir)
+        config.update(dps or self.dps)
+        trn_args=dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)
-        classifier_learner = text_classifier_learner
-        if self.bidir:
-            classifier_learner = bilm_text_classifier_learner
-            trn_args['bicls_head'] = self.bicls_head
-        learn = classifier_learner(data_clas,  pad_token=PAD_TOKEN_ID,
-            path=self.model_dir.parent, model_dir=self.model_dir.name,
-            qrnn=self.qrnn, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, **trn_args)
+        learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
+            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
+
+        if self.pretrained_model is not None:
+            print("Loading pretrained model")
+            model_path = untar_data(self.pretrained_model, data=False)
+            fnames = [list(model_path.glob(f'*.{ext}'))[0] for ext in ['pth', 'pkl']]
+            learn.load_pretrained(*fnames, strict=False)
+            learn.freeze()
+
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
                                partial(SaveModelCallback, every='improvement', name='cls_best')]
         return learn
@@ -152,12 +157,12 @@ class CLSHyperParams(LMHyperParams):
         args = self.tokenzier_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type, bs=bs)
+            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', bs=bs)
             print(f"Tokenized data loaded, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
         except FileNotFoundError:
             print(f"Running tokenization...")
             data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=lm_trn_df, valid_df=lm_val_df,
-                                              max_vocab=self.max_vocab, bs=bs, lm_type=self.lm_type, **args)
+                                              max_vocab=self.max_vocab, bs=bs, **args)
             print(f"Saving tokenized: cls.trn {len(data_lm.train_ds)}, cls.val {len(data_lm.valid_ds)}")
             data_lm.save('lm')
 
