@@ -113,17 +113,17 @@ class LMHyperParams:
     def lm_type(self):
         return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
 
-    def tokenzier_to_fastai_args(self, trn_data_loading_func, add_moses):
-        tok_func = MosesTokenizerFunc if add_moses else BaseTokenizer
+    def tokenzier_to_fastai_args(self, sp_data_func, use_moses):
+        tok_func = MosesTokenizerFunc if use_moses else BaseTokenizer
         if self.tokenizer is Tokenizers.SUBWORD:
-            if self.base_lm_path: # ensure we are using the same sentence piece model
+            if self.base_lm_path and not(self.cache_dir/"spm.model").exists(): # ensure we are using the same sentence piece model
                 shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
                 shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
                 shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
             args = get_sentencepiece(self.cache_dir,
-                                     trn_data_loading_func,
+                                     sp_data_func,
                                      vocab_size=self.max_vocab,
-                                     use_moses=add_moses,
+                                     use_moses=use_moses,
                                      lang=self.lang)
 
         elif self.tokenizer is Tokenizers.MOSES:
@@ -207,7 +207,7 @@ class LMHyperParams:
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
 
-        args = self.tokenzier_to_fastai_args(trn_data_loading_func=self.load_train_text, add_moses=False)
+        args = self.tokenzier_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
             print("Tokenized data loaded")
