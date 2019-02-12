@@ -56,6 +56,7 @@ class LMHyperParams:
     dataset_path: str # data_dir
 
     base_lm_path: str = None
+    backwards: str = False
     bidir: bool =False
     qrnn: bool = True
     max_vocab: int = 60000
@@ -71,12 +72,17 @@ class LMHyperParams:
     dps = (0.25, 0.1, 0.2, 0.02, 0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
+    # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
+    rnn_alpha: float = 2  # activation regularization (AR)
+    rnn_beta: float = 1  # temporal activation regularization (TAR)
 
     lang: str = 'en'
     name: str = None
     cuda_id: InitVar[int] = 0
 
     def __post_init__(self, cuda_id):
+        if self.bidir and self.backwards:
+            raise ValueError('Both "backwards" and "bidir" options cannot be enabled at the same time')
         if not torch.cuda.is_available():
             print('CUDA not available. Setting device=-1.')
             cuda_id = -1
@@ -100,7 +106,16 @@ class LMHyperParams:
     def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
 
     @property
-    def model_prefix(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
+    def model_direction(self):
+        if self.bidir:
+            return 'bi'
+        if self.backwards:
+            return 'bwd'
+        else:
+            return ''
+
+    @property
+    def model_prefix(self): return self.model_direction + ('qrnn' if self.qrnn else 'lstm')
 
     @property
     def model_name(self): return f"{self.model_prefix}_{self.name}.m"
@@ -110,9 +125,14 @@ class LMHyperParams:
 
     @property
     def lm_type(self):
-        return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
+        if self.bidir:
+            return contrib_data.LanguageModelType.BiLM
+        if self.backwards:
+            return contrib_data.LanguageModelType.BwdLM
+        else:
+            return contrib_data.LanguageModelType.FwdLM
 
-    def tokenzier_to_fastai_args(self, sp_data_func, use_moses):
+    def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
         tok_func = MosesTokenizerFunc if use_moses else BaseTokenizer
         if self.tokenizer is Tokenizers.SUBWORD:
             if self.base_lm_path and not(self.cache_dir/"spm.model").exists(): # ensure we are using the same sentence piece model
@@ -169,7 +189,7 @@ class LMHyperParams:
                 learn.unfreeze()
                 if not learn.true_wd: learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7), wd=1e-7)
                 else:                 learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7)) # TODO find proper values
-        learn.save("lm_best_with_opt", with_opt=False)
+        learn.save("lm_best_with_opt", with_opt=True)
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
         print(learn.path)
@@ -183,7 +203,8 @@ class LMHyperParams:
 
         trn_args = dict(tie_weights=True, clip=self.clip, bptt=self.bptt,
                         pretrained_fnames=self.pretrained_fnames,
-                        pretrained_model=self.pretrained_model)
+                        pretrained_model=self.pretrained_model,
+                        alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)
         print ("Training args: ", trn_args, "dps: ", dps or self.dps)
         learn = lm_learner(data_lm, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, pad_token=PAD_TOKEN_ID,
@@ -208,7 +229,7 @@ class LMHyperParams:
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
 
-        args = self.tokenzier_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
+        args = self.tokenizer_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, '.', lm_type=self.lm_type, bs=bs)
             print("Tokenized data loaded")

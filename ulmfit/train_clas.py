@@ -152,7 +152,7 @@ class CLSHyperParams(LMHyperParams):
         lm_trn_df = lm_trn_df[val_len:]
         lm_val_df = lm_trn_df[:val_len]
 
-        args = self.tokenzier_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
             data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type, bs=bs)

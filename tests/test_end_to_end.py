@@ -25,7 +25,8 @@ def get_test_data():
     imdb = data / "imdb"
 
     test_data = data / "test"
-    shutil.rmtree(test_data)
+    if test_data.exists():
+        shutil.rmtree(test_data)
 
     test_wt = test_data / 'wikitext-s'
     test_imdb = test_data / 'imdb'
