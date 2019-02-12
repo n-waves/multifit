@@ -10,7 +10,8 @@ import fire
 @dataclass
 class XLingualCLSHyperParams(CLSHyperParams):
     csv_name: str='train.csv'
-    target_paths: List[str] = None
+    target_paths: List[str]=None
+    parallel_data_path: str=None
     
     def __post_init__(self, *args, **kwargs):
         super().__post_init__(*args, **kwargs)
