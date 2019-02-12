@@ -89,7 +89,6 @@ class LMHyperParams:
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
         self.model_dir = self.cache_dir / self.model_name
 
-        self.model_dir.mkdir(exist_ok=True, parents=True)
         print('Max vocab:', self.max_vocab)
         print('Cache dir:', self.cache_dir)
         print('Model dir:', self.model_dir)
@@ -147,6 +146,7 @@ class LMHyperParams:
         print("Saving info", self.model_dir / 'info.json')
 
     def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3):
+        self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
@@ -201,6 +201,7 @@ class LMHyperParams:
             return [line.rstrip('\n') for line in f]
 
     def load_wiki_data(self, bs=70):
+        self.model_dir.mkdir(exist_ok=True, parents=True)
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
         val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
