@@ -483,3 +483,33 @@ epoch     train_loss  valid_loss  accuracy
 Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-noise0.4.m
 Loss and accuracy using (cls_last): [0.62477165, tensor(0.7717)]
 ```
+#### 15%
+```
+python -m ulmfit cls --dataset-path data/mldoc/de-1  --base-lm-path data/mldoc/de-1/models/sp30k/lstm_nl4.m  --lang=de --name 'nl4-noise0.15' --cuda-id=1 - train 0 --bs 40 --noise=0.15 --num-cls-epochs=2 --drop-mult-cls=0.2
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-noise0.15.m
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/de.dev.csv
+Tokenized data loaded, lm.trn 13500, lm.val 1500
+Added noise to 150 examples, only 0.85 have correct labels
+Running tokenization...
+Saving tokenized: cls.trn 1000, cls.val 1000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', '▁und', '▁in', 'en', "▁&'", 's', '-']
+Training args:  {'tie_weights': True, 'clip': 0.12, 'bptt': 70, 'pretrained_fnames': [PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4.m/lm_best'), PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4.m/../itos')], 'pretrained_model': None, 'drop_mult': 0.3} dps:  [0.25 0.1  0.2  0.02 0.15]
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-noise0.15.m/info.json
+Starting classifier training
+epoch     train_loss  valid_loss  accuracy
+1         0.836104    0.584330    0.897000
+epoch     train_loss  valid_loss  accuracy
+1         0.692108    0.303470    0.930000
+epoch     train_loss  valid_loss  accuracy
+1         0.653277    0.330520    0.924000
+epoch     train_loss  valid_loss  accuracy
+1         0.541086    0.331944    0.922000
+2         0.523274    0.335986    0.922000
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-noise0.15.m
+Loss and accuracy using (cls_last): [0.28749043, tensor(0.9355)]
+```

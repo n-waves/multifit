@@ -88,3 +88,64 @@ epoch     train_loss  valid_loss  accuracy
 Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4.m
 Loss and accuracy using (cls_best): [0.29789856, tensor(0.8920)]
 ```
+
+### JA on 100 elements
+```
+python -m ulmfit cls --dataset-path data/mldoc/ja-1  --base-lm-path data/wiki/ja-100/models/sp30k/lstm_nl4.m  --lang=ja --name 'nl4-100' --cuda-id=1 - train 20 --bs 40 --num-cls-epochs=8 --limit=100
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-100.m
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/ja.dev.csv
+Tokenized data loaded, lm.trn 13500, lm.val 1500
+Limiting data set to: 100
+Running tokenization...
+Saving tokenized: cls.trn 100, cls.val 100
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁、', '▁の', '▁。', '▁に', '▁を', '▁は', '▁年', '▁が', '▁)', '▁(']
+Training args:  {'tie_weights': True, 'clip': 0.12, 'bptt': 70, 'pretrained_fnames': [PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/ja-100/models/sp30k/lstm_nl4.m/lm_best'), PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/ja-100/models/sp30k/lstm_nl4.m/../itos')], 'pretrained_model': None, 'drop_mult': 0.3} dps:  [0.25 0.1  0.2  0.02 0.15]
+Unknown tokens 0, first 100: []
+Training lm from:  [PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/ja-100/models/sp30k/lstm_nl4.m/lm_best'), PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/ja-100/models/sp30k/lstm_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         2.837937    2.387255    0.518590
+epoch     train_loss  valid_loss  accuracy
+1         2.466900    2.193583    0.549492
+2         2.232762    1.983981    0.586658
+3         2.026505    1.810167    0.615649
+4         1.918111    1.679784    0.636613
+5         1.748909    1.577095    0.653108
+6         1.708709    1.491436    0.667657
+7         1.640415    1.420449    0.679619
+8         1.577434    1.359511    0.690194
+9         1.551961    1.302819    0.700306
+10        1.475623    1.252393    0.710039
+11        1.435565    1.208159    0.718740
+12        1.354910    1.161781    0.727927
+13        1.351157    1.123244    0.736009
+14        1.299070    1.086383    0.743896
+15        1.258739    1.055745    0.750383
+16        1.210775    1.035209    0.754965
+17        1.228421    1.018373    0.758963
+18        1.179444    1.007714    0.761158
+19        1.197443    1.003041    0.762068
+20        1.163223    1.001939    0.762211
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-100.m/info.json
+Starting classifier training
+epoch     train_loss  valid_loss  accuracy
+1         1.269222    1.360420    0.340000
+epoch     train_loss  valid_loss  accuracy
+1         0.969350    1.314497    0.400000
+epoch     train_loss  valid_loss  accuracy
+1         0.832396    1.263416    0.550000
+epoch     train_loss  valid_loss  accuracy
+1         0.780991    1.225439    0.600000
+2         0.765755    1.183010    0.600000
+3         0.749420    1.139053    0.600000
+4         0.731800    1.093319    0.610000
+5         0.711152    1.054695    0.610000
+6         0.694611    1.029465    0.580000
+7         0.680276    1.004366    0.580000
+8         0.668421    0.984848    0.590000
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-100.m
+Loss and accuracy using (cls_best): [0.81621724, tensor(0.7437)]
+```
