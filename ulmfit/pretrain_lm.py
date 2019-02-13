@@ -214,7 +214,7 @@ class LMHyperParams:
             learn.freeze()
         if self.pretrained_fnames is not None:
             print("Loading pretrained model")
-            fnames = [learn.path/learn.model_dir/f'{fn}.{ext}' for fn,ext in zip(self.pretrained_fnames, ['pth', 'pkl'])]
+            fnames = [f'{fn}.{ext}' for fn,ext in zip(self.pretrained_fnames, ['pth', 'pkl'])]
             learn.load_pretrained(*fnames)
             learn.freeze()
         # compared to standard Adam, we set beta_1 to 0.8
