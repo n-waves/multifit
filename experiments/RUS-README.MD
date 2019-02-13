@@ -13,8 +13,23 @@ ____________________
 *Workflow:*
 - all wiki downloading and processing as in parent repo
 - [This file](wiki-100-lm-rusent-class-v1.ipynb) file is for training LM on 100M wiki, tune LM on tweets from ruSentEval (2M sample of all the data) and classify ruSentiment task
-- some helpers to merge and fix text files (fix-data-from-db.ipynb, take-data-from-db.ipynb, merge-and-sample-rusent.ipynb)
+- To download ruSentiment data you need to run [get-ruSentiment-data.ipynb](get-ruSentiment-data.ipynb) 
+- It's a bit trickier to get twitter data to finetune LM
+    1. You need to download database dump of ~17M tweets from http://study.mokoron.com/
+    2. You need to up mysql database from this dump
+    3. With help of [take-data-from-db.ipynb code](take-data-from-db.ipynb) you can get all the data to csv file
+    4. You need to fix data with [fix-data-from-db.ipynb file](fix-data-from-db.ipynb)
+    5. I'm sure it's not a straightforward way and should be reconsidered somehow.
+___________________
+*Results:*
 
+Classification report from evaluation of best model
+
+![classification report](imgs/class_report.png)
+
+Normalized confusion matrix:
+
+![normalized confusion matrix](imgs/norm_conf_matr.png)
 
 This work is on fastai v1. All notebooks are self-explanatory and have some comments. 
 Feel free to ask questions, comment and provide suggestion
