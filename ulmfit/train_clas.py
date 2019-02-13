@@ -24,6 +24,7 @@ from pathlib import Path
 
 from ulmfit.pretrain_lm import LMHyperParams, Tokenizers, ENC_BEST
 
+
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
     use_test_for_validation=False
@@ -38,13 +39,13 @@ class CLSHyperParams(LMHyperParams):
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
     def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
-                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0):
+                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
 
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls)
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len)
         try:
             learn.load('cls_last')
             print("Loading last classifier")
