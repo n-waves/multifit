@@ -56,6 +56,7 @@ class LMHyperParams:
     dataset_path: str # data_dir
 
     base_lm_path: str = None
+    backwards: str = False
     bidir: bool =False
     qrnn: bool = True
     max_vocab: int = 60000
@@ -71,12 +72,17 @@ class LMHyperParams:
     dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
+    # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
+    rnn_alpha: float = 2  # activation regularization (AR)
+    rnn_beta: float = 1  # temporal activation regularization (TAR)
 
     lang: str = 'en'
     name: str = None
     cuda_id: InitVar[int] = 0
 
     def __post_init__(self, cuda_id):
+        if self.bidir and self.backwards:
+            raise ValueError('Both "backwards" and "bidir" options cannot be enabled at the same time')
         if not torch.cuda.is_available():
             print('CUDA not available. Setting device=-1.')
             cuda_id = -1
@@ -89,7 +95,6 @@ class LMHyperParams:
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
         self.model_dir = self.cache_dir / self.model_name
 
-        self.model_dir.mkdir(exist_ok=True, parents=True)
         print('Max vocab:', self.max_vocab)
         print('Cache dir:', self.cache_dir)
         print('Model dir:', self.model_dir)
@@ -100,7 +105,16 @@ class LMHyperParams:
     def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
 
     @property
-    def model_prefix(self): return ('bi' if self.bidir else '') + ('qrnn' if self.qrnn else 'lstm')
+    def model_direction(self):
+        if self.bidir:
+            return 'bi'
+        if self.backwards:
+            return 'bwd'
+        else:
+            return ''
+
+    @property
+    def model_prefix(self): return self.model_direction + ('qrnn' if self.qrnn else 'lstm')
 
     @property
     def model_name(self): return f"{self.model_prefix}_{self.name}.m"
@@ -110,9 +124,14 @@ class LMHyperParams:
 
     @property
     def lm_type(self):
-        return contrib_data.LanguageModelType.BiLM if self.bidir else contrib_data.LanguageModelType.FwdLM
+        if self.bidir:
+            return contrib_data.LanguageModelType.BiLM
+        if self.backwards:
+            return contrib_data.LanguageModelType.BwdLM
+        else:
+            return contrib_data.LanguageModelType.FwdLM
 
-    def tokenzier_to_fastai_args(self, sp_data_func, use_moses):
+    def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
         tok_func = MosesTokenizerFunc if use_moses else BaseTokenizer
         if self.tokenizer is Tokenizers.SUBWORD:
             if self.base_lm_path and not(self.cache_dir/"spm.model").exists(): # ensure we are using the same sentence piece model
@@ -146,6 +165,7 @@ class LMHyperParams:
         print("Saving info", self.model_dir / 'info.json')
 
     def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3):
+        self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
 
@@ -168,7 +188,7 @@ class LMHyperParams:
                 learn.unfreeze()
                 if not learn.true_wd: learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7), wd=1e-7)
                 else:                 learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7)) # TODO find proper values
-        learn.save("lm_best_with_opt", with_opt=False)
+        learn.save("lm_best_with_opt", with_opt=True)
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
         print(learn.path)
@@ -182,7 +202,7 @@ class LMHyperParams:
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn, bidir=self.bidir,
                           tie_weights=True, out_bias=True)
         config.update(dps or self.dps)
-        trn_args = dict(clip=self.clip)
+        trn_args = dict(clip=self.clip, alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)
         print ("Training args: ", trn_args, "dps: ", dps or self.dps)
         learn = language_model_learner(data_lm, AWD_LSTM, config=config, model_dir=self.model_dir.relative_to(data_lm.path), pretrained=False, **trn_args)
@@ -210,13 +230,14 @@ class LMHyperParams:
             return [line.rstrip('\n') for line in f]
 
     def load_wiki_data(self, bs=70):
+        self.model_dir.mkdir(exist_ok=True, parents=True)
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
         val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
         for path_ in [trn_path, val_path, tst_path]:
             assert path_.exists(), f'Error: {path_} does not exist.'
 
-        args = self.tokenzier_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
+        args = self.tokenizer_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
         try:
             data_lm = TextLMDataBunch.load(self.cache_dir, '.',
                                            bs=bs)

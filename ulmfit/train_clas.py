@@ -38,9 +38,10 @@ class CLSHyperParams(LMHyperParams):
     @property
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
-    def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
+    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
                    use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
+        self.model_dir.mkdir(exist_ok=True, parents=True)
 
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
@@ -55,7 +56,7 @@ class CLSHyperParams(LMHyperParams):
             learn.true_wd = True
             print("Starting classifier training")
             learn.freeze_to(-1)
-            learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
+            learn.fit_one_cycle(num_cls_frozen_epochs, 2e-2, moms=(0.8, 0.7))
             if unfreeze:
                 learn.freeze_to(-2)
                 learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
@@ -66,7 +67,7 @@ class CLSHyperParams(LMHyperParams):
         else:
             learn.true_wd = False
             print("Starting classifier training")
-            learn.fit_one_cycle(1, 5e-2, moms=(0.8, 0.7), wd=1e-7)
+            learn.fit_one_cycle(num_cls_frozen_epochs, 5e-2, moms=(0.8, 0.7), wd=1e-7)
             if unfreeze:
                 learn.freeze_to(-2)
                 learn.fit_one_cycle(1, slice(5e-2 / (2.6 ** 4), 5e-2), moms=(0.8, 0.7), wd=1e-7)
@@ -77,17 +78,18 @@ class CLSHyperParams(LMHyperParams):
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
 
-        self.validate_cls('cls_best', bs=bs, limit=limit, data_tst=data_tst, learn=learn)
-        return None
+        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=learn)
 
-    def validate_cls(self, save_name='cls_last', limit=None, bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_last', bs=40, data_tst=None, learn=None):
         if data_tst is None:
-            _, _, data_tst = self.load_cls_data(bs, limit=limit)
+            _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
             learn = self.create_cls_learner(data_tst, drop_mult=0.3)
             learn.unfreeze()
         learn.load(save_name)
-        print(f"Loss and accuracy using ({save_name}):", learn.validate(data_tst.valid_dl))
+        results = learn.validate(data_tst.valid_dl)
+        print(f"Loss and accuracy using ({save_name}):", results)
+        return list(map(float, results))
 
     def create_cls_learner(self, data_clas, dps=None, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
@@ -110,6 +112,7 @@ class CLSHyperParams(LMHyperParams):
         return learn
 
     def load_cls_data(self, bs, **kwargs):
+        self.model_dir.mkdir(exist_ok=True, parents=True)
         add_trn_to_lm = True
         lang = self.lang
         use_moses = True
@@ -155,7 +158,7 @@ class CLSHyperParams(LMHyperParams):
         lm_trn_df = lm_trn_df[val_len:]
         lm_val_df = lm_trn_df[:val_len]
 
-        args = self.tokenzier_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
             data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', bs=bs)
