@@ -1,5 +1,7 @@
 import gc
+import pprint
 import shutil
+from collections import OrderedDict
 from functools import wraps
 
 import fire
@@ -12,14 +14,15 @@ class FireView:
         for k,v in kwargs.items():
             setattr(self, k, v)
 
-def get_dataset_path(p):
-    return [x for x in p.parents if x.name == "models"][0].parent
-
 def get_lang_from_dataset_path(ds):
     lang,*_ = ds.name.split("-")
     if len(lang) == 2:
         return lang
     return "en"
+
+def get_dataset_path(p, dataset_template):
+    ds = [x for x in p.parents if x.name == "models"][0].parent
+    return ds.parent.glob(dataset_template.format(ds.name))
 
 class ULMFiT:
     @wraps(LMHyperParams)
@@ -34,23 +37,24 @@ class ULMFiT:
         params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
         return FireView(train=params.train_cls, validate_cls=params.validate_cls)
 
-    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", name="tmp-100", cuda_id=0, **trn_params):
-        results={}
-        for base_model in Path("data").glob(glob):
-            dataset_path = get_dataset_path(base_model)
-            lang = get_lang_from_dataset_path(dataset_path)
-            params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, cuda_id=cuda_id)
-            key = str(params.model_dir.relative_to(Path.cwd()))
-            if params.model_dir.exists():
-                print("Evaluating previously trained model")
-                results[key] = params.validate_cls()[1]
-            else:
-                print("Training")
-                results[key] = params.train_cls(num_lm_epochs=0, **trn_params)[1]
-            params = None
-            gc.collect()
+    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='{}', name="tmp-100", cuda_id=0, **trn_params):
+        results = OrderedDict()
+        for base_model in sorted(Path("data").glob(glob)):
+            for dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
+                lang = get_lang_from_dataset_path(dataset_path)
+                params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, cuda_id=cuda_id)
+                key = str(params.model_dir.relative_to(Path.cwd()))
+                if params.model_dir.exists():
+                    print("Evaluating previously trained model")
+                    results[key] = params.validate_cls()[1]
+                else:
+                    print("Training")
+                    results[key] = params.train_cls(num_lm_epochs=0, **trn_params)[1]
+                del params
+                gc.collect()
 
-        print(list(sorted(results.items())))
+        pprint.pprint(results)
+# python -m ulmfit cls --dataset-path data/mldoc/de-1-laser  --base-lm-path data/mldoc/de-1/models/sp30k/lstm_nl4.m  --lang=de --name 'nl4' --cuda-id=1 - train 0 --bs 40 --num-cls-epochs=2
 
 if __name__ == '__main__':
     fire.Fire(ULMFiT())
