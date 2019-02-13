@@ -88,3 +88,13 @@ $ git push --set-upstream n-waves ulmfit_multilingual  # to automatically push u
     - `bilm` -- scripts to train biLM ELMo style, Bert style
     - `class`  -- scripts to test classifiers on multiple languages
     - `xnli` -- scripts to test nli 
+
+
+## Running tests
+
+To run the tests, the following data is necessary:
+
+- wikitext-2 (prepared by `./prepare_wiki-en.sh`, along with wikitext-103)
+- imdb (prepared by `./prepare_imdb.sh`)
+
+then simply run tests, e.g. `pytest .`

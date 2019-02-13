@@ -42,7 +42,7 @@ def learn():
 
 def text_df(n_labels):
     data = []
-    texts = ["fast ai is a cool project", "hello world"]
+    texts = ["fast ai is a cool project", "hello world"] * 20
     for ind, text in enumerate(texts):
         sample = {}
         for label in range(n_labels): sample[label] = ind%2
@@ -58,19 +58,21 @@ def test_val_loss(learn):
 
 
 def test_bilm_classifier_loads_encoder():
-    n_labels=2
+    n_labels=1
+    nl = 1
+    emb_sz = 100
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'tmp')
     os.makedirs(path)
     try:
-        df = text_df(n_labels=1)
+        df = text_df(n_labels=n_labels)
         lmdf = df#[["text"]]
         print(lmdf.head())
         lmdata = TextLMDataBunch.from_df(path, lmdf, lmdf, tokenizer=Tokenizer(BaseTokenizer),
                                        lm_type=contrib_data.LanguageModelType.BiLM)
-        learn = bilm_learner(lmdata, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
+        learn = bilm_learner(lmdata, emb_sz=emb_sz, nl=nl, drop_mult=0.1, qrnn=False)
         learn.save_encoder("enc")
-        data = TextClasDataBunch.from_df(path, train_df=df, valid_df=df, label_cols=list(range(n_labels)), text_cols=["text"])
-        classifier = bilm_text_classifier_learner(data, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
+        data = TextClasDataBunch.from_df(path, train_df=df, valid_df=df, label_cols=list(range(n_labels)), text_cols=["text"], bs=8)
+        classifier = bilm_text_classifier_learner(data, emb_sz=emb_sz, nl=nl, drop_mult=0.1, qrnn=False)
         print(last_layer(classifier.model), )
         classifier.load_encoder("enc")
         classifier.fit(1)
