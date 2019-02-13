@@ -29,8 +29,8 @@ data/wiki/fr-100/models/sp30k
 Saving info data/wiki/fr-100/models/sp30k/lstm_nl4.m/info.json
 ```
 
-## MLDocs 
-### First run
+### MLDocs 
+#### First run
 MultiCCA 92.05, ulmfit 93.90
 ```
 python -m ulmfit cls --dataset-path data/mldoc/fr-1  --base-lm-path data/wiki/fr-100/models/sp30k/lstm_nl4.m  --lang=fr --name 'nl4' --cuda-id=1 - train 20 --bs 40
@@ -86,7 +86,7 @@ Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/mod
 Loss and accuracy using (cls_best): [0.18914989, tensor(0.9390)]
 ```
  
-## Second run
+#### Second run
 MultiCCA 92.05, ulmfit 93.67
 ```
 python -m ulmfit cls --dataset-path data/mldoc/fr-1  --base-lm-path data/wiki/fr-100/models/sp30k/lstm_nl4.m  --lang=fr --name 'nl4-2nd' --cuda-id=1 - train 20 --bs 40 --num-cls-epochs=8

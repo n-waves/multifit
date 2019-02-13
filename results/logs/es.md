@@ -1,6 +1,8 @@
+# ES
+
+## SP30k LSTM nl 4
+### LM
 ````
-
-
 python -m ulmfit lm --dataset-path data/wiki/es-100 --cuda-id=0 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 30000 --lang es --qrnn=False - train 10 --bs=50 --drop_mult=0
 Running tokenization
 Wiki text was split to 96224 articles
