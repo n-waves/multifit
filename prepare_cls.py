@@ -2,7 +2,7 @@ import fire
 import urllib.request
 from pathlib import Path
 
-lang_codes = ['fr', 'jp', 'en', 'de']
+lang_codes = ['fr', 'ja', 'en', 'de']
 
 def fetch_cls(url_prefix, cls_path="data/cls"):
     """ Fetch CLS from server using basic auth
