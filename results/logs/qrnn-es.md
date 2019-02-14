@@ -23,3 +23,66 @@ epoch     train_loss  valid_loss  accuracy
 9         2.635299    3.166430    0.410160
 10        2.656724    3.145599    0.413176
 ```
+
+### MLDocs
+```
+python -m ulmfit cls --dataset-path data/mldoc/es-1  --cuda-id=0 --base-lm-path data-filtered/data/wiki/es-100/models/sp30k/qrnn_nl4.m  --lang=es --name 'nl4' - train 20 --bs 40 --cls-max-len 700
+
+Max vocab: 30000
+Cache dir: /home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/models/sp30k
+Model dir: /home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/qrnn_nl4.m
+Loading validation /home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Running tokenization...
+Saving tokenized: cls.trn 13013, cls.val 1445
+Running tokenization...
+Saving tokenized: cls.trn 1000, cls.val 1000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁.', '▁la', '▁el', '▁en', '▁y', 's', '▁a', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+Training lm from:  [PosixPath('/home/marcin/github/n-waves/ulmfit-multilingual/data-filtered/data/wiki/es-100/models/sp30k/qrnn_nl4.m/lm_best'), PosixPath('/home/marcin/github/n-waves/ulmfit-multilingual/data-filtered/data/wiki/es-100/models/sp30k/qrnn_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         3.352874    2.367255    0.514858
+epoch     train_loss  valid_loss  accuracy
+1         2.796090    2.203233    0.536513
+2         2.515840    1.970145    0.576640
+3         2.198857    1.774013    0.610990
+4         2.035614    1.633484    0.633450
+5         1.944539    1.535505    0.649110
+6         1.848854    1.451618    0.661764
+7         1.788579    1.382675    0.673166
+8         1.675414    1.320675    0.683617
+9         1.614536    1.264944    0.694086
+10        1.618723    1.215493    0.702936
+11        1.504875    1.164356    0.712921
+12        1.411316    1.126858    0.721374
+13        1.421174    1.079897    0.731196
+14        1.352116    1.044965    0.738148
+15        1.318876    1.013755    0.745312
+16        1.268569    0.986391    0.751383
+17        1.273424    0.971129    0.754643
+18        1.256196    0.960661    0.757439
+19        1.233202    0.955790    0.758405
+20        1.230536    0.955070    0.758496
+/home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/models/sp30k
+Saving info /home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/qrnn_nl4.m/info.json
+Starting classifier training
+epoch     train_loss  valid_loss  accuracy
+1         0.739119    0.438338    0.867000
+Better model found at epoch 1 with val_loss value: 0.438338041305542.
+epoch     train_loss  valid_loss  accuracy
+1         0.425376    0.207067    0.950000
+Better model found at epoch 1 with val_loss value: 0.20706671476364136.
+epoch     train_loss  valid_loss  accuracy
+1         0.311269    0.172416    0.956000
+Better model found at epoch 1 with val_loss value: 0.17241604626178741.
+epoch     train_loss  valid_loss  accuracy
+1         0.226164    0.166543    0.958000
+Better model found at epoch 1 with val_loss value: 0.1665433794260025.
+2         0.199775    0.167683    0.956000
+Saving models at /home/marcin/github/n-waves/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.18184493, tensor(0.9448)]
+0.18184493482112885
+0.9447500109672546
+```
