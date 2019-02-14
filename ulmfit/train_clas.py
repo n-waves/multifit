@@ -15,7 +15,7 @@ from fastai_contrib import utils
 from fastai_contrib.data import LanguageModelType
 from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
-    get_sentencepiece, MosesTokenizerFunc
+    get_sentencepiece
 from fastai.text.transform import Vocab
 
 import fire

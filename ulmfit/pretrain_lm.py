@@ -14,8 +14,8 @@ from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
-    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, MosesTokenizerFunc, \
-    replace_std_toks
+    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, \
+    replace_std_toks, MosesPreprocessingFunc
 from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd, bilm_text_classifier_learner
 import pickle
 
@@ -30,6 +30,7 @@ ENC_BEST = "enc_best"
 
 class Tokenizers(Enum):
     SUBWORD='sp'
+    BROKENSUBWORD = 'bsp'
     MOSES='v'
     MOSES_FA='vf'
     FASTAI='f'
@@ -121,7 +122,7 @@ class LMHyperParams:
     def model_name(self): return f"{self.model_prefix}_{self.name}.m"
 
     @property
-    def pretrained_fnames(self): return [self.base_lm_path / 'lm_best', self.base_lm_path / '../itos'] if self.base_lm_path else None
+    def pretrained_fnames(self): return [self.base_lm_path / LM_BEST, self.base_lm_path / '../itos'] if self.base_lm_path else None
 
     @property
     def lm_type(self):
@@ -133,8 +134,8 @@ class LMHyperParams:
             return contrib_data.LanguageModelType.FwdLM
 
     def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
-        tok_func = MosesTokenizerFunc if use_moses else BaseTokenizer
-        if self.tokenizer is Tokenizers.SUBWORD:
+        moses_preproc = [MosesPreprocessingFunc(self.lang)] if use_moses else []
+        if self.tokenizer is Tokenizers.SUBWORD or self.tokenizer is Tokenizers.BROKENSUBWORD:
             if self.base_lm_path and not(self.cache_dir/"spm.model").exists(): # ensure we are using the same sentence piece model
                 shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
                 shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
@@ -142,13 +143,19 @@ class LMHyperParams:
             args = get_sentencepiece(self.cache_dir,
                                      sp_data_func,
                                      vocab_size=self.max_vocab,
-                                     use_moses=use_moses,
-                                     lang=self.lang)
-
+                                     lang=self.lang,
+                                     pre_rules=moses_preproc + defaults.text_pre_rules,
+                                     post_rules=defaults.text_post_rules)
         elif self.tokenizer is Tokenizers.MOSES:
-            args = dict(tokenizer=Tokenizer(tok_func=tok_func, lang=self.lang, pre_rules=[replace_std_toks], post_rules=[]))
+            args = dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
+                                            lang=self.lang,
+                                            pre_rules=moses_preproc + [replace_std_toks],
+                                            post_rules=[]))
         elif self.tokenizer is Tokenizers.MOSES_FA:
-            args = dict(tokenizer=Tokenizer(tok_func=tok_func, lang=self.lang))  # use default pre/post rules
+            args = dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
+                                            lang=self.lang,
+                                            pre_rules=moses_preproc + defaults.text_pre_rules,
+                                            post_rules=defaults.text_post_rules))
         elif self.tokenizer is Tokenizers.FASTAI:
             args = dict()
         else:
