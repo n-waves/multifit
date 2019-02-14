@@ -39,7 +39,9 @@ def bilm_text_classifier_learner(data: DataBunch, bptt: int = 70, max_len: int =
     ds = data.train_ds
     vocab_size, n_class = len(data.vocab.itos), data.c
     if bicls_head == 'BiPoolingLinearClassifier':
-        count = 3*2
+        count = 3 * 2
+    elif if bicls_head == 'BiAttentionPoolingClassifier':
+        count = 5
     else:
         count = 3
     layers = [emb_sz * count] + lin_ftrs + [n_class]
