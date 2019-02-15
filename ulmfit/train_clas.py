@@ -93,7 +93,7 @@ class CLSHyperParams(LMHyperParams):
 
     def create_cls_learner(self, data_clas, dps=None, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
-        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn, bidir=self.bidir)
+        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
         config.update(dps or self.dps)
         trn_args=dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)

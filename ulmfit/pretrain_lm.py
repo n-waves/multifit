@@ -206,7 +206,7 @@ class LMHyperParams:
 
     def create_lm_learner(self, data_lm, dps=None, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
-        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn, bidir=self.bidir,
+        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn,
                           tie_weights=True, out_bias=True)
         config.update(dps or self.dps)
         trn_args = dict(clip=self.clip, alpha=self.rnn_alpha, beta=self.rnn_beta)
