@@ -47,7 +47,7 @@ class ULMFiT:
             for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
                 params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, cuda_id=cuda_id)
                 key = str(params.model_dir.relative_to(Path.cwd()))
-                if params.model_dir.exists():
+                if (params.model_dir/"cls_last.pth").exists():
                     print("Evaluating previously trained model")
                     results[key] = params.validate_cls()[1]
                 else:
