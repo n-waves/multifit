@@ -41,7 +41,7 @@ class ULMFiT:
         params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
         return FireView(train=params.train_cls, validate_cls=params.validate_cls)
 
-    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", cuda_id=0, **trn_params):
+    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
         results = OrderedDict()
         for base_model in sorted(Path("data").glob(glob)):
             for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
@@ -52,7 +52,7 @@ class ULMFiT:
                     results[key] = params.validate_cls()[1]
                 else:
                     print("Training")
-                    results[key] = params.train_cls(num_lm_epochs=0, **trn_params)[1]
+                    results[key] = params.train_cls(num_lm_epochs=num_lm_epochs, **trn_params)[1]
                 del params
                 gc.collect()
 
