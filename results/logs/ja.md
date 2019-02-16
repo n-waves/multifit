@@ -1,4 +1,6 @@
-##
+# JA
+## SP30k LSTM nl 4 
+### LM
 ```
 python -m ulmfit lm --dataset-path data/wiki/ja-100 --cuda-id=0 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 30000 \
 --lang ja --qrnn=False - train 10 --bs=50 --drop_mult=0
@@ -27,7 +29,7 @@ data/wiki/ja-100/models/sp30k
 Saving info data/wiki/ja-100/models/sp30k/lstm_nl4.m/info.json
 ```
 
-## MLDoc
+### MLDoc
 MultiCCA 85.35%, ULMFiT 89.20%
 ```
 python -m ulmfit cls --dataset-path data/mldoc/ja-1  --base-lm-path data/wiki/ja-100/models/sp30k/lstm_nl4.m  --lang=ja --name 'nl4' --cuda-id=1 - train 20 --bs 40 --num-cls-epochs=8

@@ -15,7 +15,7 @@ from fastai_contrib import utils
 from fastai_contrib.data import LanguageModelType
 from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
 from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
-    get_sentencepiece, MosesTokenizerFunc
+    get_sentencepiece
 from fastai.text.transform import Vocab
 
 import fire
@@ -23,6 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 from ulmfit.pretrain_lm import LMHyperParams, Tokenizers, ENC_BEST
+
 
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
@@ -38,14 +39,14 @@ class CLSHyperParams(LMHyperParams):
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
-                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0):
+                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls)
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len)
         try:
             learn.load('cls_last')
             print("Loading last classifier")
@@ -91,16 +92,21 @@ class CLSHyperParams(LMHyperParams):
         return list(map(float, results))
 
     def create_cls_learner(self, data_clas, dps=None, **kwargs):
-        fastai.text.learner.default_dropout['language'] = dps or self.dps
-        trn_args=dict(bptt=self.bptt, clip=self.clip,)
+        assert self.bidir == False, "bidirectional model is not yet supported"
+        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
+        config.update(dps or self.dps)
+        trn_args=dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)
-        classifier_learner = text_classifier_learner
-        if self.bidir:
-            classifier_learner = bilm_text_classifier_learner
-            trn_args['bicls_head'] = self.bicls_head
-        learn = classifier_learner(data_clas,  pad_token=PAD_TOKEN_ID,
-            path=self.model_dir.parent, model_dir=self.model_dir.name,
-            qrnn=self.qrnn, emb_sz=self.emb_sz, nh=self.nh, nl=self.nl, **trn_args)
+        learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
+            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
+
+        if self.pretrained_model is not None:
+            print("Loading pretrained model")
+            model_path = untar_data(self.pretrained_model, data=False)
+            fnames = [list(model_path.glob(f'*.{ext}'))[0] for ext in ['pth', 'pkl']]
+            learn.load_pretrained(*fnames, strict=False)
+            learn.freeze()
+
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
                                partial(SaveModelCallback, every='improvement', name='cls_best')]
         return learn
@@ -155,12 +161,12 @@ class CLSHyperParams(LMHyperParams):
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         try:
             if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', lm_type=self.lm_type, bs=bs)
+            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', bs=bs)
             print(f"Tokenized data loaded, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
         except FileNotFoundError:
             print(f"Running tokenization...")
             data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=lm_trn_df, valid_df=lm_val_df,
-                                              max_vocab=self.max_vocab, bs=bs, lm_type=self.lm_type, **args)
+                                              max_vocab=self.max_vocab, bs=bs, **args)
             print(f"Saving tokenized: cls.trn {len(data_lm.train_ds)}, cls.val {len(data_lm.valid_ds)}")
             data_lm.save('lm')
 

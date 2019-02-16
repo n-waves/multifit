@@ -35,33 +35,28 @@ CLASSES = ['neg', 'pos', 'unsup']
 number_match_re = re.compile(r'^([0-9]+[,.]?)+$')
 number_split_re = re.compile(r'([,.])')
 
-class MosesTokenizerFunc(BaseTokenizer):
-    "Wrapper around a MosesTokenizer to make it a `BaseTokenizer`."
-    def __init__(self, lang:str):
-        super().__init__(lang=lang)
-        self.tok = MosesTokenizer(lang)
+class MosesPreprocessingFunc():
 
-    def tokenizer(self, t:str) -> List[str]:
-        return self.tok.tokenize(t, return_str=False, escape=False)
+    def __init__(self, lang: str):
+        self.mt = MosesTokenizer(lang)
 
-    def add_special_cases(self, toks:Collection[str]):
-        for w in toks:
-            assert len(self.tokenizer(w))==1, f"Tokenizer is unable to keep {w} as one token!"
+    def __call__(self, t: str) -> str:
+        return self.mt.tokenize(t, return_str=True, escape=True)
 
 class SentencePieceTokenizer(Tokenizer):
     "Put together rules and a tokenizer function to tokenize text with multiprocessing."
     def __init__(self, spm_model, lang:str='en', pre_rules:ListRules=None,
-                 post_rules:ListRules=None, special_cases:Collection[str]=None, n_cpus:int=None, use_moses=False):
+                 post_rules:ListRules=None, special_cases:Collection[str]=None, n_cpus:int=None):
+        # moses is added to preprocessing functions
         super().__init__(self.tok_fun_with_sp, lang, pre_rules, post_rules, special_cases, n_cpus)
         self.spm_model = spm_model
-        self.use_moses = use_moses
 
     def tok_fun_with_sp(self, lang):
         try:
             import sentencepiece as spm
         except ImportError:
             raise Exception('sentencepiece module is missing: run `pip install sentencepiece`')
-        tok = MosesTokenizerFunc(lang) if self.use_moses else BaseTokenizer(lang)
+        tok = BaseTokenizer(lang)
         tok.sp = spm.SentencePieceProcessor()
         tok.sp.Load(str(self.spm_model))
         return tok
@@ -72,9 +67,8 @@ class SentencePieceTokenizer(Tokenizer):
         toks = tok.sp.EncodeAsPieces(" ".join(toks))
         return toks
 
-def get_sentencepiece(cache_dir:PathOrStr, load_text,pre_rules:ListRules=None, post_rules:ListRules=None,
-                      vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, 
-                      use_moses=False, lang='en'):
+def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None, post_rules:ListRules=None,
+                      vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, lang='en'):
     try:
         import sentencepiece as spm
     except ImportError:
@@ -85,19 +79,13 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text,pre_rules:ListRules=None, p
     post_rules = post_rules if post_rules is not None else defaults.text_post_rules
 
     special_cases = defaults.text_spec_tok
-
     if not os.path.isfile(cache_dir / 'spm.model') or not os.path.isfile(cache_dir / f'itos.pkl'):
         # load the text from the train tokens file
         text = load_text()
         text = filter(lambda x: len(x.rstrip(" ")), text)
         text = (reduce(lambda t, rule: rule(t), pre_rules, line) for line in text)
-        if use_moses:
-            mt = MosesTokenizer(lang)
-            splitter = lambda t: mt.tokenize(t, return_str=False, escape=False)
-        else:
-            splitter = lambda t: t.split()
         def cleanup_n_postprocess(t):
-            t = splitter(t)
+            t = t.split()
             for r in post_rules:
                 t = r(t)
             return ' '.join(t)
@@ -128,10 +116,9 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text,pre_rules:ListRules=None, p
     # We cannot use lambdas or local methods here, since `tok_func` needs to be
     # pickle-able in order to be called in subprocesses when multithread tokenizing
     tokenizer = SentencePieceTokenizer(cache_dir/'spm.model',
-                                       use_moses=use_moses,
-                                       lang=lang,
-                                       pre_rules=pre_rules,
-                                       post_rules=post_rules)
+                                lang=lang,
+                                pre_rules=pre_rules,
+                                post_rules=post_rules)
     return {'tokenizer': tokenizer, 'vocab': vocab}
 
 
