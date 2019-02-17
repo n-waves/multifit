@@ -263,7 +263,7 @@ class LMHyperParams:
     def lm_databunch(self, name, *args, **kwargs):
         return self.databunch(name, bunch_class=TextLMDataBunch, *args, **kwargs)
 
-    def databunch(self, name, bunch_class, train_df, valid_df, bs, force, **args):
+    def databunch(self, name, bunch_class, train_df, valid_df, bs, force=False, **args):
         bunch_path = self.cache_dir / name
         if force and bunch_path.exist():
             print("Forcefully recreating the databunch, removing previously stored data")
@@ -288,6 +288,9 @@ class LMHyperParams:
                                        bs=bs,
                                        **args)
             data.save(name)
+        with open(self.cache_dir/"itos.pkl", 'wb') as f:
+            pickle.dump(data.vocab.itos, f)
+
 
         print(f"Data {name}, trn: {len(data.train_ds)}, val: {len(data.valid_ds)}")
         return data
