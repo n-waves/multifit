@@ -245,23 +245,51 @@ class LMHyperParams:
             assert path_.exists(), f'Error: {path_} does not exist.'
 
         args = self.tokenizer_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
-        try:
-            data_lm = TextLMDataBunch.load(self.cache_dir, '.',
-                                           bs=bs)
-            print("Tokenized data loaded")
-        except FileNotFoundError:
-            print("Running tokenization")
-            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=read_wiki_articles(trn_path),
-                                              valid_df=read_wiki_articles(val_path),
-                                              classes=None,
-                                              max_vocab=self.max_vocab,
-                                              bs=bs, text_cols='texts', **args)
-            data_lm.save('.')
+
+        data_lm = self.lm_databunch("lm",
+                          train_df=read_wiki_articles(trn_path),
+                          valid_df=read_wiki_articles(val_path),
+                          classes=None,
+                          bs=bs,
+                          text_cols='texts',
+                          **args)
 
         itos, stoi, trn_path = data_lm.vocab.itos, data_lm.vocab.stoi, data_lm.path
         print('Size of vocabulary:', len(itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
         return data_lm
+
+    def lm_databunch(self, name, *args, **kwargs):
+        return self.databunch(name, bunch_class=TextLMDataBunch, *args, **kwargs)
+
+    def databunch(self, name, bunch_class, train_df, valid_df, bs, force, **args):
+        bunch_path = self.cache_dir / name
+        if force and bunch_path.exist():
+            print("Forcefully recreating the databunch, removing previously stored data")
+            for f in bunch_path.glob("*.npy"):
+                f.unlink()
+            if bunch_path.isdir():
+                if name != ".":
+                    bunch_path.rmdir()
+            else:
+                bunch_path.unlink()
+
+        if (bunch_path / 'itos.pkl').exists():
+            data = bunch_class.load(self.cache_dir, name, bs=bs)
+        elif bunch_path.exists():
+            data = load_data(self.cache_dir, fname=name, bs=bs)
+        else:
+            print(f"Running tokenization {name}...")
+            data = bunch_class.from_df(path=self.cache_dir,
+                                       train_df=train_df,
+                                       valid_df=valid_df,
+                                       max_vocab=self.max_vocab,
+                                       bs=bs,
+                                       **args)
+            data.save(name)
+
+        print(f"Data {name}, trn: {len(data.train_ds)}, val: {len(data.valid_ds)}")
+        return data
 
     @classmethod
     def from_lm(cls, dataset_path, base_lm_path, **kwargs) -> 'LMHyperParams':

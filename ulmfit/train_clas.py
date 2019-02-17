@@ -2,27 +2,15 @@
 Train a classifier on top of a language model trained with `pretrain_lm.py`.
 Optionally fine-tune LM before.
 """
-from sacremoses import MosesTokenizer
 
-import fastai
-import torch
-
-from fastai import *
-from fastai.callbacks import CSVLogger, SaveModelCallback
+from fastai.callbacks import CSVLogger
 from fastai.text import *
-from fastai_contrib import utils
 
-from fastai_contrib.data import LanguageModelType
-from fastai_contrib.learner import bilm_text_classifier_learner, bilm_learner, accuracy_fwd, accuracy_bwd
-from fastai_contrib.utils import PAD, UNK, read_clas_data, PAD_TOKEN_ID, DATASETS, TRN, VAL, TST, ensure_paths_exists, \
-    get_sentencepiece
-from fastai.text.transform import Vocab
+from fastai_contrib.utils import PAD_TOKEN_ID
 
 import fire
-from collections import Counter
-from pathlib import Path
 
-from ulmfit.pretrain_lm import LMHyperParams, Tokenizers, ENC_BEST
+from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
 
 
 class CLSHyperParams(LMHyperParams):
@@ -158,24 +146,13 @@ class CLSHyperParams(LMHyperParams):
         lm_trn_df = lm_trn_df[val_len:]
         lm_val_df = lm_trn_df[:val_len]
 
-        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
-        try:
-            if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_lm = TextLMDataBunch.load(self.cache_dir, 'lm', bs=bs)
-            print(f"Tokenized data loaded, lm.trn {len(data_lm.train_ds)}, lm.val {len(data_lm.valid_ds)}")
-        except FileNotFoundError:
-            print(f"Running tokenization...")
-            data_lm = TextLMDataBunch.from_df(path=self.cache_dir, train_df=lm_trn_df, valid_df=lm_val_df,
-                                              max_vocab=self.max_vocab, bs=bs, **args)
-            print(f"Saving tokenized: cls.trn {len(data_lm.train_ds)}, cls.val {len(data_lm.valid_ds)}")
-            data_lm.save('lm')
-
-        cls_name="."
+        cls_name="cls"
         if limit is not None:
             print("Limiting data set to:", limit)
             trn_df = trn_df[:limit]
             val_df = val_df[:limit]
             cls_name=f'{cls_name}limit{limit}'
+
         if noise > 0.0:
             count = len(trn_df)
             labels = trn_df[0].unique()
@@ -185,33 +162,19 @@ class CLSHyperParams(LMHyperParams):
             trn_df.loc[idx_to_distrub, [0]] = (trn_df.loc[idx_to_distrub, [0]] + 1) % modulo
             print(f"Added noise to {len(idx_to_distrub)} examples, only {(count-len(idx_to_distrub))/count} have correct labels")
             cls_name = f'{cls_name}noise{noise}'
-        try:
-            if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_cls = TextClasDataBunch.load(self.cache_dir, cls_name, bs=bs)
-            print(f"Tokenized data loaded, cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
-        except FileNotFoundError:
-            print(f"Running tokenization...")
-            args['vocab'] = data_lm.vocab  # make sure we use the same vocab for classifcation
-            data_cls = TextClasDataBunch.from_df(path=self.cache_dir, train_df=trn_df, valid_df=val_df,
-                                                 max_vocab=self.max_vocab, bs=bs, **args)
-            print(f"Saving tokenized: cls.trn {len(data_cls.train_ds)}, cls.val {len(data_cls.valid_ds)}")
-            data_cls.save(cls_name)
 
-        # Hack to load test dataset with labels
-        try:
-            if force: raise FileNotFoundError("Forcing reloading of caches")
-            data_tst = TextClasDataBunch.load(self.cache_dir, 'tst', bs=bs)
-        except FileNotFoundError:
-            args['vocab'] = data_lm.vocab  # make sure we use the same vocab for classifcation
-            data_tst = TextClasDataBunch.from_df(path=self.cache_dir, train_df=val_df, valid_df=tst_df,
-                                                 max_vocab=self.max_vocab, bs=bs, **args)
-            data_tst.save('tst')
+        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        data_lm = self.lm_databunch('lm', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, **args)
+        args['vocab'] = data_lm.vocab
+        data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
+        data_tst = self.cls_databunch('tst', train_df=val_df, valid_df=tst_df, bs=bs, force=force, **args) # Hack to load test dataset with labels
 
-        #$data_cls.test_dl = data_tst.valid_dl
-        #data_cls.test_ds = data_tst.valid_ds # AttributeError: can't set attribute
         print('Size of vocabulary:', len(data_lm.vocab.itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
         return data_cls, data_lm, data_tst
+
+    def cls_databunch(self, name, *args, **kwargs):
+        return self.databunch(name, bunch_class=TextClasDataBunch, *args, **kwargs)
 
 if __name__ == '__main__':
     fire.Fire(CLSHyperParams)
