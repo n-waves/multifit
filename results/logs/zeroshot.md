@@ -1,6 +1,7 @@
 ## Laser Perforamnce
 
 Accuracy matrix:
+### 1k
 
 | Train |   en  |   de  |   es  |   fr  |   it  |   ru  |   zh |
 |-------|-------|-------|-------|-------|-------|-------|-------|
@@ -12,8 +13,84 @@ Accuracy matrix:
 | ru:   | 72.38 | 81.65 | 65.73 | 71.30 | 63.33 | 85.45 | 59.58 |
 | zh:   | 74.98 | 81.35 | 72.20 | 73.28 | 70.08 | 66.23 | 88.30 |
 
+### 10k
+ 
+| Train |   en  |   de  |   es  |   fr  |   it  |   ru  |   zh |
+|-------|-------|-------|-------|-------|-------|-------|-------|
+|  en:  | 92.70 | 87.43 | 77.38 | 78.70 | 72.53 | 67.70 | 75.18 |
+|  de:  | 81.60 | 95.40 | 83.50 | 82.85 | 76.60 | 68.80 | 73.12 |
+|  es:  | 73.48 | 87.13 | 94.40 | 81.63 | 76.70 | 58.65 | 72.98 |
+|  fr:  | 85.08 | 91.65 | 81.05 | 93.65 | 75.08 | 70.73 | 76.33 |
+|  it:  | 76.75 | 86.68 | 82.55 | 82.65 | 87.80 | 65.90 | 73.35 |
+|  ru:  | 75.23 | 81.88 | 66.83 | 68.60 | 67.38 | 87.00 | 62.68 |
+|  zh:  | 76.05 | 82.05 | 68.40 | 77.38 | 68.45 | 66.88 | 90.38 |
 
-## Evaluation of Laser Performance
+
+
+### laser 1k 
+#### Building dataset
+```bash
+for SRC_LANG in en de fr; do                                                                                                                                         ✘ 130
+    for LANG in en de es fr it ru zh; do
+        echo $LANG from $SRC_LANG
+        python ../../source/classify.py embed10000/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-10 --suffix=10 | grep Test:
+    done
+done
+```
+
+```
+for SRC_LANG in en de fr; do                                                                                                                                         ✘ 130
+    for LANG in en de es fr it ru zh; do
+        echo $LANG from $SRC_LANG
+        python ../../source/classify.py embed1000/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-1 | grep Test:
+    done
+done
+
+en from en
+ | Test: 91.48% | classes: 23.77 24.90 26.25 25.07
+de from en
+ | Test: 87.65% | classes: 21.98 24.45 27.65 25.93
+es from en
+ | Test: 75.48% | classes: 21.60 15.82 22.10 40.48
+fr from en
+ | Test: 84.00% | classes: 23.18 29.12 27.90 19.80
+it from en
+ | Test: 71.18% | classes: 23.65 22.88 25.68 27.80
+ru from en
+ | Test: 66.58% | classes: 29.48 13.78 34.52 22.23
+zh from en
+ | Test: 76.65% | classes: 30.25 31.30 13.93 24.52
+en from de
+ | Test: 78.23% | classes: 31.80 17.73 30.15 20.32
+de from de
+ | Test: 93.50% | classes: 24.45 25.45 26.00 24.10
+es from de
+ | Test: 81.40% | classes: 24.15 25.77 20.12 29.95
+fr from de
+ | Test: 81.50% | classes: 25.52 29.45 27.45 17.57
+it from de
+ | Test: 74.53% | classes: 24.70 27.25 22.43 25.62
+ru from de
+ | Test: 64.58% | classes: 45.62  9.12 26.73 18.52
+zh from de
+ | Test: 73.20% | classes: 31.20 43.38  7.60 17.82
+en from fr
+ | Test: 81.30% | classes: 28.95 18.02 24.98 28.05
+de from fr
+ | Test: 88.75% | classes: 24.00 23.75 24.85 27.40
+es from fr
+ | Test: 80.12% | classes: 24.50 14.82 18.40 42.27
+fr from fr
+ | Test: 90.85% | classes: 24.50 24.75 24.68 26.07
+it from fr
+ | Test: 72.58% | classes: 25.45 24.10 17.50 32.95
+ru from fr
+ | Test: 67.35% | classes: 47.15 13.62 16.68 22.55
+zh from fr
+ | Test: 79.40% | classes: 33.60 31.12  9.07 26.20
+```
+
+#### Evaluation of Laser 1k Performance 
 ```
 python -m ulmfit eval --glob="mldoc/*-1/models/sp60k/lstm_nl4.m" --dataset_template="{}-laser-*" --name nl4 --cuda-id=0                                   ✘ 130
 Max vocab: 60000
@@ -703,17 +780,76 @@ OrderedDict([('data/mldoc/de-1-laser-de/models/sp30k/lstm_nl4.m',
 ```
 
 
-
-### Building dataset
-
+### Laser 10k
+### Building dataset 10k
 ```
-for SRC_LANG in en de fr; do                                                                                                                                         ✘ 130
+ for SRC_LANG in en de fr; do                                                                                                                                         ✘ 130
     for LANG in en de es fr it ru zh; do
         echo $LANG from $SRC_LANG
-        python ../../source/classify.py embed/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-1 | grep Test:
+        python ../../source/classify.py embed10000/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-10 --suffix=10 | grep Test:
     done
 done
-
+zsh: command not found: ✘
+en from en
+ | Test: 92.70% | classes: 24.65 25.52 26.20 23.62
+de from en
+ | Test: 87.43% | classes: 20.05 25.55 28.88 25.52
+es from en
+ | Test: 77.38% | classes: 24.70 15.40 22.27 37.62
+fr from en
+ | Test: 78.70% | classes: 17.65 29.75 34.60 18.00
+it from en
+ | Test: 72.53% | classes: 20.75 24.60 28.52 26.12
+ru from en
+ | Test: 67.70% | classes: 33.40 17.12 29.35 20.12
+zh from en
+ | Test: 75.18% | classes: 27.70 39.00 12.07 21.23
+zsh: command not found: ✘
+en from de
+ | Test: 81.60% | classes: 31.62 23.82 24.93 19.62
+de from de
+ | Test: 95.40% | classes: 24.57 26.00 25.62 23.80
+es from de
+ | Test: 83.50% | classes: 28.73 22.60 18.65 30.02
+fr from de
+ | Test: 82.85% | classes: 27.52 29.23 25.23 18.02
+it from de
+ | Test: 76.60% | classes: 26.52 25.62 21.43 26.43
+ru from de
+ | Test: 68.80% | classes: 48.48 13.22 19.43 18.88
+zh from de
+ | Test: 73.12% | classes: 33.12 40.10 10.53 16.25
+zsh: command not found: ✘
+en from fr
+ | Test: 85.08% | classes: 25.43 23.43 25.43 25.73
+de from fr
+ | Test: 91.65% | classes: 23.15 27.10 25.00 24.75
+es from fr
+ | Test: 81.05% | classes: 24.18 17.68 18.93 39.23
+fr from fr
+ | Test: 93.65% | classes: 24.25 25.10 25.80 24.85
+it from fr
+ | Test: 75.08% | classes: 24.07 26.85 18.25 30.82
+ru from fr
+ | Test: 70.73% | classes: 43.17 19.15 16.57 21.10
+zh from fr
+ | Test: 76.33% | classes: 34.23 34.05 10.95 20.77
+ ```
+  1 10
+### Building dataset 1k
+```
+ for SRC_LANG in en de fr; do                                                                                                                                        
+    for LANG in en de es fr it ru zh; do
+        echo $LANG from $SRC_LANG
+        python ../../source/classify.py embed1000/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-10 --suffix=1 | grep Test:
+    done
+ done
+ for SRC_LANG in en de fr; do
+    for LANG in en de es fr it ru zh; do
+        echo $LANG from $SRC_LANG
+        python ../../source/classify.py embed1000/mldoc.${SRC_LANG}-${SRC_LANG}.h5 ~/workspace/ulmfit-multilingual/data/mldoc/${LANG}-10 --suffix=1 | grep Test:
+    done
+ done
 en from en
  | Test: 91.48% | classes: 23.77 24.90 26.25 25.07
 de from en
@@ -757,9 +893,6 @@ ru from fr
 zh from fr
  | Test: 79.40% | classes: 33.60 31.12  9.07 26.20
 ```
-
-
-
 ### No Unfreeze
 #### one epoch
 ```
