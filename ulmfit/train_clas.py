@@ -65,6 +65,7 @@ class CLSHyperParams(LMHyperParams):
                 learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
+        learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
 
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=learn)
 
@@ -96,7 +97,8 @@ class CLSHyperParams(LMHyperParams):
             learn.freeze()
 
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
-                               partial(SaveModelCallback, every='improvement', name='cls_best')]
+                               #partial(SaveModelCallback, every='improvement', name='cls_best') disabled due to memory issues
+                               ]
         return learn
 
     def load_cls_data(self, bs, **kwargs):

@@ -228,7 +228,8 @@ class LMHyperParams:
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
         learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history"),
-                               partial(SaveModelCallback, every='improvement', name='lm')]
+                               # partial(SaveModelCallback, every='improvement', name='lm') disabled due to Memory issues
+                               ]
         return learn
 
     def load_train_text(self):
