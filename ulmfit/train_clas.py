@@ -109,6 +109,7 @@ class CLSHyperParams(LMHyperParams):
         if 'xnli' in str(self.dataset_dir):
             NotImplementedError("Support for Xnli is not implemented yet")
         if 'imdb' in self.dataset_dir.name:
+            lang=''
             add_trn_to_lm = True
         if 'mldoc' in str(self.dataset_dir):
             add_trn_to_lm = False  # False as trn_df is contained in unsup already
