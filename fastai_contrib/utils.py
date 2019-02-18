@@ -66,6 +66,8 @@ class SentencePieceTokenizer(Tokenizer):
         toks = super().process_text(t, tok)
         toks = tok.sp.EncodeAsPieces(" ".join(toks))
         return toks
+full_char_coverage_langs = ["bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "ga", "hr", "hu",
+                       "it","lt","lv","mt","nl","pl","pt","ro","sk","sl","sv"] # all European langus
 
 def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None, post_rules:ListRules=None,
                       vocab_size:int=30000, model_type:str='unigram', input_sentence_size:int=1E7, lang='en'):
@@ -93,9 +95,11 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None,
         raw_text_path = cache_dir / 'all_text.txt'
         with open(raw_text_path, 'w') as f: f.write("\n".join(text))
 
+        char_coverage = 1 if lang in full_char_coverage_langs else 0.99
+
         sp_params = [
             f"--input={raw_text_path}",
-            f"--character_coverage=1.0",
+            f"--character_coverage={char_coverage}",
             f"--unk_id={len(defaults.text_spec_tok)}",
             f"--pad_id=-1",
             f"--bos_id=-1",
