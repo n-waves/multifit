@@ -26,48 +26,70 @@ class CLSHyperParams(LMHyperParams):
     @property
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
-    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
-                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70):
+    def lr_schedule_layered(self, learn, num_cls_epochs):
+        learn.freeze_to(-1)
+        learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
+        if num_cls_epochs > 1:
+            learn.freeze_to(-2)
+            learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
+            learn.freeze_to(-3)
+            learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
+            learn.unfreeze()
+            learn.fit_one_cycle(num_cls_epochs, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
+
+    def lr_schedule_2cycle(self, learn, num_cls_epochs):
+        print("2cycle training schedule")
+        learn.freeze_to(-1)
+        learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
+        learn.unfreeze()
+        if num_cls_epochs > 1:
+            learn.fit_one_cycle(num_cls_epochs -1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
+
+    def lr_schedule_1cycle(self, learn, num_cls_epochs):
+        print("Single training schedule")
+        learn.unfreeze()
+        learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
+
+    def lr_schedule_false_wd(self, learn, num_cls_epochs):
+        learn.true_wd = False
+        print("Starting classifier training")
+        learn.fit_one_cycle(1, 5e-2, moms=(0.8, 0.7), wd=1e-7)
+        if num_cls_epochs > 1:
+            learn.freeze_to(-2)
+            learn.fit_one_cycle(1, slice(5e-2 / (2.6 ** 4), 5e-2), moms=(0.8, 0.7), wd=1e-7)
+            learn.freeze_to(-3)
+            learn.fit_one_cycle(1, slice(5e-4 / (2.6 ** 4), 5e-4), moms=(0.8, 0.7), wd=1e-7)
+            learn.unfreeze()
+            if num_cls_epochs > 5:
+                learn.fit_one_cycle(num_cls_epochs-4, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
+
+    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
+                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered'):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
+        if not unfreeze:
+           num_cls_epochs = 1
+
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
-        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
+        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm)
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len)
         try:
             learn.load('cls_last')
             print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder(ENC_BEST)
-        if true_wd:
+
+        if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
-            print("Starting classifier training")
-            learn.freeze_to(-1)
-            learn.fit_one_cycle(num_cls_frozen_epochs, 2e-2, moms=(0.8, 0.7))
-            if unfreeze:
-                learn.freeze_to(-2)
-                learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
-                learn.freeze_to(-3)
-                learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
-                learn.unfreeze()
-                learn.fit_one_cycle(num_cls_epochs, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
-        else:
-            learn.true_wd = False
-            print("Starting classifier training")
-            learn.fit_one_cycle(num_cls_frozen_epochs, 5e-2, moms=(0.8, 0.7), wd=1e-7)
-            if unfreeze:
-                learn.freeze_to(-2)
-                learn.fit_one_cycle(1, slice(5e-2 / (2.6 ** 4), 5e-2), moms=(0.8, 0.7), wd=1e-7)
-                learn.freeze_to(-3)
-                learn.fit_one_cycle(1, slice(5e-4 / (2.6 ** 4), 5e-4), moms=(0.8, 0.7), wd=1e-7)
-                learn.unfreeze()
-                learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
+            getattr(self, 'lr_schedule_'+lr_sched)(learn, num_cls_epochs)
+
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
         learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
-
-        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=learn)
+        del learn
+        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
     def validate_cls(self, save_name='cls_last', bs=40, data_tst=None, learn=None):
         if data_tst is None:
