@@ -168,6 +168,7 @@ class CLSHyperParams(LMHyperParams):
 
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         args['text_cols'] = list(trn_df.columns.values)[1:]
+        args['mark_fields'] = True
         data_lm = self.lm_databunch('lm', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, **args)
         args['vocab'] = data_lm.vocab
         data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
