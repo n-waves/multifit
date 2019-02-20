@@ -197,7 +197,7 @@ class CLSHyperParams(LMHyperParams):
             assert np.issubdtype(labels.dtype, np.integer), "noise only works on numerical numbers"
             modulo = labels.max()+1
             idx_to_distrub = np.random.permutation(count)[:int(count * noise)]
-            trn_df.loc[idx_to_distrub, [0]] = (trn_df.loc[idx_to_distrub, [0]] + 1) % modulo
+            trn_df.loc[idx_to_distrub, [0]] = (np.random.randint(1, modulo-1, size=len(idx_to_distrub)) + trn_df.loc[idx_to_distrub][0]) % modulo
             print(f"Added noise to {len(idx_to_distrub)} examples, only {(count-len(idx_to_distrub))/count} have correct labels")
             cls_name = f'{cls_name}noise{noise}'
 
