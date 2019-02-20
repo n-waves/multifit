@@ -1,5 +1,44 @@
 # QRNN ES
 
+## SP15k nl 4
+``
+export CUDA_VISIBLE_DEVICES=1
+LANG=es
+python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 15000 --lang ${LANG} --qrnn=True - train 10 --bs=50 --drop_mult=0
+
+Wiki text was split to 161509 articles
+Wiki text was split to 78 articles
+Running tokenization lm...
+Data lm, trn: 161509, val: 78
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁.', '▁la', 's', '▁el', '▁en', '▁y', '▁a', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+Training lm from random weights
+epoch     train_loss  valid_loss  accuracy
+1         2.851575    3.398695    0.372940
+2         2.801543    3.353015    0.372648
+3         2.807216    3.290132    0.380787
+4         2.696361    3.220115    0.388937
+5         2.668488    3.132770    0.399528
+6         2.565685    3.062742    0.408880
+7         2.503054    2.985069    0.419262
+8         2.448338    2.895266    0.431797
+9         2.411213    2.829787    0.441973
+10        2.403536    2.811063    0.445468
+Total time: 11:52:32
+data/wiki/es-100/models/sp15k
+Saving info data/wiki/es-100/models/sp15k/qrnn_nl4.m/info.json
+``
+
+```bash
+export CUDA_VISIBLE_DEVICES=1
+LANG=es
+python -m ulmfit cls --dataset-path data/mldoc/${LANG}-1  --base-lm-path data/wiki/${LANG}-100/models/sp15k/qrnn_nl4.m  --lang=${LANG} --name 'nl4' - train 20 --bs 20 --num-cls-epochs=8
+```
+
+
 ## SP30k nl 4
 ### LM
 ```

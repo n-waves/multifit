@@ -1,4 +1,37 @@
 # FR 
+
+## SP15k QRNN nl 4
+```
+python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 15000 --lang ${LANG} --qrnn=True - train 10 --bs=50 --drop_mult=0
+Max vocab: 15000
+Cache dir: data/wiki/fr-100/models/sp15k
+Model dir: data/wiki/fr-100/models/sp15k/qrnn_nl4.m
+Wiki text was split to 174227 articles
+Wiki text was split to 491 articles
+Running tokenization lm...
+Data lm, trn: 174227, val: 491
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', 's', '▁.', "'", '▁la', '▁le',
+'▁et', '▁l', '▁à']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Training lm from random weights
+epoch     train_loss  valid_loss  accuracy
+1         2.881558    2.790402    0.465847
+2         2.824942    2.732005    0.471660
+3         2.758845    2.672040    0.478273
+4         2.715069    2.602380    0.489159
+5         2.677029    2.553575    0.494752
+6         2.602514    2.476142    0.507337
+7         2.564386    2.388670    0.518902
+8         2.470835    2.304033    0.532000
+9         2.366890    2.243269    0.542781
+10        2.390439    2.223538    0.546622
+Total time: 9:09:26
+data/wiki/fr-100/models/sp15k
+Saving info data/wiki/fr-100/models/sp15k/qrnn_nl4.m/info.json
+
+```
+
 ## SP30k LSTM nl 4 
 ### LM 
 ```
