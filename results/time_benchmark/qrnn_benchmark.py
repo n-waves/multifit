@@ -16,8 +16,8 @@ for mode in ['train', 'test']:
         for file in glob.glob(pattern):
             shutil.copy(file, tgt_path)
 
-data_lm = TextLMDataBunch.from_folder(path)
-data_clas = TextClasDataBunch.from_folder(path, bs=32, vocab=data_lm.train_ds.vocab)
+data_lm = TextLMDataBunch.from_folder(path, valid='test')
+data_clas = TextClasDataBunch.from_folder(path, bs=32, vocab=data_lm.train_ds.vocab, valid='test')
 
 print('Vocab size', len(data_lm.train_ds.vocab.itos))
 
