@@ -1,0 +1,76 @@
+python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --name nl4-8e-single  --num-cls-epochs=8  --bs=18 --single=True
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-single.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Data lm, trn: 13013, val: 1445
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-single.m/info.json
+Starting classifier training
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.676591    0.205210    0.947000
+2         0.402020    0.461279    0.912000
+3         0.287975    0.496294    0.921000
+4         0.258515    0.243489    0.954000
+5         0.219352    0.274136    0.949000
+6         0.149339    0.352294    0.956000
+7         0.092821    0.378696    0.962000
+8         0.055485    0.367379    0.963000
+9         0.042695    0.367151    0.964000
+10        0.034858    0.386749    0.961000
+11        0.021245    0.392899    0.963000
+Total time: 02:38
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-single.m
+Traceback (most recent call last):
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/runpy.py", line 193, in _run_module_as_main
+    "__main__", mod_spec)
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/runpy.py", line 85, in _run_code
+    exec(code, run_globals)
+  File "/home/pczapla/workspace/ulmfit-multilingual/ulmfit/__main__.py", line 73, in <module>
+    fire.Fire(ULMFiT())
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/fire/core.py", line 127, in Fire
+    component_trace = _Fire(component, args, context, name)
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/fire/core.py", line 366, in _Fire
+    component, remaining_args)
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/fire/core.py", line 542, in _CallCallable
+    result = fn(*varargs, **kwargs)
+  File "/home/pczapla/workspace/ulmfit-multilingual/ulmfit/__main__.py", line 55, in eval
+    results[key] = params.train_cls(num_lm_epochs=num_lm_epochs, **trn_params)[1]
+  File "/home/pczapla/workspace/ulmfit-multilingual/ulmfit/train_clas.py", line 76, in train_cls
+    return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=learn)
+  File "/home/pczapla/workspace/ulmfit-multilingual/ulmfit/train_clas.py", line 84, in validate_cls
+    learn.load(save_name)
+  File "/home/pczapla/workspace/_oss/fastai/fastai/fastai/basic_train.py", line 243, in load
+    if purge: self.purge(clear_opt=ifnone(with_opt, False))
+  File "/home/pczapla/workspace/_oss/fastai/fastai/fastai/basic_train.py", line 293, in purge
+    self.opt = OptimWrapper.load_with_state_and_layer_group(state['opt'], self.layer_groups)
+  File "/home/pczapla/workspace/_oss/fastai/fastai/fastai/callback.py", line 130, in load_with_state_and_layer_group
+    res.load_state_dict(state['opt_state'])
+  File "/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/optim/optimizer.py", line 108, in load_state_dict
+    raise ValueError("loaded state dict contains a parameter group "
+ValueError: loaded state dict contains a parameter group that doesn't match the size of optimizer's group
