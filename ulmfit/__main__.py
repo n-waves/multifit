@@ -1,12 +1,13 @@
 import gc
 import os
 import pprint
+import tarfile
 import shutil
 from collections import OrderedDict
 from functools import wraps
-
+import pandas as pd
 import fire
-from .pretrain_lm import LMHyperParams, np
+from .pretrain_lm import LMHyperParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
 from string import Template
@@ -49,19 +50,37 @@ class ULMFiT:
         return FireView(train=params.train_cls, validate_cls=params.validate_cls)
 
 
-    def eval_noise_resistance(self, lang="de"):
-        results = {}
+    def eval_noise_resistance(self, lang="de", size=1, prefix_name="", model="sp15k/qrnn_nl4.m"):
+        def first_or_default(l, default=None):
+            l = list(l)
+            if l:
+                return l[0]
+            return default
+        results= []
         for noise in range(0, 80, 5):
             print("Noise: ", noise)
-            d = self.eval(glob=f"mldoc/{lang}-1/models/sp15k/qrnn_nl4.m",
-                          name=f"nl4_{noise}",
+            d = self.eval(glob=f"mldoc/{lang}-1/models/{model}",
+                          name=f"nl4_{prefix_name}{noise}",
                           noise=noise/100,
+                          dataset_template='${lang}-'+str(size),
                           num_cls_epochs=8,
                           bs=18,
                           lr_sched="1cycle")
-            results.update(d)
-            np.save('results.npy', results)
-        print(results)
+            val = first_or_default(d.values(), default=-1)
+            results.append((noise/100, val))
+        df = pd.DataFrame(results, columns=["noise", "accuracy"])
+        df.to_csv(f"noise_{lang}-{size}{prefix_name}.csv")
+        print(df)
+
+    def tar(self, model_path):
+        params = CLSHyperParams.from_json(model_path)
+        tar_name = f"models/{params.lang}-{params.tokenizer_prefix}-{params.model_name}.tar"
+        print("Storing model in", tar_name)
+        with tarfile.open(tar_name, mode="w") as tar:
+            for g in map(params.model_dir.glob, ['*_last.*', 'info.json', 'info.json', '../spm.*', '../itos.*',]):
+                for f in g:
+                    print("Adding", f, f.relative_to("data"))
+                    tar.add(f, f.relative_to("data"))
 
     def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
         results = OrderedDict()
@@ -71,7 +90,7 @@ class ULMFiT:
                 try:
                     params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, cuda_id=cuda_id)
                     key = str(params.model_dir.relative_to(Path.cwd()))
-                    if (params.model_dir/"cls_last.pth").exists():
+                    if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
                         results[key] = params.validate_cls()[1]
                     else:

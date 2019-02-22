@@ -64,7 +64,8 @@ class CLSHyperParams(LMHyperParams):
                 learn.fit_one_cycle(num_cls_epochs-4, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
-                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered'):
+                  use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
+                  label_smoothing_eps=0.0):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -73,10 +74,10 @@ class CLSHyperParams(LMHyperParams):
 
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
-        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len)
+        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps)
         try:
-            learn.load('cls_last')
+            learn.load('cls_best')
             print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder(ENC_BEST)
@@ -84,6 +85,8 @@ class CLSHyperParams(LMHyperParams):
         if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
             getattr(self, 'lr_schedule_'+lr_sched)(learn, num_cls_epochs)
+        else:
+            raise ValueError(f"Wrong lr_sched: {lr_sched}")
 
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
@@ -91,7 +94,7 @@ class CLSHyperParams(LMHyperParams):
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_last', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
         if data_tst is None:
             _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
@@ -102,7 +105,7 @@ class CLSHyperParams(LMHyperParams):
         print(f"Loss and accuracy using ({save_name}):", results)
         return list(map(float, results))
 
-    def create_cls_learner(self, data_clas, dps=None, **kwargs):
+    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
         config.update(dps or self.dps)
@@ -121,6 +124,8 @@ class CLSHyperParams(LMHyperParams):
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
                                #partial(SaveModelCallback, every='improvement', name='cls_best') disabled due to memory issues
                                ]
+        if label_smoothing_eps > 0.0:
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
 
     def load_cls_data(self, bs, **kwargs):
@@ -178,6 +183,17 @@ class CLSHyperParams(LMHyperParams):
         kwargs.update(dict(trn_df=trn_df, val_df=val_df, tst_df=tst_df, unsup_df=unsup_df))
         return kwargs
 
+    def add_noise(self, trn_df, noise):
+        count = len(trn_df)
+        labels = trn_df[0].unique()
+        assert np.issubdtype(labels.dtype, np.integer), "noise only works on numerical numbers"
+        modulo = labels.max() + 1
+        idx_to_distrub = np.random.permutation(count)[:int(count * noise)]
+        trn_df.loc[idx_to_distrub, [0]] = (np.random.randint(1, modulo - 1, size=len(idx_to_distrub)) +
+                                           trn_df.loc[idx_to_distrub][0]) % modulo
+        print(f"Added noise to {len(idx_to_distrub)} examples, only {(count - len(idx_to_distrub)) / count} have correct labels")
+        return trn_df
+
     def databunches(self, bs, trn_df, val_df, tst_df, unsup_df, add_trn_to_lm=True, use_moses=False, force=False, limit=None, noise=0.0):
         lm_trn_df = pd.concat([unsup_df, val_df, tst_df] + ([trn_df] if add_trn_to_lm else []))
         val_len = max(int(len(lm_trn_df) * 0.1), 2)
@@ -192,14 +208,9 @@ class CLSHyperParams(LMHyperParams):
             cls_name=f'{cls_name}limit{limit}'
 
         if noise > 0.0:
-            count = len(trn_df)
-            labels = trn_df[0].unique()
-            assert np.issubdtype(labels.dtype, np.integer), "noise only works on numerical numbers"
-            modulo = labels.max()+1
-            idx_to_distrub = np.random.permutation(count)[:int(count * noise)]
-            trn_df.loc[idx_to_distrub, [0]] = (np.random.randint(1, modulo-1, size=len(idx_to_distrub)) + trn_df.loc[idx_to_distrub][0]) % modulo
-            print(f"Added noise to {len(idx_to_distrub)} examples, only {(count-len(idx_to_distrub))/count} have correct labels")
-            cls_name = f'{cls_name}noise{noise}'
+            trn_df = self.add_noise(trn_df, noise)
+            val_df = self.add_noise(val_df, noise)
+            cls_name = f'{cls_name}noise{noise}tv'
 
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         data_lm = self.lm_databunch('lm', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, **args)
