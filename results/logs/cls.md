@@ -122,3 +122,51 @@ Loss and accuracy using (cls_best): [0.5418505, tensor(0.9100)]
 0.5418505072593689
 0.9100000262260437
 ````
+
+```
+Loading pretrained model
+Unknown tokens 0, first 100: []
+Training lm from:  [PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/fr-100/models/sp15k/qrnn_nl4.m/lm_best'), PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/fr-100/models/sp15k/qrnn_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         4.037580    3.312217    0.364410
+Total time: 01:44
+epoch     train_loss  valid_loss  accuracy
+1         3.709982    3.256320    0.371825
+2         3.459413    3.150574    0.386972
+3         3.296628    3.037327    0.402039
+4         3.186458    2.914899    0.418413
+5         3.092632    2.817097    0.431216
+6         2.966957    2.726081    0.442906
+7         2.924824    2.647339    0.453871
+8         2.818279    2.561596    0.466795
+9         2.773893    2.501994    0.475877
+10        2.736084    2.438490    0.485978
+11        2.688937    2.370927    0.496899
+12        2.615245    2.314875    0.506508
+13        2.583292    2.260717    0.515725
+14        2.535631    2.220295    0.522666
+15        2.466035    2.179093    0.530148
+16        2.461427    2.151952    0.535315
+17        2.390641    2.131065    0.538749
+18        2.376235    2.116927    0.541430
+19        2.407630    2.115370    0.542039
+20        2.391378    2.112687    0.542522
+Total time: 46:33
+/home/n-waves/workspace/ulmfit-multilingual/data/cls/fr-books/models/sp15k
+Saving info /home/n-waves/workspace/ulmfit-multilingual/data/cls/fr-books/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.466671    0.534682    0.745000
+2         0.358965    0.372612    0.875000
+3         0.251557    0.311034    0.900000
+4         0.166484    0.585425    0.865000
+5         0.101803    0.726341    0.900000
+6         0.072025    0.587875    0.885000
+7         0.045328    0.760989    0.890000
+8         0.027765    0.727203    0.890000
+Total time: 01:17
+Saving models at /home/n-waves/workspace/ulmfit-multilingual/data/cls/fr-books/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.55982095, tensor(0.8970)]
+0.5598209500312805
+0.8970000147819519
+```
