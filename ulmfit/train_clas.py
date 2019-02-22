@@ -77,7 +77,7 @@ class CLSHyperParams(LMHyperParams):
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps)
         try:
-            learn.load('cls_last')
+            learn.load('cls_best')
             print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder(ENC_BEST)
@@ -94,7 +94,7 @@ class CLSHyperParams(LMHyperParams):
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_last', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
         if data_tst is None:
             _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
@@ -125,7 +125,7 @@ class CLSHyperParams(LMHyperParams):
                                #partial(SaveModelCallback, every='improvement', name='cls_best') disabled due to memory issues
                                ]
         if label_smoothing_eps > 0.0:
-            learn.loss_func = LabelSmoothingCrossEntropy(eps=label_smoothing_eps)
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
 
     def load_cls_data(self, bs, **kwargs):

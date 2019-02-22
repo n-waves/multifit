@@ -231,7 +231,7 @@ class LMHyperParams:
                                # partial(SaveModelCallback, every='improvement', name='lm') disabled due to Memory issues
                                ]
         if label_smoothing_eps > 0.0:
-            learn.loss_func = LabelSmoothingCrossEntropy(eps=label_smoothing_eps)
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
 
     def load_train_text(self):

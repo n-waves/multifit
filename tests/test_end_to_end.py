@@ -39,7 +39,8 @@ def get_test_data():
     copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.valid.tokens', n=600*sz)
     copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.test.tokens', n=600*sz)
     copy_head(imdb / 'train.csv', test_imdb / 'train.csv', n=10*sz)
-    copy_head(imdb / 'train.csv', test_imdb / 'test.csv', n=6*sz)
+    copy_head(imdb / 'train.csv', test_imdb / 'test.csv', n=6 * sz)
+    copy_head(imdb / 'train.csv', test_imdb / 'dev.csv', n=6 * sz)
     copy_head(imdb / 'train.csv', test_imdb / 'unsup.csv', n=1*sz)
 
     return test_data, test_wt
@@ -109,6 +110,7 @@ def test_ulmfit_fastai_end_to_end():
         qrnn=False,
         tokenizer='f',
         max_vocab=100,
+        nl=1,
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2)

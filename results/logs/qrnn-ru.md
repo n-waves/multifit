@@ -1,4 +1,16 @@
 # QRNN RU
+## SP15k nl8
+data/wiki/ru-100/models/sp15k/qrnn_nl8.m
+
+export CUDA_VISIBLE_DEVICES=0
+LANG=ru
+python -m ulmfit cls --dataset-path data/mldoc/${LANG}-1  --base-lm-path data/wiki/${LANG}-100/models/sp15k/qrnn_nl8.m  --lang=${LANG} --name 'nl8' - train 20 --bs 20 --num-cls-epochs=8 --lr_sched=1cycle
+
+export CUDA_VISIBLE_DEVICES=0
+LANG=de
+python -m ulmfit cls --dataset-path data/mldoc-m/${LANG}-1  --base-lm-path data/wiki-m/${LANG}-100/models/sp15k/lstm_nl4.m  --lang=${LANG} --name 'nl4' - train 20 --bs 20 --num-cls-epochs=8 --lr_sched=1cycle
+
+
 ## SP30k nl4
 ### LM
 ```
