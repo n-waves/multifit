@@ -1,4 +1,503 @@
 # MLDoc
+### Different training schedules
+
+### 1cycle -lstm
+```
+(fastaiv1) pczapla@galatea ~/w/ulmfit-multilingual ❯❯❯ python -m ulmfit eval --glob="mldoc/*-1/models/sp30k/lstm_nl4.m" --name nl4-1cyc  --num-cls-epochs=8 --bs=18 --lr_sched=1cycle                                                  ✘ 1
+Processing data/mldoc/de-1/models/sp30k/lstm_nl4.m
+de-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/de.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', '▁und', '▁in', 'en', "▁&'", 's', '-']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.610423    0.287707    0.920000
+2         0.390499    0.266688    0.948000
+3         0.366716    0.302463    0.933000
+4         0.248321    0.305547    0.937000
+5         0.166564    0.411075    0.948000
+6         0.083940    0.406182    0.950000
+7         0.033326    0.388105    0.949000
+8         0.014658    0.397507    0.948000
+Total time: 06:42
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.3040595, tensor(0.9585)]
+Processing data/mldoc/es-1/models/sp30k/lstm_nl4.m
+es-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Data lm, trn: 13013, val: 1445
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', '▁en', '▁el', '▁y', 's', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.610724    0.278892    0.925000
+2         0.372022    0.348428    0.937000
+3         0.310411    0.386958    0.927000
+4         0.215536    0.273834    0.958000
+5         0.163195    0.319600    0.958000
+6         0.085268    0.313287    0.961000
+7         0.037369    0.347500    0.961000
+8         0.016851    0.338436    0.963000
+Total time: 05:36
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.31034237, tensor(0.9632)]
+Processing data/mldoc/fr-1/models/sp30k/lstm_nl4.m
+fr-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/fr.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁.', "'", 's', '▁la', '▁le', '▁et', '▁l', '▁à']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.642809    0.240702    0.928000
+2         0.420564    0.658542    0.852000
+3         0.443345    0.244053    0.927000
+4         0.338779    0.335634    0.914000
+5         0.224778    0.263748    0.928000
+6         0.116705    0.280655    0.944000
+7         0.072063    0.287557    0.945000
+8         0.048084    0.289200    0.946000
+Total time: 06:33
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.29398218, tensor(0.9482)]
+Processing data/mldoc/it-1/models/sp30k/lstm_nl4.m
+it-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/it.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁di', "▁&'", "'", '▁e', '▁il', '▁la', 'e', '▁in']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.736070    0.391008    0.859000
+2         0.512531    0.614638    0.860000
+3         0.343422    0.594530    0.862000
+4         0.370786    0.540225    0.884000
+5         0.234727    0.591903    0.892000
+6         0.141539    0.589971    0.906000
+7         0.073315    0.544248    0.906000
+8         0.038477    0.580940    0.904000
+Total time: 03:48
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.6642357, tensor(0.8988)]
+Processing data/mldoc/ja-1/models/sp30k/lstm_nl4.m
+ja-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/ja.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁、', '▁の', '▁。', '▁に', '▁を', '▁は', '▁年', '▁が', '▁)', '▁(']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.804430    0.435780    0.837000
+2         0.576932    0.452903    0.839000
+3         0.499791    0.640789    0.806000
+4         0.418024    0.610898    0.839000
+5         0.259578    0.582953    0.868000
+6         0.188161    0.719131    0.888000
+7         0.101508    0.766175    0.877000
+8         0.072221    0.795415    0.883000
+Total time: 08:19
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.636261, tensor(0.9045)]
+Processing data/mldoc/ru-1/models/sp30k/lstm_nl4.m
+ru-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/ru.dev.csv
+Data lm, trn: 9195, val: 1021
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁в', 'а', '▁и', 'е', 'и', 'й', '▁на', 'х']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.821141    0.532432    0.814000
+2         0.611059    0.457023    0.866000
+3         0.464408    0.484035    0.870000
+4         0.446560    0.477454    0.858000
+5         0.299095    0.906959    0.858000
+6         0.176480    0.709579    0.875000
+7         0.089683    0.781081    0.876000
+8         0.047031    0.772935    0.877000
+Total time: 08:58
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.8528109, tensor(0.8795)]
+Processing data/mldoc/zh-1/models/sp30k/lstm_nl4.m
+zh-1
+Max vocab: 30000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp30k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp30k/lstm_nl4-1cyc.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 30000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁中', '▁人', '▁是']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp30k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp30k/lstm_nl4-1cyc.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.696346    0.335083    0.895000
+2         0.505075    0.360600    0.906000
+3         0.427076    0.462661    0.883000
+4         0.351177    0.489026    0.919000
+5         0.244958    0.415151    0.918000
+6         0.156452    0.494367    0.926000
+7         0.085807    0.471611    0.927000
+8         0.046887    0.484232    0.929000
+Total time: 06:41
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp30k/lstm_nl4-1cyc.m
+Loss and accuracy using (cls_best): [0.50999963, tensor(0.9165)]
+OrderedDict([('data/mldoc/de-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.9585000276565552),
+             ('data/mldoc/es-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.9632499814033508),
+             ('data/mldoc/fr-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.9482499957084656),
+             ('data/mldoc/it-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.8987500071525574),
+             ('data/mldoc/ja-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.9045000076293945),
+             ('data/mldoc/ru-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.8794999718666077),
+             ('data/mldoc/zh-1/models/sp30k/lstm_nl4-1cyc.m',
+              0.9164999723434448)])
+data/mldoc/de-1/models/sp30k/lstm_nl4-1cyc.m: 0.9585000276565552
+data/mldoc/es-1/models/sp30k/lstm_nl4-1cyc.m: 0.9632499814033508
+data/mldoc/fr-1/models/sp30k/lstm_nl4-1cyc.m: 0.9482499957084656
+data/mldoc/it-1/models/sp30k/lstm_nl4-1cyc.m: 0.8987500071525574
+data/mldoc/ja-1/models/sp30k/lstm_nl4-1cyc.m: 0.9045000076293945
+data/mldoc/ru-1/models/sp30k/lstm_nl4-1cyc.m: 0.8794999718666077
+data/mldoc/zh-1/models/sp30k/lstm_nl4-1cyc.m: 0.9164999723434448
+```
+
+
+### 2cycle
+```bash
+python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --name nl4-8e-2cycle  --num-cls-epochs=8  --bs=18 --lr_sched=2cycle
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-2cycle.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Data lm, trn: 13013, val: 1445
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-2cycle.m/info.json
+2cycle training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.600965    0.232749    0.937000
+Total time: 00:07
+epoch     train_loss  valid_loss  accuracy
+1         0.304946    0.202946    0.946000
+2         0.326092    0.207825    0.954000
+3         0.286274    0.290416    0.943000
+4         0.230937    0.263474    0.950000
+5         0.153293    0.293336    0.962000
+6         0.080219    0.328380    0.960000
+7         0.065156    0.343692    0.961000
+8         0.046342    0.367162    0.962000
+9         0.028884    0.396987    0.960000
+10        0.034997    0.366203    0.960000
+Total time: 02:27
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-2cycle.m
+Loss and accuracy using (cls_best): [0.35007542, tensor(0.9528)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-2cycle.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-2cycle.m/info.json
+2cycle training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.675992    0.460828    0.836000
+Total time: 00:09
+epoch     train_loss  valid_loss  accuracy
+1         0.439060    0.314642    0.888000
+2         0.382209    0.374305    0.893000
+3         0.338183    0.361669    0.911000
+4         0.260323    0.431681    0.901000
+5         0.146894    0.597865    0.899000
+6         0.090651    0.589435    0.910000
+7         0.079902    0.624589    0.918000
+8         0.043067    0.558498    0.918000
+9         0.022371    0.568702    0.921000
+10        0.022498    0.576052    0.922000
+Total time: 02:53
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-2cycle.m
+Loss and accuracy using (cls_best): [0.6146808, tensor(0.9150)]
+OrderedDict([('data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-2cycle.m',
+              0.952750027179718),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-2cycle.m',
+              0.9150000214576721)])
+```
+
+### SIUNGLE 2epochs
+```
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-2e-single.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.626836    0.318460    0.912000
+2         0.386851    0.327937    0.918000
+Total time: 00:34
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-2e-single.m
+Loss and accuracy using (cls_best): [0.32642558, tensor(0.9135)]
+OrderedDict([('data/mldoc/es-1/models/sp15k/qrnn_nl4-2e-single.m',
+              0.9539999961853027),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-2e-single.m',
+              0.9135000109672546)])
+```
+### SINGLE 4epochs
+```
+OrderedDict([('data/mldoc/es-1/models/sp15k/qrnn_nl4-4e-single.m',
+              0.9539999961853027),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-4e-single.m',
+              0.9210000038146973)])
+```
+
+
+### SINGLE 5 epochs
+```
+ python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --name nl4-5e-single  --num-cls-epochs=5  --bs=18 --lr_sched=single
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-5e-single.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Data lm, trn: 13013, val: 1445
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-5e-single.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.559638    0.250022    0.931000
+2         0.366238    0.348553    0.932000
+3         0.246830    0.243392    0.954000
+4         0.136335    0.242888    0.960000
+5         0.106189    0.254603    0.965000
+Total time: 01:14
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-5e-single.m
+Loss and accuracy using (cls_best): [0.24189772, tensor(0.9588)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-5e-single.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-5e-single.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.641053    0.334561    0.891000
+2         0.486526    0.374095    0.894000
+3         0.309409    0.359222    0.908000
+4         0.179104    0.403468    0.920000
+5         0.083530    0.414904    0.919000
+Total time: 01:24
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-5e-single.m
+Loss and accuracy using (cls_best): [0.44048822, tensor(0.9110)]
+OrderedDict([('data/mldoc/es-1/models/sp15k/qrnn_nl4-5e-single.m',
+              0.9587500095367432),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-5e-single.m',
+              0.9110000133514404)])
+```
+
+
+#### SINGLE 11epochs
+```              
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-single.m/info.json
+Starting classifier training
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.676591    0.205210    0.947000
+2         0.402020    0.461279    0.912000
+3         0.287975    0.496294    0.921000
+4         0.258515    0.243489    0.954000
+5         0.219352    0.274136    0.949000
+6         0.149339    0.352294    0.956000
+7         0.092821    0.378696    0.962000
+8         0.055485    0.367379    0.963000
+9         0.042695    0.367151    0.964000
+10        0.034858    0.386749    0.961000
+11        0.021245    0.392899    0.963000
+Total time: 02:38
+
+Loss and accuracy using (cls_last): [0.4098273, tensor(0.9595)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-single.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-single.m/info.json
+Starting classifier training
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.710727    0.355552    0.895000
+2         0.523836    0.328691    0.895000
+3         0.408339    0.440722    0.894000
+4         0.326642    0.422076    0.909000
+5         0.217328    0.539624    0.906000
+6         0.156753    0.583433    0.912000
+7         0.102770    0.549827    0.921000
+8         0.053252    0.533528    0.928000
+9         0.032845    0.568053    0.927000
+10        0.022289    0.604236    0.926000
+11        0.015289    0.587667    0.929000
+Total time: 03:12
+OrderedDict([('data/mldoc/es-1/models/sp15k/qrnn_nl4-8e-single.m',
+              0.9595000147819519),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-8e-single.m',
+              0.9202499985694885)])
+           
+```
+
 ## Limiit to 100 examples
 ```
 python -m ulmfit eval --glob="mldoc/*-1/models/sp30k/lstm_nl4.m" --name nl4-100e8 --cuda-id=1 --limit=100 --num-cls-epochs=8

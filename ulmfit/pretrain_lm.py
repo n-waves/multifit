@@ -171,10 +171,10 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3):
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
         self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
-        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult)
+        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
 
         learn.true_wd = true_wd
         if num_epochs > 0:
@@ -204,7 +204,7 @@ class LMHyperParams:
         # do we need to return `learn'? it adds noise to Fire output
         #return learn
 
-    def create_lm_learner(self, data_lm, dps=None, **kwargs):
+    def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn,
                           tie_weights=True, out_bias=True)
@@ -230,6 +230,8 @@ class LMHyperParams:
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history"),
                                # partial(SaveModelCallback, every='improvement', name='lm') disabled due to Memory issues
                                ]
+        if label_smoothing_eps > 0.0:
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
 
     def load_train_text(self):
@@ -297,8 +299,8 @@ class LMHyperParams:
 
     @classmethod
     def from_lm(cls, dataset_path, base_lm_path, **kwargs) -> 'LMHyperParams':
-        base_lm_path = Path(base_lm_path).resolve()
         dataset_path = Path(dataset_path).resolve()
+        base_lm_path = Path(base_lm_path).resolve()
         with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
         d['dataset_path'] = dataset_path
         d['base_lm_path'] = base_lm_path
@@ -315,6 +317,26 @@ class LMHyperParams:
 
         d.update(kwargs)
         return cls(**d)
+    @classmethod
+    def from_json(cls, model_path:Path, **kwargs):
+        model_path = Path(model_path).resolve()
+        name = re.search(r"[a-z]+_(.+).m", model_path.name).group(1)
+        with open(model_path / 'info.json', 'r') as f:
+            d = json.load(f)
+        d.update(kwargs)
+        d['name'] = name
+        dataset_path = path_strip(model_path, "data", "models").parent
+        d['dataset_path'] = str(dataset_path)
+        d['lang'] = infer_lang_from_dataset(dataset_path.name)
+        return cls(**d)
+
+def infer_lang_from_dataset(name:str):
+    return name.split("-")[0]
+
+def path_strip(path, from_folder, to_folder):
+    to_p = [p for p in path.parents if p.name == to_folder][0]
+    from_p = [p for p in path.parents if p.name == from_folder][0]
+    return to_p.relative_to(from_p.parent)
 
 def validate_lm(self):
     if not self.exp.subword and self.exp.max_vocab is None:

@@ -26,50 +26,75 @@ class CLSHyperParams(LMHyperParams):
     @property
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
 
-    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, true_wd=True, drop_mul_lm=0.3, drop_mul_cls=0.5,
-                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70):
+    def lr_schedule_layered(self, learn, num_cls_epochs):
+        learn.freeze_to(-1)
+        learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
+        if num_cls_epochs > 1:
+            learn.freeze_to(-2)
+            learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
+            learn.freeze_to(-3)
+            learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
+            learn.unfreeze()
+            learn.fit_one_cycle(num_cls_epochs, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
+
+    def lr_schedule_2cycle(self, learn, num_cls_epochs):
+        print("2cycle training schedule")
+        learn.freeze_to(-1)
+        learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
+        learn.unfreeze()
+        if num_cls_epochs > 1:
+            learn.fit_one_cycle(num_cls_epochs -1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
+
+    def lr_schedule_1cycle(self, learn, num_cls_epochs):
+        print("Single training schedule")
+        learn.unfreeze()
+        learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
+
+    def lr_schedule_false_wd(self, learn, num_cls_epochs):
+        learn.true_wd = False
+        print("Starting classifier training")
+        learn.fit_one_cycle(1, 5e-2, moms=(0.8, 0.7), wd=1e-7)
+        if num_cls_epochs > 1:
+            learn.freeze_to(-2)
+            learn.fit_one_cycle(1, slice(5e-2 / (2.6 ** 4), 5e-2), moms=(0.8, 0.7), wd=1e-7)
+            learn.freeze_to(-3)
+            learn.fit_one_cycle(1, slice(5e-4 / (2.6 ** 4), 5e-4), moms=(0.8, 0.7), wd=1e-7)
+            learn.unfreeze()
+            if num_cls_epochs > 5:
+                learn.fit_one_cycle(num_cls_epochs-4, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
+
+    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
+                  use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
+                  label_smoothing_eps=0.0):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
+        if not unfreeze:
+           num_cls_epochs = 1
+
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
-        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, true_wd=true_wd, drop_mult=drop_mul_lm)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len)
+        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps)
         try:
-            learn.load('cls_last')
+            learn.load('cls_best')
             print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder(ENC_BEST)
-        if true_wd:
+
+        if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
-            print("Starting classifier training")
-            learn.freeze_to(-1)
-            learn.fit_one_cycle(num_cls_frozen_epochs, 2e-2, moms=(0.8, 0.7))
-            if unfreeze:
-                learn.freeze_to(-2)
-                learn.fit_one_cycle(1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
-                learn.freeze_to(-3)
-                learn.fit_one_cycle(1, slice(5e-3 / (2.6 ** 4), 5e-3), moms=(0.8, 0.7))
-                learn.unfreeze()
-                learn.fit_one_cycle(num_cls_epochs, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
+            getattr(self, 'lr_schedule_'+lr_sched)(learn, num_cls_epochs)
         else:
-            learn.true_wd = False
-            print("Starting classifier training")
-            learn.fit_one_cycle(num_cls_frozen_epochs, 5e-2, moms=(0.8, 0.7), wd=1e-7)
-            if unfreeze:
-                learn.freeze_to(-2)
-                learn.fit_one_cycle(1, slice(5e-2 / (2.6 ** 4), 5e-2), moms=(0.8, 0.7), wd=1e-7)
-                learn.freeze_to(-3)
-                learn.fit_one_cycle(1, slice(5e-4 / (2.6 ** 4), 5e-4), moms=(0.8, 0.7), wd=1e-7)
-                learn.unfreeze()
-                learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
+            raise ValueError(f"Wrong lr_sched: {lr_sched}")
+
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
         learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
+        del learn
+        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=learn)
-
-    def validate_cls(self, save_name='cls_last', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
         if data_tst is None:
             _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
@@ -80,7 +105,7 @@ class CLSHyperParams(LMHyperParams):
         print(f"Loss and accuracy using ({save_name}):", results)
         return list(map(float, results))
 
-    def create_cls_learner(self, data_clas, dps=None, **kwargs):
+    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
         config.update(dps or self.dps)
@@ -99,6 +124,8 @@ class CLSHyperParams(LMHyperParams):
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
                                #partial(SaveModelCallback, every='improvement', name='cls_best') disabled due to memory issues
                                ]
+        if label_smoothing_eps > 0.0:
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
 
     def load_cls_data(self, bs, **kwargs):
@@ -121,6 +148,16 @@ class CLSHyperParams(LMHyperParams):
                               **kwargs)
         return self.databunches(bs, **data)
 
+    def merge_cols(self, df):
+        if len(df.columns) <= 2:
+            return df
+        ndf = df[[0,1]].copy()
+        for i in range(2, len(df.columns)):
+            ndf[1] += ("\n" + FLD + "\n") + df[i].fillna(" ")
+
+        assert ndf[1].isna().sum().sum() == 0, f"You have NaN values in column(s) of your dataframe, please fix it."
+        return ndf
+
     def load_data(self, lang='', **kwargs):
         prefix = '' if lang == '' else lang+'.'
         trn_df = pd.read_csv(self.dataset_path / f'{prefix}train.csv', header=None)
@@ -139,9 +176,23 @@ class CLSHyperParams(LMHyperParams):
             val_len = max(int(len(trn_df) * 0.1), 2)
             trn_len = len(trn_df) - val_len
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
-
+        trn_df = self.merge_cols(trn_df)
+        val_df = self.merge_cols(val_df)
+        tst_df = self.merge_cols(tst_df)
+        unsup_df = self.merge_cols(unsup_df)
         kwargs.update(dict(trn_df=trn_df, val_df=val_df, tst_df=tst_df, unsup_df=unsup_df))
         return kwargs
+
+    def add_noise(self, trn_df, noise):
+        count = len(trn_df)
+        labels = trn_df[0].unique()
+        assert np.issubdtype(labels.dtype, np.integer), "noise only works on numerical numbers"
+        modulo = labels.max() + 1
+        idx_to_distrub = np.random.permutation(count)[:int(count * noise)]
+        trn_df.loc[idx_to_distrub, [0]] = (np.random.randint(1, modulo - 1, size=len(idx_to_distrub)) +
+                                           trn_df.loc[idx_to_distrub][0]) % modulo
+        print(f"Added noise to {len(idx_to_distrub)} examples, only {(count - len(idx_to_distrub)) / count} have correct labels")
+        return trn_df
 
     def databunches(self, bs, trn_df, val_df, tst_df, unsup_df, add_trn_to_lm=True, use_moses=False, force=False, limit=None, noise=0.0):
         lm_trn_df = pd.concat([unsup_df, val_df, tst_df] + ([trn_df] if add_trn_to_lm else []))
@@ -157,14 +208,9 @@ class CLSHyperParams(LMHyperParams):
             cls_name=f'{cls_name}limit{limit}'
 
         if noise > 0.0:
-            count = len(trn_df)
-            labels = trn_df[0].unique()
-            assert np.issubdtype(labels.dtype, np.integer), "noise only works on numerical numbers"
-            modulo = labels.max()+1
-            idx_to_distrub = np.random.permutation(count)[:int(count * noise)]
-            trn_df.loc[idx_to_distrub, [0]] = (trn_df.loc[idx_to_distrub, [0]] + 1) % modulo
-            print(f"Added noise to {len(idx_to_distrub)} examples, only {(count-len(idx_to_distrub))/count} have correct labels")
-            cls_name = f'{cls_name}noise{noise}'
+            trn_df = self.add_noise(trn_df, noise)
+            val_df = self.add_noise(val_df, noise)
+            cls_name = f'{cls_name}noise{noise}tv'
 
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
         args['text_cols'] = list(trn_df.columns.values)[1:]

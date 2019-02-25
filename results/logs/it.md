@@ -1,4 +1,28 @@
 # FR 
+## SP15k QRNN NL4
+### LM
+
+```
+export CUDA_VISIBLE_DEVICES=0                          
+LANG=it
+python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 15000 --lang ${LANG} --qrnn=True - train 10 --bs=50 --drop_mult=0
+epoch     train_loss  valid_loss  accuracy
+1         3.171145    3.516659    0.359233
+2         3.045057    3.472802    0.359628
+3         3.023009    3.401181    0.367101
+4         2.985105    3.351916    0.372709
+5         2.858441    3.280903    0.380848
+6         2.862504    3.210976    0.390263
+7         2.758775    3.122354    0.402106
+8         2.683234    3.035321    0.413798
+9         2.593757    2.964551    0.424886
+10        2.535500    2.947672    0.427958
+Total time: 11:30:03
+data/wiki/it-100/models/sp15k
+Saving info data/wiki/it-100/models/sp15k/qrnn_nl4.m/info.json
+```
+## xx
+
 ## SP30k LSTM nl 4 
 ### LM 
 ```

@@ -1,4 +1,28 @@
 # DE
+## SP15k LSTM nl4
+```
+$ python -m  ulmfit lm --dataset-path data/wiki/de-100 --cuda-id=0 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 15000 --lang de --qrnn=False - train 10 --bs=100 --drop_mult=0
+
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der',
+'▁die', 'en', '▁und', 's', '▁in', 'er', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Training lm from random weights
+epoch     train_loss  valid_loss  accuracy
+1         2.519809    2.600072    0.529963
+2         2.436580    2.538897    0.534651
+3         2.402220    2.510569    0.537314
+4         2.305741    2.439347    0.546574
+5         2.265683    2.376482    0.553794
+6         2.210663    2.305362    0.562672
+7         2.134196    2.230041    0.572958
+8         2.085375    2.150917    0.584621
+9         2.037781    2.097170    0.593747
+10        1.986773    2.081469    0.595799
+Total time: 19:18:33
+data/wiki/de-100/models/sp15k
+Saving info data/wiki/de-100/models/sp15k/lstm_nl4.m/info.jso
+```
+
 ## VF60k LSTM nl 3
 ### LM 
 ```
