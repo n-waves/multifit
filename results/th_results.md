@@ -18,4 +18,4 @@ Results are based on evaluation of [Wongnai Challenge: Review Rating Prediction]
 | fastText | 0.5145          | 0.5109           |
 | LinearSVC | 0.5022          | 0.4976           |
 | Kaggle Score | 0.59139          | 0.58139          |
-| BERT | 0.56612 | 0.57057 |
+| [BERT](https://github.com/ThAIKeras/bert) | 0.56612 | 0.57057 |
