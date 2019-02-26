@@ -112,7 +112,7 @@ class CLSHyperParams(LMHyperParams):
         trn_args=dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)
         learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
-            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, bptt=self.bptt, **trn_args)
+            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
 
         if self.pretrained_model is not None:
             print("Loading pretrained model")
