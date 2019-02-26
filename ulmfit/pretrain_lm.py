@@ -175,7 +175,7 @@ class LMHyperParams:
         self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
-
+        print("Bptt", data_lm.bptt)
         learn.true_wd = true_wd
         if num_epochs > 0:
             if self.pretrained_fnames or self.pretrained_model:
@@ -255,6 +255,7 @@ class LMHyperParams:
                           classes=None,
                           bs=bs,
                           text_cols='texts',
+                          bptt=self.bptt,
                           **args)
 
         itos, stoi, trn_path = data_lm.vocab.itos, data_lm.vocab.stoi, data_lm.path

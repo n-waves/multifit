@@ -112,7 +112,7 @@ class CLSHyperParams(LMHyperParams):
         trn_args=dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)
         learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
-            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
+            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, bptt=self.bptt, **trn_args)
 
         if self.pretrained_model is not None:
             print("Loading pretrained model")
@@ -151,7 +151,7 @@ class CLSHyperParams(LMHyperParams):
     def merge_cols(self, df):
         if len(df.columns) <= 2:
             return df
-        ndf = df[[0,1]].copy()
+        ndf = df[[0,1]].copy().fillna(" ")
         for i in range(2, len(df.columns)):
             ndf[1] += ("\n" + FLD + "\n") + df[i].fillna(" ")
 
@@ -213,7 +213,8 @@ class CLSHyperParams(LMHyperParams):
             cls_name = f'{cls_name}noise{noise}tv'
 
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
-        data_lm = self.lm_databunch('lm', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, **args)
+        lm_suffix = self.bptt if self.bptt != 70 else ""
+        data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, **args)
         args['vocab'] = data_lm.vocab
         data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
         data_tst = self.cls_databunch('tst', train_df=val_df, valid_df=tst_df, bs=bs, force=force, **args) # Hack to load test dataset with labels
