@@ -22,6 +22,72 @@ Total time: 19:18:33
 data/wiki/de-100/models/sp15k
 Saving info data/wiki/de-100/models/sp15k/lstm_nl4.m/info.jso
 ```
+### MLDoc
+```bash
+LANG=de
+python -m ulmfit cls --dataset-path data/mldoc-m/${LANG}-1  --base-lm-path data/wiki-m/${LANG}-100/models/sp15k/lstm_nl4.m  --lang=${LANG} --name 'nl4' - train 20 --bs 20 --num-cls-
+epochs=8 --lr_sched=1cycle
+Max vocab: 15000
+Cache dir: /home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/models/sp15k
+Model dir: /home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/models/sp15k/lstm_nl4.m
+Loading validation /home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/de.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', 'en', '▁und', 's', '▁in', 'er', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+Training lm from:  [PosixPath('/home/test/workspace/ulmfit-multilingual/data/wiki-m/de-100/models/sp15k/lstm_nl4.m/lm_best'), PosixPath('/home/test/workspace/ulmfit-multilingual/data/wiki-m/de-100/models/sp15k/lstm_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         2.333600    2.005051    0.596875
+Total time: 07:40
+epoch     train_loss  valid_loss  accuracy
+1         2.120653    1.886799    0.615784
+2         1.980713    1.763139    0.636041
+3         1.805195    1.655620    0.654068
+4         1.729641    1.564017    0.668772
+5         1.681813    1.491185    0.680613
+6         1.682965    1.422562    0.692458
+7         1.580731    1.357177    0.703143
+8         1.506753    1.297219    0.714487
+9         1.515824    1.235473    0.725413
+10        1.427750    1.178680    0.737216
+11        1.371839    1.118909    0.749590
+12        1.342978    1.068754    0.760473
+13        1.286842    1.011940    0.772384
+14        1.254822    0.960727    0.784244
+15        1.195136    0.919377    0.793910
+16        1.118260    0.881799    0.802814
+17        1.071546    0.855769    0.809040
+18        1.079081    0.839280    0.812895
+19        1.052724    0.831323    0.814723
+20        1.024207    0.829737    0.815070
+Total time: 3:08:58
+/home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/models/sp15k
+Saving info /home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/models/sp15k/lstm_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.539181    0.239851    0.938000
+2         0.326801    0.374512    0.917000
+3         0.225103    0.330872    0.945000
+4         0.121660    0.444890    0.938000
+5         0.078411    0.422513    0.948000
+6         0.061354    0.509489    0.949000
+7         0.029890    0.438118    0.949000
+8         0.014213    0.441808    0.949000
+Total time: 09:00
+Saving models at /home/test/workspace/ulmfit-multilingual/data/mldoc-m/de-1/models/sp15k/lstm_nl4.m
+Loss and accuracy using (cls_best): [0.3710725, tensor(0.9553)]
+
+0.3710725009441376
+0.9552500247955322
+```
+
 
 ## VF60k LSTM nl 3
 ### LM 
