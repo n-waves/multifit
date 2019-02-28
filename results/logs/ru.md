@@ -17,7 +17,10 @@ Total time: 10:43:03
 data/wiki/ru-100/models/sp15k
 Saving info data/wiki/ru-100/models/sp15k/qrnn_nl4.m/info.json
 ```
+```bash
+python -m ulmfit cls --dataset-path data/mldoc/ru-1  --base-lm-path data/wiki/ru-100/models/sp30k/lstm_nl4.m  --lang=ru --name 'nl4-100' --cuda-id=1 - train 20 --bs 40 --num-cls-epochs=2
 
+```
 
 ## SP30k nl4 
 ### LM

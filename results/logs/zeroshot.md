@@ -90,9 +90,405 @@ zh from fr
  | Test: 79.40% | classes: 33.60 31.12  9.07 26.20
 ```
 
+#### ULMFit zershot on laser-en1k 4 epochs
+```bash
+python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --dataset_template="{lang}-1*-laser-en1" --name nl4 --num-cls-epochs=4 --label-smoothing-eps=0.1 --lr_sched=1cycle --bs=18
+ python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --dataset_template='${lang}-1*-laser-en1' --name nl4 --num-cls-epochs=4 --label-smoothing-eps=0.1 --lr_sched=1cycle --bs=18
+Processing data/mldoc/de-1/models/sp15k/qrnn_nl4.m
+de-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/de.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', 'en', '▁und', 's', '▁in', 'er', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.858069    0.756738    0.853000
+2         0.737577    0.687798    0.909000
+3         0.611922    0.615140    0.919000
+4         0.544274    0.608824    0.909000
+Total time: 01:08
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.31768194, tensor(0.9133)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/de.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 10000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', 'en', '▁und', 's', '▁in', 'er', "▁&'"]
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.665453    0.600660    0.924000
+2         0.624768    0.595788    0.922000
+3         0.576251    0.580166    0.930000
+4         0.520507    0.569867    0.930000
+Total time: 09:38
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.3278069, tensor(0.9190)]
+Processing data/mldoc/en-1/models/sp15k/qrnn_nl4.m
+en-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/en.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁the', '▁,', 's', '▁.', '▁of', '▁and', '▁in', '▁to', '▁a', 'ed']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.836131    0.760151    0.887000
+2         0.691355    0.666257    0.905000
+3         0.587016    0.603976    0.932000
+4         0.529849    0.584768    0.943000
+Total time: 01:09
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.20341124, tensor(0.9503)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/en.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 10000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁the', '▁,', 's', '▁.', '▁of', '▁and', '▁in', '▁to', '▁a', 'ed']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.676697    0.611570    0.931000
+2         0.647868    0.629156    0.916000
+3         0.578947    0.546653    0.943000
+4         0.539242    0.550864    0.949000
+Total time: 10:25
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.2546631, tensor(0.9490)]
+Processing data/mldoc/es-1/models/sp15k/qrnn_nl4.m
+es-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/es.dev.csv
+Running tokenization lm...
+Data lm, trn: 13013, val: 1445
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.947175    0.774158    0.854000
+2         0.827687    0.747528    0.859000
+3         0.698278    0.726713    0.881000
+4         0.603821    0.729449    0.878000
+Total time: 00:58
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.77420205, tensor(0.7893)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/es.dev.csv
+Running tokenization lm...
+Data lm, trn: 13013, val: 1445
+Running tokenization cls...
+Data cls, trn: 9458, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.654948    0.968341    0.863000
+2         0.634143    0.844979    0.873000
+3         0.559031    0.719894    0.890000
+4         0.524448    0.675569    0.887000
+Total time: 05:36
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.70765454, tensor(0.7880)]
+Processing data/mldoc/fr-1/models/sp15k/qrnn_nl4.m
+fr-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/fr.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', 's', '▁.', "'", '▁la', '▁le', '▁et', '▁l', '▁à']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.882636    0.720057    0.851000
+2         0.766720    0.790358    0.847000
+3         0.661309    0.669355    0.877000
+4         0.584607    0.676029    0.889000
+Total time: 01:05
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.32164142, tensor(0.8945)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/fr.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 10000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', 's', '▁.', "'", '▁la', '▁le', '▁et', '▁l', '▁à']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.721444    0.714190    0.865000
+2         0.684221    0.688866    0.879000
+3         0.616377    0.624161    0.904000
+4         0.576405    0.630186    0.904000
+Total time: 09:37
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.39518934, tensor(0.8848)]
+Processing data/mldoc/it-1/models/sp15k/qrnn_nl4.m
+it-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/it.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁di', '▁e', "▁&'", "'", '▁il', '▁la', '▁in', 'e']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.963395    0.843734    0.777000
+2         0.892776    0.890245    0.785000
+3         0.755211    0.799284    0.815000
+4         0.629971    0.796769    0.820000
+Total time: 00:40
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.76029295, tensor(0.7600)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/it.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 10000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁di', '▁e', "▁&'", "'", '▁il', '▁la', '▁in', 'e']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.828429    0.801399    0.820000
+2         0.769261    0.786845    0.816000
+3         0.717665    0.734139    0.845000
+4         0.597664    0.741355    0.843000
+Total time: 05:29
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.7915614, tensor(0.7605)]
+Processing data/mldoc/ja-1/models/sp15k/qrnn_nl4.m
+ja-1*-laser-en1
+Processing data/mldoc/zh-1/models/sp15k/qrnn_nl4.m
+zh-1*-laser-en1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/zh.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.964628    1.016147    0.710000
+2         0.836267    0.885741    0.789000
+3         0.694938    0.789230    0.811000
+4         0.594315    0.809480    0.811000
+Total time: 01:08
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.5295076, tensor(0.8245)]
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/models/sp15k/qrnn_nl4.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/zh.dev.csv
+Running tokenization lm...
+Data lm, trn: 13500, val: 1500
+Running tokenization cls...
+Data cls, trn: 10000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/models/sp15k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.823208    0.774504    0.821000
+2         0.771960    0.769799    0.822000
+3         0.682731    0.724021    0.847000
+4         0.595054    0.744821    0.836000
+Total time: 09:42
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-10-laser-en1/models/sp15k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.59163076, tensor(0.8127)]
+OrderedDict([('data/mldoc/de-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.9132500290870667),
+             ('data/mldoc/de-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.9190000295639038),
+             ('data/mldoc/en-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.9502500295639038),
+             ('data/mldoc/en-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.9490000009536743),
+             ('data/mldoc/es-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.7892500162124634),
+             ('data/mldoc/es-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.7879999876022339),
+             ('data/mldoc/fr-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.8945000171661377),
+             ('data/mldoc/fr-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.8847500085830688),
+             ('data/mldoc/it-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.7599999904632568),
+             ('data/mldoc/it-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.7605000138282776),
+             ('data/mldoc/zh-1-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.8245000243186951),
+             ('data/mldoc/zh-10-laser-en1/models/sp15k/qrnn_nl4.m',
+              0.812749981880188)])
+data/mldoc/de-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.9132500290870667
+data/mldoc/de-10-laser-en1/models/sp15k/qrnn_nl4.m: 0.9190000295639038
+data/mldoc/en-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.9502500295639038
+data/mldoc/en-10-laser-en1/models/sp15k/qrnn_nl4.m: 0.9490000009536743
+data/mldoc/es-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.7892500162124634
+data/mldoc/es-10-laser-en1/models/sp15k/qrnn_nl4.m: 0.7879999876022339
+data/mldoc/fr-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.8945000171661377
+data/mldoc/fr-10-laser-en1/models/sp15k/qrnn_nl4.m: 0.8847500085830688
+data/mldoc/it-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.7599999904632568
+data/mldoc/it-10-laser-en1/models/sp15k/qrnn_nl4.m: 0.7605000138282776
+data/mldoc/zh-1-laser-en1/models/sp15k/qrnn_nl4.m:  0.8245000243186951
+```
+
+
 #### Evaluation of Laser 1k Performance 
 ```
-python -m ulmfit eval --glob="mldoc/*-1/models/sp60k/lstm_nl4.m" --dataset_template="{}-laser-*" --name nl4 --cuda-id=0                                   ✘ 130
+python -m ulmfit eval --glob="mldoc/*-1/models/sp60k/lstm_nl4.m" --dataset_template="{}-laser-*" --name nl4 --cuda-id=0 
 Max vocab: 60000
 Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-fr/models/sp60k
 Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1-laser-fr/models/sp60k/lstm_nl4.m
