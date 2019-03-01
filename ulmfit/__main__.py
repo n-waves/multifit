@@ -51,12 +51,7 @@ class ULMFiT:
 
 
     def eval_noise_resistance(self, lang="de", size=1, prefix_name="", model="sp15k/qrnn_nl4.m",
-                              num_cls_epochs=8, bs=18, lr_sched="1cycle", label_smoothing_eps=0.0):
-        def first_or_default(l, default=None):
-            l = list(l)
-            if l:
-                return l[0]
-            return default
+                              num_cls_epochs=8, bs=18, lr_sched="1cycle", label_smoothing_eps=0.0, **kwargs):
         results= []
         for noise in range(0, 80, 5):
             print("Noise: ", noise)
@@ -67,8 +62,9 @@ class ULMFiT:
                           num_cls_epochs=num_cls_epochs,
                           bs=bs,
                           lr_sched=lr_sched,
-                          label_smoothing_eps=label_smoothing_eps)
-            val = first_or_default(d.values(), default=-1)
+                          label_smoothing_eps=label_smoothing_eps,
+                          **kwargs)
+            val = next(iter(d.values()), -1)
             results.append((noise/100, val))
         df = pd.DataFrame(results, columns=["noise", "accuracy"])
         df.to_csv(f"noise_{lang}-{size}{prefix_name}.csv")
