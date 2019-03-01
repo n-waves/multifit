@@ -75,14 +75,18 @@ class ULMFiT:
         print(df)
 
     def tar(self, model_path):
+        data_dir = (Path.cwd()/"data").resolve()
         params = CLSHyperParams.from_json(model_path)
-        tar_name = f"models/{params.lang}-{params.tokenizer_prefix}-{params.model_name}.tar"
+        name = str(params.dataset_dir.resolve().relative_to(data_dir)).replace("/", "-")
+
+        tar_name = f"models/{name}-{params.tokenizer_prefix}-{params.model_name}.tar"
         print("Storing model in", tar_name)
         with tarfile.open(tar_name, mode="w") as tar:
-            for g in map(params.model_dir.glob, ['*_last.*', 'info.json', 'info.json', '../spm.*', '../itos.*',]):
+            for g in map(params.model_dir.glob, ['*_best.pth', 'info.json', '../spm.*', '../itos.*',]):
                 for f in g:
-                    print("Adding", f, f.relative_to("data"))
-                    tar.add(f, f.relative_to("data"))
+                    dest = f.resolve().relative_to(Path.cwd())
+                    print("Adding", f, dest)
+                    tar.add(f, dest)
 
     def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
         results = OrderedDict()
