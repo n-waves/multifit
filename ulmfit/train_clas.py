@@ -10,7 +10,7 @@ from fastai_contrib.utils import PAD_TOKEN_ID
 
 import fire
 
-from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
+from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST, json_save
 
 
 class CLSHyperParams(LMHyperParams):
@@ -101,18 +101,22 @@ class CLSHyperParams(LMHyperParams):
         learn.save('cls_last', with_opt=False)
         learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
         del learn
-        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
+        return self.validate_cls('cls_best', bs=bs, data_cls=data_clas, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_cls=None, data_tst=None, learn=None, label_smoothing_eps=0.0):
         if data_tst is None:
-            _, _, data_tst = self.load_cls_data(bs)
+            data_cls, _, data_tst = self.load_cls_data(bs)
         if learn is None:
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3)
+            learn = self.create_cls_learner(data_tst, drop_mult=0.3, label_smoothing_eps=label_smoothing_eps)
             learn.unfreeze()
         learn.load(save_name)
-        results = learn.validate(data_tst.valid_dl)
-        print(f"Loss and accuracy using ({save_name}):", results)
-        return list(map(float, results))
+        val_res=[-1, -1]
+        if data_cls:
+            val_res = learn.validate(data_cls.valid_dl)
+        tst_res = learn.validate(data_tst.valid_dl)
+        print(f"Loss and accuracy using ({save_name}):", tst_res, val_res)
+        results = {'val_loss': val_res[0], 'val_accuracy': float(val_res[1]), 'tst_loss':tst_res[0], 'tst_accuracy': float(tst_res[1]) }
+        return results
 
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"

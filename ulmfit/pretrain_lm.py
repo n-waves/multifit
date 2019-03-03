@@ -52,6 +52,14 @@ def read_wiki_articles(filename):
     print(f"Wiki text was split to {len(articles)} articles")
     return pd.DataFrame({'texts': np.array(articles, dtype=np.object)})
 
+def json_save(f, d):
+    with Path(f).open("w") as fp:
+        json.dump(d, fp)
+
+def json_load(f):
+    with open(f, 'r') as f:
+        return json.load(f)
+
 @dataclass
 class LMHyperParams:
     dataset_path: str # data_dir
@@ -168,7 +176,7 @@ class LMHyperParams:
         vals.pop('name', None)
         vals.pop('lang', None)
         vals['tokenizer'] = self.tokenizer.value
-        with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
+        json_save(self.model_dir/'info.json', vals)
         print("Saving info", self.model_dir / 'info.json')
 
     def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
@@ -249,7 +257,7 @@ class LMHyperParams:
 
         args = self.tokenizer_to_fastai_args(sp_data_func=self.load_train_text, use_moses=False)
 
-        data_lm = self.lm_databunch("lm",
+        data_lm = self.lm_databunch(f"lm{self.bptt if self.bptt != 70 else ''}",
                           train_df=read_wiki_articles(trn_path),
                           valid_df=read_wiki_articles(val_path),
                           classes=None,
@@ -302,7 +310,7 @@ class LMHyperParams:
     def from_lm(cls, dataset_path, base_lm_path, **kwargs) -> 'LMHyperParams':
         dataset_path = Path(dataset_path).resolve()
         base_lm_path = Path(base_lm_path).resolve()
-        with open(base_lm_path/'info.json', 'r') as f: d = json.load(f)
+        d = json_load(base_lm_path/'info.json')
         d['dataset_path'] = dataset_path
         d['base_lm_path'] = base_lm_path
         d.pop('bs', None)
