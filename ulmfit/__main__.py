@@ -51,12 +51,7 @@ class ULMFiT:
 
 
     def eval_noise_resistance(self, lang="de", size=1, prefix_name="", model="sp15k/qrnn_nl4.m",
-                              num_cls_epochs=8, bs=18, lr_sched="1cycle", label_smoothing_eps=0.0):
-        def first_or_default(l, default=None):
-            l = list(l)
-            if l:
-                return l[0]
-            return default
+                              num_cls_epochs=8, bs=18, lr_sched="1cycle", label_smoothing_eps=0.0, **kwargs):
         results= []
         for noise in range(0, 80, 5):
             print("Noise: ", noise)
@@ -67,22 +62,27 @@ class ULMFiT:
                           num_cls_epochs=num_cls_epochs,
                           bs=bs,
                           lr_sched=lr_sched,
-                          label_smoothing_eps=label_smoothing_eps)
-            val = first_or_default(d.values(), default=-1)
+                          label_smoothing_eps=label_smoothing_eps,
+                          **kwargs)
+            val = next(iter(d.values()), -1)
             results.append((noise/100, val))
         df = pd.DataFrame(results, columns=["noise", "accuracy"])
         df.to_csv(f"noise_{lang}-{size}{prefix_name}.csv")
         print(df)
 
     def tar(self, model_path):
+        data_dir = (Path.cwd()/"data").resolve()
         params = CLSHyperParams.from_json(model_path)
-        tar_name = f"models/{params.lang}-{params.tokenizer_prefix}-{params.model_name}.tar"
+        name = str(params.dataset_dir.resolve().relative_to(data_dir)).replace("/", "-")
+
+        tar_name = f"models/{name}-{params.tokenizer_prefix}-{params.model_name}.tar"
         print("Storing model in", tar_name)
         with tarfile.open(tar_name, mode="w") as tar:
-            for g in map(params.model_dir.glob, ['*_last.*', 'info.json', 'info.json', '../spm.*', '../itos.*',]):
+            for g in map(params.model_dir.glob, ['*_best.pth', 'info.json', '../spm.*', '../itos.*',]):
                 for f in g:
-                    print("Adding", f, f.relative_to("data"))
-                    tar.add(f, f.relative_to("data"))
+                    dest = f.resolve().relative_to(Path.cwd())
+                    print("Adding", f, dest)
+                    tar.add(f, dest)
 
     def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
         results = OrderedDict()

@@ -65,7 +65,7 @@ class CLSHyperParams(LMHyperParams):
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0):
+                  label_smoothing_eps=0.0, random_init=False):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -74,13 +74,22 @@ class CLSHyperParams(LMHyperParams):
 
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
-        if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps)
-        try:
-            learn.load('cls_best')
-            print("Loading last classifier")
-        except FileNotFoundError:
-            learn.load_encoder(ENC_BEST)
+        if self.need_fine_tune_lm and not random_init:
+            if not (self.model_dir/(ENC_BEST+".pth")).exists():
+                self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
+            else:
+                print("Language model already exist, skipping finetuning")
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len,
+                                        label_smoothing_eps=label_smoothing_eps, random_init=random_init)
+        if not random_init:
+            try:
+                learn.load('cls_best')
+                print("Loading last classifier")
+            except FileNotFoundError:
+                learn.load_encoder(ENC_BEST)
+        else:
+            print("Starting classifier from random weights")
+
 
         if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
@@ -105,7 +114,7 @@ class CLSHyperParams(LMHyperParams):
         print(f"Loss and accuracy using ({save_name}):", results)
         return list(map(float, results))
 
-    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, **kwargs):
+    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
         config.update(dps or self.dps)
@@ -114,8 +123,8 @@ class CLSHyperParams(LMHyperParams):
         learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
             pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
 
-        if self.pretrained_model is not None:
-            print("Loading pretrained model")
+        if self.pretrained_model is not None and not random_init:
+            print("Loading pretrained model", self.pretrained_model)
             model_path = untar_data(self.pretrained_model, data=False)
             fnames = [list(model_path.glob(f'*.{ext}'))[0] for ext in ['pth', 'pkl']]
             learn.load_pretrained(*fnames, strict=False)

@@ -169,10 +169,10 @@ epoch     train_loss  valid_loss  accuracy
 1         0.175013    0.280545    0.921000
 2         0.178333    0.286059    0.923000
 Saving models at data/mldoc/de-1/models/vf60k/lstm_nl3.m
-Loss and accuracy using (cls_last): [0.28054512, tensor(0.9210)]
-Loss and accuracy using (cls_best): [0.28054512, tensor(0.9210)]
+Loss and accuracy using (cls_best): [0.16954255, tensor(0.9475)]
+OrderedDict([('data/mldoc/de-1/models/vf60k/lstm_nl3.m', 0.9474999904632568)])
 ```
-MultiCCA: 93.7% , ulmfit: 92.1%
+MultiCCA: 93.7% , ulmfit: 94.74%
 ## SP30k LSTM nl 4
 ### LM
 ```
