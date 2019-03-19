@@ -284,6 +284,8 @@ class LMHyperParams:
             data = load_data(self.cache_dir, fname=name, bs=bs)
         else:
             print(f"Running tokenization {name}...")
+            print(args.keys())
+            print(args['label_cols'], args['text_cols'])
             data = bunch_class.from_df(path=self.cache_dir,
                                        train_df=train_df,
                                        valid_df=valid_df,

@@ -11,6 +11,7 @@ from .pretrain_lm import LMHyperParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
 from string import Template
+import traceback
 
 class FireView:
     def __init__(self, **kwargs):
@@ -84,7 +85,7 @@ class ULMFiT:
                     print("Adding", f, f.relative_to("data"))
                     tar.add(f, f.relative_to("data"))
 
-    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
+    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, label_cols=0, text_cols=1, **trn_params):
         results = OrderedDict()
         for base_model in sorted(Path("data").glob(glob)):
             print("Processing", base_model)
@@ -94,13 +95,14 @@ class ULMFiT:
                     key = str(params.model_dir.relative_to(Path.cwd()))
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
-                        results[key] = params.validate_cls()[1]
+                        results[key] = params.validate_cls(label_cols=label_cols, text_cols=text_cols)[1]
                     else:
                         print("Training")
-                        results[key] = params.train_cls(num_lm_epochs=num_lm_epochs, **trn_params)[1]
+                        results[key] = params.train_cls(num_lm_epochs=num_lm_epochs, label_cols=label_cols, text_cols=text_cols, **trn_params)[1]
                     del params
                 except Exception as e:
                     print("Error", e)
+                    print(traceback.format_exc())
                 gc.collect()
 
         pprint.pprint(results)

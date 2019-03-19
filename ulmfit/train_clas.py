@@ -12,6 +12,45 @@ import fire
 
 from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
 
+class OneHotAcc(Callback):
+    def on_epoch_begin(self, **kwargs):
+        self.correct, self.total = 0, 0
+
+    def on_batch_end(self, last_output, last_target, last_input, **kwargs):
+        preds = last_output.argmax(1)
+        target = last_target.argmax(1) if len(last_target.shape)>1 else last_target
+
+        self.correct += (preds == target).float().sum()
+        self.total += last_target.size(0)
+
+    def on_epoch_end(self, **kwargs):
+        self.metric = self.correct/self.total
+
+
+class OneHotCrossEntropyWithSmoothLabelling:
+    "Same as `func`, but flattens input and target."
+    def __init__(self, eps=0.1):
+        self.eps = eps
+
+    def __repr__(self): return "OneHotCrossEntropyWithSmoothLabelling"
+
+    def __call__(self, output:Tensor, target:Tensor, **kwargs)->Rank0Tensor:
+        c = output.size()[-1]
+        log_preds = F.log_softmax(output, dim=-1)
+        loss = -log_preds.sum(dim=-1).mean() * self.eps / c #(c-1)
+        #loss -= (1-self.eps*c/(c-1)) * (log_preds * target).sum(dim=-1).mean()
+        loss -= (1 - self.eps) * (log_preds * target).sum(dim=-1).mean()
+        return loss
+
+class OneHotCrossEntropy:
+    def __repr__(self): return "OneHotCrossEntropy"
+
+    def __call__(self, output:Tensor, target:Tensor, **kwargs)->Rank0Tensor:
+        log_preds = F.log_softmax(output, dim=-1)
+        loss = - (log_preds * target).sum(dim=-1).mean()
+        return loss
+
+
 
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
@@ -65,23 +104,30 @@ class CLSHyperParams(LMHyperParams):
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0):
+                  label_smoothing_eps=0.0, label_cols=0, text_cols=1):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
         if not unfreeze:
            num_cls_epochs = 1
 
-        data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
+        data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise, label_cols=label_cols, text_cols=text_cols)
 
         if self.need_fine_tune_lm: self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
-        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps)
+        metrics = [OneHotAcc()] if isinstance(label_cols, list) and len(label_cols) > 1 else None
+        learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len, label_smoothing_eps=label_smoothing_eps, metrics=metrics)
+
         try:
             learn.load('cls_best')
             print("Loading last classifier")
         except FileNotFoundError:
             learn.load_encoder(ENC_BEST)
 
+        if isinstance(label_cols, list) and len(label_cols) > 1:
+            if label_smoothing_eps > 0.0:
+                learn.loss_func = OneHotCrossEntropyWithSmoothLabelling(label_smoothing_eps)
+            else:
+                learn.loss_func = OneHotCrossEntropy()
         if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
             getattr(self, 'lr_schedule_'+lr_sched)(learn, num_cls_epochs)
@@ -92,15 +138,19 @@ class CLSHyperParams(LMHyperParams):
         learn.save('cls_last', with_opt=False)
         learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
         del learn
-        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
+        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None, label_cols=label_cols, text_cols=text_cols)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None, label_cols=0, text_cols=1):
         if data_tst is None:
-            _, _, data_tst = self.load_cls_data(bs)
+            _, _, data_tst = self.load_cls_data(bs, label_cols=label_cols, text_cols=text_cols)
         if learn is None:
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3)
+            metrics = [OneHotAcc()] #if isinstance(label_cols, list) and len(label_cols) > 1 else None
+            learn = self.create_cls_learner(data_tst, drop_mult=0.3,metrics=metrics)
             learn.unfreeze()
         learn.load(save_name)
+        if isinstance(label_cols, list) and len(label_cols) > 1:
+            learn.loss_func = OneHotCrossEntropy()
+        print(data_tst.one_batch())
         results = learn.validate(data_tst.valid_dl)
         print(f"Loss and accuracy using ({save_name}):", results)
         return list(map(float, results))
@@ -148,17 +198,23 @@ class CLSHyperParams(LMHyperParams):
                               **kwargs)
         return self.databunches(bs, **data)
 
-    def merge_cols(self, df):
-        if len(df.columns) <= 2:
+    def merge_cols(self, df, label_cols, text_cols):
+        if len(text_cols) < 2:
             return df
-        ndf = df[[0,1]].copy().fillna(" ")
-        for i in range(2, len(df.columns)):
-            ndf[1] += ("\n" + FLD + "\n") + df[i].fillna(" ")
+        print(f"merging: {label_cols} {text_cols}")
+        text_col = text_cols[0]
+        ndf = df[label_cols+[text_col]].copy().fillna(" ")
+        for i in text_cols[1:]:
+            ndf[text_col] += ("\n" + FLD + "\n") + df[i].fillna(" ")
 
-        assert ndf[1].isna().sum().sum() == 0, f"You have NaN values in column(s) of your dataframe, please fix it."
+        assert ndf[text_col].isna().sum().sum() == 0, f"You have NaN values in column(s) of your dataframe, please fix it."
+        print(ndf.head())
         return ndf
 
-    def load_data(self, lang='', **kwargs):
+    def load_data(self, lang='', label_cols=0, text_cols=1, **kwargs):
+        if isinstance(label_cols, int): label_cols = [label_cols]
+        if isinstance(text_cols, int): text_cols = [text_cols]
+
         prefix = '' if lang == '' else lang+'.'
         trn_df = pd.read_csv(self.dataset_path / f'{prefix}train.csv', header=None)
         tst_df = pd.read_csv(self.dataset_path / f'{prefix}test.csv', header=None)
@@ -176,11 +232,20 @@ class CLSHyperParams(LMHyperParams):
             val_len = max(int(len(trn_df) * 0.1), 2)
             trn_len = len(trn_df) - val_len
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
-        trn_df = self.merge_cols(trn_df)
-        val_df = self.merge_cols(val_df)
-        tst_df = self.merge_cols(tst_df)
-        unsup_df = self.merge_cols(unsup_df)
+        for nm, df in zip(['trn_df', 'val_df', 'tst_df', 'unsup_df'], [trn_df, val_df, tst_df, unsup_df]):
+            for lbl_col in label_cols:
+                assert np.issubdtype(df[lbl_col].dtype, np.number), f'Column {lbl_col} of {nm} should be numeric'
+            for txt_col in text_cols:
+                assert not np.issubdtype(df[txt_col], np.number), f'Column {lbl_col} of {nm} should not be numeric, perhaps'
+            if set(label_cols + text_cols) != set(df.columns):
+                print(f"WARN Columns {set(df.columns) - set(label_cols + text_cols)} of {nm} are not used")
+        trn_df = self.merge_cols(trn_df, label_cols, text_cols)
+        val_df = self.merge_cols(val_df, label_cols, text_cols)
+        tst_df = self.merge_cols(tst_df, label_cols, text_cols)
+        unsup_df = self.merge_cols(unsup_df, label_cols, text_cols)
         kwargs.update(dict(trn_df=trn_df, val_df=val_df, tst_df=tst_df, unsup_df=unsup_df))
+        kwargs['label_cols'] = label_cols
+        kwargs['text_merged_col'] = text_cols[0]
         return kwargs
 
     def add_noise(self, trn_df, noise):
@@ -194,7 +259,7 @@ class CLSHyperParams(LMHyperParams):
         print(f"Added noise to {len(idx_to_distrub)} examples, only {(count - len(idx_to_distrub)) / count} have correct labels")
         return trn_df
 
-    def databunches(self, bs, trn_df, val_df, tst_df, unsup_df, add_trn_to_lm=True, use_moses=False, force=False, limit=None, noise=0.0):
+    def databunches(self, bs, trn_df, val_df, tst_df, unsup_df, add_trn_to_lm=True, use_moses=False, force=False, limit=None, noise=0.0, label_cols=0, text_merged_col=1):
         lm_trn_df = pd.concat([unsup_df, val_df, tst_df] + ([trn_df] if add_trn_to_lm else []))
         val_len = max(int(len(lm_trn_df) * 0.1), 2)
         lm_trn_df = lm_trn_df[val_len:]
@@ -212,12 +277,12 @@ class CLSHyperParams(LMHyperParams):
             val_df = self.add_noise(val_df, noise)
             cls_name = f'{cls_name}noise{noise}tv'
 
-        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[text_merged_col], use_moses=use_moses)
         lm_suffix = self.bptt if self.bptt != 70 else ""
-        data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, **args)
+        data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, label_cols=label_cols, text_cols=text_merged_col, **args)
         args['vocab'] = data_lm.vocab
-        data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
-        data_tst = self.cls_databunch('tst', train_df=val_df, valid_df=tst_df, bs=bs, force=force, **args) # Hack to load test dataset with labels
+        data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, label_cols=label_cols, text_cols=text_merged_col, **args)
+        data_tst = self.cls_databunch('tst', train_df=val_df, valid_df=tst_df, bs=bs, force=force, label_cols=label_cols, text_cols=text_merged_col, **args) # Hack to load test dataset with labels
 
         print('Size of vocabulary:', len(data_lm.vocab.itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
