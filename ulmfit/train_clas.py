@@ -217,8 +217,8 @@ class CLSHyperParams(LMHyperParams):
             val_df = pd.read_csv(val_fn, header=None)
         else:
             val_df = None
-
-        unsup_df = pd.read_csv(self.dataset_path / f'{prefix}unsup.csv', header=None)
+        unsup_fn = self.dataset_path / f'{prefix}unsup.csv'
+        unsup_df = pd.read_csv(unsup_fn, header=None) if unsup_fn.exists() else trn_df[:0]
 
         if val_df is None:
             print("Validation set not found using 10% of trn")
