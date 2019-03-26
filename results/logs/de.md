@@ -173,6 +173,98 @@ Loss and accuracy using (cls_best): [0.16954255, tensor(0.9475)]
 OrderedDict([('data/mldoc/de-1/models/vf60k/lstm_nl3.m', 0.9474999904632568)])
 ```
 MultiCCA: 93.7% , ulmfit: 94.74%
+## VF60k QRNN nl 4
+```
+Bptt 70
+Training lm from random weights
+epoch     train_loss  valid_loss  accuracy
+1         4.131590    4.123428    0.460519
+2         4.073408    4.077561    0.461808
+3         4.038208    4.056053    0.464489
+4         4.007055    4.012294    0.469722
+5         3.992992    3.977304    0.473496
+6         3.903659    3.934043    0.480102
+7         3.897762    3.894066    0.484782
+8         3.877661    3.854888    0.492338
+9         3.831059    3.829723    0.497970
+10        3.810376    3.823137    0.499966
+Total time: 18:44:08
+data/wiki/de-100/models/vf60k
+Saving info data/wiki/de-100/models/vf60k/qrnn_nl4.m/info.json
+```
+
+```bash
+python -m ulmfit cls --dataset-path data/mldoc/${LANG}-1 --base-lm-path  data/wiki/de-100/models/vf60k/qrnn_nl4.m  --lang=${LANG} --name nl4 - train 20 --bs 18 --num-cls-epochs=4 --lr_sched=1cycle --label-smoothing-eps=0.1
+Max vocab: 60000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/vf60k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/vf60k/qrnn_nl4.m
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/de.dev.csv
+Data lm, trn: 13500, val: 1500
+Data cls, trn: 1000, val: 1000
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 39171
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '.', 'der', ',', 'die', ')', '(', 'in', 'und', 'auf', 'von', 'den', 'im']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
+
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Loading pretrained model
+Unknown tokens 20300, first 100: ['"', 'vh', 'ös', 'brs', '&', 'geg', 'lpo', 'vormonat', 'fgc', 'mesz', 'waigel', 'tcs', 'bund-future', 'ajs', 'brn', 'dih', 'analysten', 'mrd', 'rpk', 'emu', 'notierten', 'feb', 'aktienmarkt', 'dor', 'rentenmarkt', 'basispunkte', 'müßten', 'gewinnmitnahmen', 'aktienbörse', 'jelzin', 'rußland', 'volkswirte', 'fls', 'steuerreform', 'kontrakte', 'kps', 'mge', 'vortagesschluß', 'umsätzen', 'prozent.', 'dow-jones-index', 'reingewinn', 'notierungen', "\\'", 'gesamtmarkt', 'akr', 'kjf', '49-69-7565', 'abl', 'hoh', 'finanzdienst', 'atx', 'feinunze', 'zinserhöhung', 'zugelegt', 'verbraucherpreise', 'ticks', 'kursgewinne', 'ker', 'rlb', 'smi', 'vorbörslich', 'dst', 'mkl', 'ale', 'kontrakten', 'calls', 'veraenderung', 'gwa', 'gesamtjahr', 'auftragseingang', 'überschuß', 'verlautete', 'eju', 'tms', 'jahresvergleich', 'vorjahreszeitraum', 'werden.', 'betriebsergebnis', 'bobl-future', 'puts', 'fri', '4.50', 'schluß', 'ewu', 'spanne', 'standardwerte', 'jahresüberschuß', 'rechne', 'lire', '49-69-756525', '16.00', 'peh', 'hmh', 'dtb', 'tagesgeld', 'us-notenbank', 'corp', 'vorstandschef', 'greenspan']
+Bptt 70
+Training lm from:  [PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/de-100/models/vf60k/qrnn_nl4.m/lm_best'), PosixPath('/home/pczapla/workspace/ulmfit-multilingual/data/wiki/de-100/models/vf60k/qrnn_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         4.724948    4.178421    0.449862
+Total time: 02:19
+epoch     train_loss  valid_loss  accuracy
+1         4.312489    4.049916    0.466992
+2         4.197414    3.919862    0.488602
+3         4.000882    3.793147    0.510018
+4         3.960565    3.691311    0.524944
+5         3.841827    3.590782    0.539775
+6         3.756638    3.515933    0.551585
+7         3.738561    3.439131    0.563536
+8         3.623295    3.371250    0.575563
+9         3.585063    3.307532    0.586810
+10        3.523384    3.256143    0.596964
+11        3.484239    3.195987    0.610036
+12        3.439287    3.140971    0.622494
+13        3.385262    3.087693    0.634652
+14        3.308803    3.050615    0.644066
+15        3.242234    2.999897    0.656247
+16        3.229038    2.966996    0.664862
+17        3.203192    2.946324    0.670038
+18        3.169675    2.930080    0.674204
+19        3.140696    2.920569    0.676475
+20        3.207376    2.919055    0.676769
+Total time: 1:00:09
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/vf60k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/vf60k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.779320    0.638282    0.925000
+2         0.653313    0.592119    0.940000
+3         0.569095    0.577936    0.939000
+4         0.519593    0.568577    0.947000
+Total time: 00:50
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/vf60k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.19424936, tensor(0.9528)]
+0.19424936175346375
+0.952750027179718
+```
+
 ## SP30k LSTM nl 4
 ### LM
 ```

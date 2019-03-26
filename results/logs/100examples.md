@@ -1,22 +1,290 @@
 # MLDoc classification using 100 examples
 
-| Language    | 8 epochs (1)      |  4 epochs (1)      |  4 epochs (2)     | 8 epochs (2) | 
-|-------------|--------------------|---------------------|------------------|----------|
-| de          |          92.37     |        91.79        |   84.60          |  91.27   |
-| en          |          77.14     |        66.02        |   70.85          |  87.00   |
-| es          |          89.52     |        87.55        |   80.17          |  89.57   |
-| fr          |          81.44     |        74.25        |   79.97          |  88.15   |
-| it          |          81.15     |        69.24        |   74.17          |  77.54   |
-| ja          |          78.87     |        70.30        |   69.74          |  78.64   |
-| zh          |          83.57     |        70.47        |   77.39          |  87.17   |
+| Language    | 8 epochs (1)       |  4 epochs (1)       |  4 epochs (2)   | 8 epochs (2) | 8 epochs (3)| 
+|-------------|--------------------|---------------------|------------------|----------|------------|
+| en          |          77.14     |        66.02        |   70.85          |  87.00   |    83.07   |
+| de          |          92.37     |        91.79        |   84.60          |  91.27   |    90.90   |
+| es          |          89.52     |        87.55        |   80.17          |  89.57   |    89.00   |
+| fr          |          81.44     |        74.25        |   79.97          |  88.15   |    85.03   |
+| it          |          81.15     |        69.24        |   74.17          |  77.54   |    80.12   |
+| ja          |          78.87     |        70.30        |   69.74          |  78.64   |    80.55   |
+| ru          |                     |                     |                 |          |    73.55   |
+| zh          |          83.57     |        70.47        |   77.39          |  87.17   |    88.02   |
+
 
 - (1) - a larger dropout value for output_p=0.7 instead of output_p=0.2, and wd=1e-1
 - (2) - normal dropout but still wd=1e-1
 - (3) - normal dropout but and normal wd=1e-2
 
 ## QRNN sp15k - normal dropout, normal wd
+Russian
+```
+python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --name nl4-100-e8-normal-dp-wd  --limit=100 --num-cls-epochs=8 --lr_sched=1cycle --label-smoothing-eps=0.1 --bs=18
+ru-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/ru.dev.csv
+Limiting data set to: 100
+Data lm, trn: 9195, val: 1021
+Running tokenization clslimit100...
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁в', 'а', 'и', 'е', '▁и', 'й', '▁на', 'х']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+Bptt 70
+/home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp15k
+Saving info /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.327627    1.381715    0.230000
+2         1.285086    1.290231    0.450000
+3         1.131082    1.246561    0.370000
+4         1.005522    1.124416    0.530000
+5         0.942438    1.133643    0.540000
+6         0.858336    1.063248    0.620000
+7         0.802710    1.037930    0.640000
+8         0.760177    1.013346    0.640000
+Total time: 00:26
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.7943169, tensor(0.7355)]
+Processing data/mldoc/zh-1/models/sp15k/qrnn_nl4.m
 
+data/mldoc/de-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.9089999794960022
+data/mldoc/en-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8307499885559082
+data/mldoc/es-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8889999985694885
+data/mldoc/fr-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8502500057220459
+data/mldoc/it-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.7987499833106995
+data/mldoc/ja-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8015000224113464
+data/mldoc/ru-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.7354999780654907
+data/mldoc/zh-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8774999976158142
+```
+```bash
+python -m ulmfit eval --glob="mldoc/*-1/models/sp15k/qrnn_nl4.m" --name nl4-100-e8-normal-dp-wd  --limit=100 --num-cls-epochs=8 --lr_sched=1cycle --label-smoothing-eps=0.1 --bs=18
+Processing data/mldoc/de-1/models/sp15k/qrnn_nl4.m
+de-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/de.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁.', '▁,', '▁der', '▁die', 'en', '▁und', 's', '▁in', 'er', "▁&'"]
+/home/pczapla/anaconda3/envs/fastaiv1/lib/python3.7/site-packages/torch/utils/cpp_extension.py:152: UserWarning:
 
+                               !! WARNING !!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Your compiler (c++) may be ABI-incompatible with PyTorch!
+Please use a compiler that is ABI-compatible with GCC 4.9 and above.
+See https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html.
+
+See https://gist.github.com/goldsborough/d466f43e8ffc948ff92de7486c5216d6
+for instructions on how to install GCC 4.9 or higher.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+                              !! WARNING !!
+
+  warnings.warn(ABI_INCOMPATIBILITY_WARNING.format(compiler))
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.299891    1.361820    0.280000
+2         1.073693    1.173532    0.520000
+3         0.901732    0.802865    0.850000
+4         0.814596    0.769840    0.940000
+5         0.751278    0.741906    0.920000
+6         0.701402    0.704007    0.930000
+7         0.660147    0.702021    0.930000
+8         0.626870    0.683630    0.920000
+Total time: 00:23
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/de-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.5047863, tensor(0.9090)]
+Processing data/mldoc/en-1/models/sp15k/qrnn_nl4.m
+en-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1/en.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁the', '▁,', 's', '▁.', '▁of', '▁and', '▁in', '▁to', '▁a', 'ed']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.349818    1.378012    0.340000
+2         1.126246    1.169077    0.700000
+3         0.975751    1.123801    0.580000
+4         0.873535    0.803686    0.880000
+5         0.808903    0.850648    0.860000
+6         0.751683    0.858902    0.810000
+7         0.714687    0.868248    0.760000
+8         0.673551    0.842978    0.790000
+Total time: 00:21
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/en-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.62346387, tensor(0.8307)]
+Processing data/mldoc/es-1/models/sp15k/qrnn_nl4.m
+es-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/es.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13013, val: 1445
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', '▁la', '▁.', 's', '▁en', '▁el', '▁y', '▁a', '▁que']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.301228    1.357104    0.220000
+2         1.085064    1.102389    0.480000
+3         0.917675    0.933821    0.700000
+4         0.819897    0.867835    0.770000
+5         0.754799    0.838266    0.800000
+6         0.705542    0.753635    0.860000
+7         0.664083    0.705510    0.900000
+8         0.631440    0.695309    0.900000
+Total time: 00:19
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/es-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.47515148, tensor(0.8900)]
+Processing data/mldoc/fr-1/models/sp15k/qrnn_nl4.m
+fr-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/fr.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁de', '▁,', 's', '▁.', "'", '▁la', '▁le', '▁et', '▁l', '▁à']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.342008    1.382562    0.230000
+2         1.098667    1.072769    0.720000
+3         0.954929    1.140843    0.580000
+4         0.848720    0.878910    0.740000
+5         0.769108    0.851176    0.770000
+6         0.710496    0.773629    0.870000
+7         0.666720    0.768422    0.850000
+8         0.632068    0.754751    0.870000
+Total time: 00:22
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/fr-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.5851091, tensor(0.8503)]
+Processing data/mldoc/it-1/models/sp15k/qrnn_nl4.m
+it-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/it.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁di', '▁e', "▁&'", "'", '▁il', '▁la', '▁in', 'e']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.422726    1.367270    0.420000
+2         1.209058    1.242881    0.410000
+3         1.057216    1.163817    0.420000
+4         0.933097    0.889416    0.800000
+5         0.867725    0.970408    0.720000
+6         0.796040    0.905692    0.790000
+7         0.748742    0.887287    0.760000
+8         0.705950    0.869270    0.790000
+Total time: 00:15
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/it-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.67111975, tensor(0.8012)]
+Processing data/mldoc/ja-1/models/sp15k/qrnn_nl4.m
+ja-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/ja.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁、', '▁。', '▁の', '▁に', '▁を', '▁年', 'の', '▁は', '▁・', '▁)']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.255629    1.371983    0.350000
+2         1.092927    1.205145    0.630000
+3         1.048904    1.064253    0.600000
+4         0.943902    0.894827    0.810000
+5         0.849500    0.947021    0.710000
+6         0.797143    0.908895    0.730000
+7         0.746244    0.853216    0.770000
+8         0.705181    0.823923    0.800000
+Total time: 00:24
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/ja-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.6462945, tensor(0.8055)]
+Processing data/mldoc/zh-1/models/sp15k/qrnn_nl4.m
+zh-1
+Max vocab: 15000
+Cache dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k
+Model dir: /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Training
+Loading validation /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/zh.dev.csv
+Limiting data set to: 100
+Data lm, trn: 13500, val: 1500
+Data clslimit100, trn: 100, val: 100
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 15000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁的', '▁。', '▁年', '▁、', '▁在', '▁一', '▁是', '▁中', '▁有']
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.262576    1.341136    0.330000
+2         1.030734    1.104332    0.800000
+3         0.893319    1.021920    0.700000
+4         0.791810    1.040577    0.630000
+5         0.719387    0.888048    0.760000
+6         0.670949    0.809457    0.880000
+7         0.634845    0.786899    0.870000
+8         0.606350    0.774056    0.860000
+Total time: 00:19
+Saving models at /home/pczapla/workspace/ulmfit-multilingual/data/mldoc/zh-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m
+Loss and accuracy using (cls_best): [0.59781086, tensor(0.8802)]
+OrderedDict([('data/mldoc/de-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.9089999794960022),
+             ('data/mldoc/en-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8307499885559082),
+             ('data/mldoc/es-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8899999856948853),
+             ('data/mldoc/fr-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8502500057220459),
+             ('data/mldoc/it-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8012499809265137),
+             ('data/mldoc/ja-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8054999709129333),
+             ('data/mldoc/zh-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m',
+              0.8802499771118164)])
+data/mldoc/de-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.9089999794960022
+data/mldoc/en-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8307499885559082
+data/mldoc/es-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8899999856948853
+data/mldoc/fr-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8502500057220459
+data/mldoc/it-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8012499809265137
+data/mldoc/ja-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8054999709129333
+data/mldoc/zh-1/models/sp15k/qrnn_nl4-100-e8-normal-dp-wd.m: 0.8802499771118164
+```
 
 ## QRNN sp15k - normal dropout, wd=1e-1
 
@@ -1015,3 +1283,4 @@ data/mldoc/it-1/models/sp15k/qrnn_nl4-100e4.m: 0.6924999952316284
 data/mldoc/ja-1/models/sp15k/qrnn_nl4-100e4.m: 0.703000009059906
 data/mldoc/zh-1/models/sp15k/qrnn_nl4-100e4.m: 0.7047500014305115
 ````
+

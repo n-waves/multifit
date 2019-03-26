@@ -11,7 +11,7 @@
 |ULMFiT sp-fixed |           |  **95.6** |   94.80   |   94.20   |   88.52   |   88.72   |   86.85   |  90.47     |
 |ULMFIT Q15k 1cyc|   94.62   | **95.65** |   95.15   | **94.42** |   89.92   |   89.60   |           |  90.78/89.82  |
 |ULMFIT Q15k 1c l| **94.99** |           |   95.64   |   94.34   | **90.32** |   89.67   |   87.67^  | **92.22**  |
-|ULMFIT Q15k 1cfl| **95.55** | **96.10** |   95.82   |   94.80   | **90.04** |   89.87   |   87.17   | **91.90**  |
+|ULMFIT Q15k 1cfl| **95.55** | **96.10** |   95.97   |   94.77   | **90.07** |   89.87   |   87.17   | **92.40**  |
 |ULMFIT L30k 1cyc|           | **95.85** | **96.32** | **94.82** |   89.87   | **90.45** | **87.94** |  92.02/91.64  |
 
 - L30k  -  LSTM sp30k trained using gradual unfreezing
@@ -22,8 +22,18 @@
 - We checked LSTM on sp15k on DE and got 95.53% accuracy which is comparable to QRNN sp15k
 - ^ - 16 epochs qrnn_nl4sl-bs500
 
-## Zero shot approaches - LSTM
 
+## Zeroshot 
+
+| Model                |    de      |    es      |   fr      |   it      |   ru      |   zh      |
+|----------------------|------------|------------|-----------|-----------|-----------|-----------|
+| LASER-en             |    87.65   |    75.48   |   84.00   |   71.18   |   66.58   |   76.65   |
+| ULMFiT L on LASER-en |  **92.95** |  **80.50** |   88.78   |   76.20   | **70.05** |   80.45   |
+| ULMFiT Q on LASER-en |    91.34   |    78.92   | **89.45** |   76.00   |   68.19   | **82.45** |
+- L - 1k LSTM sp30k
+- Q - 1k QRNN sp15k
+
+#### LSTM results
 | Model                |    de      |    es      |   fr      |   it      |   ru      |   zh      |
 |----------------------|------------|------------|-----------|-----------|-----------|-----------|
 | LASER-de             |            |    81.40   |   81.50   |   74.53   |   64.58   |   73.20   |
@@ -42,7 +52,7 @@
 | Bert Multilingual-EN |    74.50   |   61.85    |   69.77   |   57.73   |   51.10   |  64.08    |
 
 
-### From Laser trained on French data
+#### From Laser trained on French data
 | Model Name                | de    | es    | fr | it    | ru    | zh    |
 |---------------------------|-------|-------|----|-------|-------|-------|
 | LASER fr 10k              | 91.65 | 81.05 |    | 75.08 | 70.73 | 76.33 |
@@ -55,7 +65,7 @@
 | Impr 10k over 1k          | 32%   | 10%   |    | 11%   | 7%    | 30%   |
 | Impr 1k over 1k           | 31%   | 4%    |    | 16%   | 3%    | 25%   |
 
-### From Laser trained on German data
+#### From Laser trained on German data
 | Model Name                | de | es    | fr    | it    | ru    | zh    |
 |---------------------------|----|-------|-------|-------|-------|-------|
 | LASER de 10k              |    | 83.5  | 82.85 | 76.6  | 68.8  | 73.12 |
@@ -68,7 +78,7 @@
 | Impr 10k over 1k          |    | 17%   | 32%   | 16%   | 9%    | 16%   |
 | Impr 1k over 1k           |    | 22%   | 32%   | 17%   | 7%    | -3%   |
 
-### From Laser trained on English data 
+#### From Laser trained on English data 
 | Model Name                | de    | es    | fr    | it    | ru    | zh    |
 |---------------------------|-------|-------|-------|-------|-------|-------|
 | LASER en 10k              | 87.43 | 77.38 | 78.7  | 72.53 | 67.7  | 75.18 |

@@ -1,5 +1,5 @@
 # RU
-## SP15k nl4
+## SP15k nl4 QRNN
 ```
 Training lm from random weights
 epoch     train_loss  valid_loss  accuracy
@@ -22,7 +22,160 @@ python -m ulmfit cls --dataset-path data/mldoc/ru-1  --base-lm-path data/wiki/ru
 
 ```
 
-## SP30k nl4 
+## SP25k qrnn
+### LM
+```bash
+ python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='sp' --nl 4 --name
+'nl4' --max-vocab 25000 --lang ${LANG} --qrnn=True - train 10 --bs=50 --drop_mult=0  --label-smoothing-eps=0.10 --tokenizer='sp
+Max vocab: 25000
+Cache dir: data/wiki/ru-100/models/sp25k
+Model dir: data/wiki/ru-100/models/sp25k/qrnn_nl4.m
+Wiki text was split to 193047 articles
+Wiki text was split to 460 articles
+Data lm, trn: 193047, val: 460
+Size of vocabulary: 25000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁в', 'а', 'и', 'е', '▁и', 'й', 'х', '▁на']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Training lm from random weights
+epoch     train_loss  valid_loss  accuracy
+1         4.154972    4.198218    0.447508
+2         4.030367    4.159642    0.449420
+3         4.138530    4.146010    0.451526
+4         3.997120    4.097048    0.457177
+5         3.999151    4.036350    0.465117
+6         3.935380    3.955517    0.476446
+7         3.912357    3.875987    0.487591
+8         3.785693    3.789099    0.501560
+9         3.743162    3.725730    0.512294
+10        3.690226    3.706929    0.516769
+Total time: 12:10:03
+data/wiki/ru-100/models/sp25k
+```
+
+```bash
+python -m ulmfit cls --dataset-path data/mldoc/${LANG}-1 --base-lm-path data/wiki/${LANG
+}-100/models/sp25k/qrnn_${NAME}.m  --lang=${LANG} --name ${NAME} - train 20 --bs 18 --num-cls-epochs=4 --lr_sched=1cycle --label-smoothing-eps=0.1
+
+Max vocab: 25000
+Cache dir: /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp25k
+Model dir: /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp25k/qrnn_nl4.m
+Loading validation /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/ru.dev.csv
+Running tokenization lm...
+Data lm, trn: 9195, val: 1021
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 25000
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', '<unk>', '▁', '▁,', '▁.', '▁в', 'а', 'и', 'е', '▁и', 'й', 'х', '▁на']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 0, first 100: []
+Training lm from:  [PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/ru-100/models/sp25k/qrnn_nl4.m/lm_best'), PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/ru-100/models/sp25k/qrnn_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         4.626971    3.868075    0.474742
+Total time: 01:58
+epoch     train_loss  valid_loss  accuracy
+1         3.821786    3.625366    0.519506
+2         3.570115    3.379288    0.566803
+3         3.517294    3.179166    0.599955
+4         3.160131    3.028985    0.626484
+5         3.135806    2.923198    0.644557
+6         3.055160    2.840300    0.659376
+7         3.005086    2.770163    0.672080
+8         2.811366    2.708846    0.684065
+9         2.818394    2.658951    0.694358
+10        2.881018    2.605373    0.705269
+11        2.793422    2.560091    0.715893
+12        2.708385    2.516373    0.725908
+13        2.690258    2.471159    0.735673
+14        2.748342    2.436113    0.744533
+15        2.601220    2.394404    0.754131
+16        2.616882    2.372301    0.760451
+17        2.602902    2.349164    0.766014
+18        2.560349    2.336217    0.769222
+19        2.549936    2.332076    0.770150
+20        2.546798    2.331103    0.770472
+Total time: 53:22
+/home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp25k
+Saving info /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp25k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         1.043533    0.961182    0.731000
+2         0.859086    0.837210    0.824000
+3         0.735276    0.724173    0.871000
+4         0.612012    0.711034    0.857000
+Total time: 01:15
+Saving models at /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/sp25k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.3957597, tensor(0.8720)]
+0.3957597017288208
+0.871999979019165
+```
+
+## VF60k QRNN
+### LM
+
+### MLDoc
+```bash
+Max vocab: 60000
+Cache dir: /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/vf60k
+Model dir: /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/vf60k/qrnn_nl4.m
+Loading validation /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/ru.dev.csv
+Running tokenization lm...
+Data lm, trn: 9195, val: 1021
+Running tokenization cls...
+Data cls, trn: 1000, val: 1000
+Running tokenization tst...
+Data tst, trn: 1000, val: 4000
+Size of vocabulary: 55567
+First 20 words in vocab: ['xxunk', 'xxpad', 'xxbos', 'xxfld', 'xxmaj', 'xxup', 'xxrep', 'xxwrep', ',', '.', '-', 'в', ')', '(', 'на', "&'", 'и', 'по', 'с', 'the']
+Training args:  {'clip': 0.12, 'alpha': 2, 'beta': 1, 'drop_mult': 0.3} dps:  {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
+Loading pretrained model
+Unknown tokens 34364, first 100: ['рейтер', '941', '8520', '095', 'said', '\x7f', 'доллару', 'янв', 'погашение', '3272', 'reuter', 'xd0', 'фев', '509410', 'уставный', 'which', 'percent', 'объективность', 'торгах', 'купона', 'million', 'its', 'июл', '044', 'алма-атинское', 'валютной', 'триллиона', 'межбанковской', 'would', 'авг', 'government', 'котировки', 'балансовая', 'ртс', 'выплата', 'прц', '8832', 'yeltsin', '983', 'средневзвешенная', '961', 'president', 'дек', 'minister', '2264', 'нацбанка', 'цбр', 'июн', 'newsroom', 'ммвб', 'гособлигаций', 'стр.1', 'also', 'foreign', 'офз', 'заявленный', 'шестимесячных', 'дисконтных', '-сказал', 'предыдущему', 'тбилисское', 'размещенный', 'told', 'riga', 'лари', 'стр.2', 'kroons', 'окт', 'сиданко', '--московское', 'adr', 'мосэнерго', 'shares', 'пресс-релизе', 'дилеры', 'триллионов', 'акциям', 'billion', 'демченко', 'тнк', 'litas', 'lats', 'дилеров', '--алма-атинское', 'щелкните', 'tuesday', 'зинец', 'friday', 'умвб', 'thursday', 'онэксим', 'трейдеры', 'nato', 'feb', 'дивиденды', 'former', 'could', 'нацбанк', 'стр.6', 'economic']
+Bptt 70
+Training lm from:  [PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/ru-100/models/vf60k/qrnn_nl4.m/lm_best'), PosixPath('/home/n-waves/workspace/ulmfit-multilingual/data/wiki/ru-100/models/vf60k/qrnn_nl4.m/../itos')]
+epoch     train_loss  valid_loss  accuracy
+1         5.637876    4.853484    0.379844
+Total time: 01:28
+epoch     train_loss  valid_loss  accuracy
+1         4.906714    4.683807    0.405109
+2         4.850066    4.490903    0.434562
+3         4.591409    4.284740    0.464436
+4         4.379681    4.103634    0.490118
+5         4.079576    3.954377    0.511206
+6         4.199800    3.811692    0.531036
+7         4.004812    3.694871    0.548372
+8         3.995378    3.584868    0.567285
+9         3.884090    3.499729    0.583162
+10        3.897333    3.416602    0.598120
+11        3.726276    3.338907    0.613920
+12        3.690300    3.263694    0.629643
+13        3.614015    3.192474    0.646335
+14        3.530548    3.136064    0.659729
+15        3.451486    3.100320    0.668686
+16        3.444497    3.058001    0.678824
+17        3.407755    3.024943    0.686764
+18        3.383617    3.008939    0.690451
+19        3.342304    2.999911    0.692378
+20        3.339514    2.998623    0.692671
+Total time: 36:01
+/home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/vf60k
+Saving info /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/vf60k/qrnn_nl4.m/info.json
+Single training schedule
+epoch     train_loss  valid_loss  accuracy
+1         0.946690    0.855268    0.805000
+2         0.808650    0.750561    0.866000
+3         0.701750    0.712251    0.884000
+4         0.596392    0.687266    0.884000
+Total time: 00:44
+Saving models at /home/n-waves/workspace/ulmfit-multilingual/data/mldoc/ru-1/models/vf60k/qrnn_nl4.m
+Loss and accuracy using (cls_best): [0.37472174, tensor(0.8802)]
+0.3747217357158661
+0.8802499771118164
+```
+
+
+## SP30k LSTM nl4 
 ### LM
 ```
 python -m ulmfit lm --dataset-path data/wiki/ru-100 --cuda-id=0 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 30000 --lang ru --qrnn=False - train 10 --bs=50 --drop_mult=0

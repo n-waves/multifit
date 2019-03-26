@@ -69,8 +69,8 @@ class MultiBatchBiLMModel(BiLMModel):
                 raw_outputs.append(r)
                 outputs.append(o)
         return self.concat(raw_outputs), self.concat(outputs)
-
-class BiPoolingLinearClassifier(PoolingLinearClassifier):
+#PoolingLinearClassifier
+class BiPoolingLinearClassifier(nn.Module):
     "Create a linear classifier with pooling."
 
     def forward(self, input:Tuple[Tensor,Tensor])->Tuple[Tensor,Tensor,Tensor]:
