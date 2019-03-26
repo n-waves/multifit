@@ -197,16 +197,6 @@ class CLSHyperParams(LMHyperParams):
                               **kwargs)
         return self.databunches(bs, **data)
 
-    def merge_cols(self, df):
-        if len(df.columns) <= 2:
-            return df
-        ndf = df[[0,1]].copy().fillna(" ")
-        for i in range(2, len(df.columns)):
-            ndf[1] += ("\n" + FLD + "\n") + df[i].fillna(" ")
-
-        assert ndf[1].isna().sum().sum() == 0, f"You have NaN values in column(s) of your dataframe, please fix it."
-        return ndf
-
     def load_data(self, lang='', **kwargs):
         prefix = '' if lang == '' else lang+'.'
         trn_df = pd.read_csv(self.dataset_path / f'{prefix}train.csv', header=None)
@@ -225,10 +215,6 @@ class CLSHyperParams(LMHyperParams):
             val_len = max(int(len(trn_df) * 0.1), 2)
             trn_len = len(trn_df) - val_len
             trn_df, val_df = trn_df[:trn_len], trn_df[trn_len:]
-        trn_df = self.merge_cols(trn_df)
-        val_df = self.merge_cols(val_df)
-        tst_df = self.merge_cols(tst_df)
-        unsup_df = self.merge_cols(unsup_df)
         kwargs.update(dict(trn_df=trn_df, val_df=val_df, tst_df=tst_df, unsup_df=unsup_df))
         return kwargs
 
@@ -262,6 +248,8 @@ class CLSHyperParams(LMHyperParams):
             cls_name = f'{cls_name}noise{noise}tv'
 
         args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        args['text_cols'] = list(trn_df.columns.values)[1:]
+        args['mark_fields'] = True
         lm_suffix = self.bptt if self.bptt != 70 else ""
         data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, **args)
         args['vocab'] = data_lm.vocab
