@@ -118,6 +118,42 @@ class CLSHyperParams(LMHyperParams):
         results = {'val_loss': val_res[0], 'val_accuracy': float(val_res[1]), 'tst_loss':tst_res[0], 'tst_accuracy': float(tst_res[1]) }
         return results
 
+    def generate_pseudo_labels(self, dest_folder,  save_name='cls_best', bs=40, data_cls=None,  learn=None, label_smoothing_eps=0.0):
+        if data_cls is None:
+            data_cls, _, _ = self.load_cls_data(bs)
+        if learn is None:
+            learn = self.create_cls_learner(data_cls, drop_mult=0.3, label_smoothing_eps=label_smoothing_eps)
+            learn.unfreeze()
+        learn.load(save_name)
+
+        def make_data_set(ds_type, name):
+            probs, lbls = learn.get_preds(ds_type=ds_type, ordered=True)
+            preds = torch.argmax(probs, 1)
+            preds = to_np(preds)
+            fn = self.dataset_path / f"{self.lang}.{name}.csv"
+            if fn.exists():
+                df = pd.read_csv(fn, header=None)
+                df = df.iloc[(len(df) - len(preds)):]  # account for the training files where first 10% elements were taken as validation
+            else:
+                df = pd.read_csv(self.dataset_path / f"{self.lang}.dev.csv", header=None)
+                df = df.iloc[:len(preds)]  # if using training only get first n for validatation
+
+            accuracy = (df[0] == preds).sum() / len(preds)
+            print(f"Generating {name} dataset of size {len(preds)}, the accuracy is {accuracy}")
+            df['preds'] = preds
+            print(df.head())
+            del df['preds']
+            assert accuracy > 0.7, f"Accuracy is smaller than 0.7 {accuracy}"
+
+            df[0] = preds
+            dest_folder.mkdir(parents=True, exist_ok=True)
+            df.to_csv(dest_folder / f"{self.lang}.{name}.csv", index=None, header=None)
+
+        make_data_set(DatasetType.Train, "train")
+        make_data_set(DatasetType.Valid, "dev")
+        shutil.copy(self.dataset_path / f"{self.lang}.test.csv", dest_folder)
+        shutil.copy(self.dataset_path / f"{self.lang}.unsup.csv", dest_folder)
+
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)

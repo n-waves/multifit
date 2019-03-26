@@ -88,21 +88,50 @@ class ULMFiT:
                     print("Adding", f, dest)
                     tar.add(f, dest)
 
+    def generate_pseudo_labels(self, glob="mldoc/*-1-laser-en1/models/sp15k/qrnn_nl4.m", bs=20, dest_dataset_template='${ds_name}-ps'):
+        for base_model in sorted(Path("data").glob(glob)):
+            print("Processing", base_model)
+
+            dataset_path = [x for x in base_model.parents if x.name == "models"][0].parent
+            lang = get_lang_from_dataset_path(dataset_path)
+            dest_dataset_path = dataset_path.parent/Template(dest_dataset_template).substitute(ds_name=dataset_path.name)
+            try:
+                _name = base_model.name.replace(".m", "").replace("lstm_", "").replace("qrnn_", "")
+                params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, cuda_id=0)
+                key = str(params.model_dir.relative_to(Path.cwd()))
+                if (params.model_dir / "results.npy").exists():
+                    d = np.load(params.model_dir / "results.npy")
+                    d = d.tolist()  # magiacally convert to dict
+                elif (params.model_dir / "cls_best.pth").exists():
+                    print("Evaluating previously trained model")
+                    d = params.validate_cls(label_smoothing_eps=0.1)
+                else:
+                    print("The model is not trained ignoring")
+                    continue
+                print("Generating pseduolabels", dest_dataset_path)
+                params.generate_pseudo_labels(dest_dataset_path, bs=bs)
+                del params
+            except Exception as e:
+                print("Error", e)
+                raise e
+            gc.collect()
+
+    def ls(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m"):
+        for i, name in enumerate(sorted(Path("data").glob(glob))):
+            print(i, name, "cls:", (name/"cls_best.pth").exists())
+
     def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
              num_lm_epochs=0, cuda_id=0, train=True, to_csv=None, return_df=False, label_smoothing_eps=0.0,
              **trn_params):
         results = []
 
-
         def extract_agg(group):
             best = group.loc[group["val_accuracy"].idxmax()]["tst_accuracy"]
-            best_name = group.loc[group["val_accuracy"].idxmax()]["n"]
             return pd.Series({'best': best* 100,
                               'max': group['tst_accuracy'].max()* 100,
                               'avg': group['tst_accuracy'].mean()* 100})
         def pivot_to_lang(df):
-            df['ds'] = df['name'].str.extract(r'data/[a-z]*/([^/]*)/models')
-            df['n'] = df['name'].str.extract(r'models/[^/]*/([^/]*).m')
+            df['ds'] = df['name'].str.extract(r'data/[a-z]*/([^/]{1,12})[^/]*/models')
             best = df.groupby('ds').apply(extract_agg)
             best = best.round(2)
             return best.T
