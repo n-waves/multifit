@@ -36,7 +36,7 @@ def manual_seed(seed=42):
 def learn():
     path, df_trn, df_val = prep_human_numbers()
     data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer))
-    learn = language_model_learner(data, AWD_LSTM, emb_sz=100, nl=1, drop_mult=0.1)
+    learn = language_model_learner(data, AWD_LSTM)
     learn.fit_one_cycle(4, 5e-3)
     return learn
 
