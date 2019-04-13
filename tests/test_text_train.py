@@ -36,7 +36,7 @@ def manual_seed(seed=42):
 def learn():
     path, df_trn, df_val = prep_human_numbers()
     data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer))
-    learn = language_model_learner(data, emb_sz=100, nl=1, drop_mult=0.1)
+    learn = language_model_learner(data, AWD_LSTM, emb_sz=100, nl=1, drop_mult=0.1)
     learn.fit_one_cycle(4, 5e-3)
     return learn
 
@@ -98,6 +98,6 @@ def test_bwdlm_lstm_can_be_trained():
     data = TextLMDataBunch.from_df(path, df_trn, df_val, tokenizer=Tokenizer(BaseTokenizer),
                                    lm_type = contrib_data.LanguageModelType.BwdLM)
 
-    learn = language_model_learner(data, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
+    learn = language_model_learner(data, AWD_LSTM, emb_sz=100, nl=1, drop_mult=0.1, qrnn=False)
     learn.fit_one_cycle(2, 5e-3)
     assert learn.validate()[1] > 0.3
