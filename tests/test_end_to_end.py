@@ -137,45 +137,45 @@ def test_ulmfit_fastai_end_to_end_label_smoothing():
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, label_smoothing_eps=0.1 )
 
 
-def test_ulmfit_fastai_bidir_end_to_end():
-    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
-    """
-    test_data, wt2 = get_test_data()
-    lm_name = 'end-to-end-test-fastai'
+# def test_ulmfit_fastai_bidir_end_to_end():
+#     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
+#     """
+#     test_data, wt2 = get_test_data()
+#     lm_name = 'end-to-end-test-fastai'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
-        dataset_path=wt2,
-        lang='en',
-        cuda_id=cuda_id,
-        qrnn=False,
-        bidir=True,
-        tokenizer='f',
-        max_vocab=100,
-        name=lm_name,
-    )
-    exp.train_lm(num_epochs=1, bs=2)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(str(test_data / 'imdb'), str(exp.model_dir))
-    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
+#     exp = ulmfit.pretrain_lm.LMHyperParams(
+#         dataset_path=wt2,
+#         lang='en',
+#         cuda_id=cuda_id,
+#         qrnn=False,
+#         bidir=True,
+#         tokenizer='f',
+#         max_vocab=100,
+#         name=lm_name,
+#     )
+#     exp.train_lm(num_epochs=1, bs=2)
+#     exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(str(test_data / 'imdb'), str(exp.model_dir))
+#     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
-def test_ulmfit_moses_fa_bidir_end_to_end():
-    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
-    """
-    test_data, wt2 = get_test_data()
-    lm_name = 'end-to-end-test-fastai'
+# def test_ulmfit_moses_fa_bidir_end_to_end():
+#     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
+#     """
+#     test_data, wt2 = get_test_data()
+#     lm_name = 'end-to-end-test-fastai'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
-        dataset_path=wt2,
-        lang='en',
-        cuda_id=cuda_id,
-        qrnn=False,
-        bidir=True,
-        tokenizer='vf',
-        max_vocab=100,
-        name=lm_name,
-    )
-    exp.train_lm(num_epochs=1, bs=2)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
-    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
+#     exp = ulmfit.pretrain_lm.LMHyperParams(
+#         dataset_path=wt2,
+#         lang='en',
+#         cuda_id=cuda_id,
+#         qrnn=False,
+#         bidir=True,
+#         tokenizer='vf',
+#         max_vocab=100,
+#         name=lm_name,
+#     )
+#     exp.train_lm(num_epochs=1, bs=2)
+#     exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+#     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 # def test_classification_model_work_with_different_dropmul():
 #     learn = self.create_cls_learner(data_clas, drop_mult=0.1)
