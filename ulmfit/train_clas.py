@@ -110,6 +110,9 @@ class CLSHyperParams(LMHyperParams):
             learn = self.create_cls_learner(data_tst, drop_mult=0.3, label_smoothing_eps=label_smoothing_eps)
             learn.unfreeze()
         learn.load(save_name)
+        f1 = FBeta(beta=1, average='binary')
+        f1.on_train_begin()
+        learn.metrics += [f1]
         val_res=[-1, -1]
         if data_cls:
             val_res = learn.validate(data_cls.valid_dl)
