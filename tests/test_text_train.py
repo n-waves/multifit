@@ -51,7 +51,5 @@ def text_df(n_labels):
     df = pd.DataFrame(data)
     return df
 
-###################### NEW CODE
-
 def test_val_loss(learn):
-    assert learn.validate()[1] > 0.5
+    assert learn.validate()[1] > 0.4
