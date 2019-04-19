@@ -4,25 +4,14 @@ expected to have been tokenized with Moses and processed with `postprocess_wikit
 That is, the data is expected to be white-space separated and numbers are expected
 to be split.
 """
-from dataclasses import InitVar
 
-import fastai
 import fire
 
-from fastai import *
-from fastai.callbacks import CSVLogger, SaveModelCallback
+from fastai.callbacks import CSVLogger
 from fastai.text import *
-import torch
-from fastai_contrib.utils import read_file, read_whitespace_file, \
-    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, \
+from fastai_contrib.utils import read_whitespace_file, \
+    validate, UNK, get_sentencepiece, PAD_TOKEN_ID, \
     replace_std_toks, MosesPreprocessingFunc
-from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd, bilm_text_classifier_learner
-import pickle
-
-from pathlib import Path
-
-from collections import Counter
-import fastai_contrib.data as contrib_data
 
 LM_BEST = "lm_best"
 ENC_BEST = "enc_best"
@@ -62,9 +51,9 @@ def json_load(f):
 
 @dataclass
 class LMHyperParams:
-    dataset_path: str # data_dir
+    dataset_path: Union[str, Path] # data_dir
 
-    base_lm_path: str = None
+    base_lm_path: Union[str, Path] = None
     backwards: str = False
     bidir: bool =False
     qrnn: bool = True
@@ -130,15 +119,6 @@ class LMHyperParams:
 
     @property
     def pretrained_fnames(self): return [self.base_lm_path / LM_BEST, self.base_lm_path / '../itos'] if self.base_lm_path else None
-
-    @property
-    def lm_type(self):
-        if self.bidir:
-            return contrib_data.LanguageModelType.BiLM
-        if self.backwards:
-            return contrib_data.LanguageModelType.BwdLM
-        else:
-            return contrib_data.LanguageModelType.FwdLM
 
     def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if use_moses else []
@@ -234,7 +214,6 @@ class LMHyperParams:
             learn.freeze()
         # compared to standard Adam, we set beta_1 to 0.8
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-        learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history"),
                                # partial(SaveModelCallback, every='improvement', name='lm') disabled due to Memory issues
                                ]

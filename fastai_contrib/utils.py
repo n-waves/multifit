@@ -1,16 +1,15 @@
 """
 Utility methods for data processing.
 """
-import fire
-from fastai import *
-from fastai.text import *
-
-import shutil
 import pathlib
+import shutil
 import tarfile
-from sklearn import model_selection
-from sacremoses import MosesTokenizer
 from typing import Dict, Tuple, List
+
+import fire
+from sacremoses import MosesTokenizer
+
+from fastai.text import *
 
 EOS = 'xxeos' # fastai does not use eos, but we do
 SEP = 'xxsep' # special separator token for NLI

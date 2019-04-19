@@ -3,14 +3,12 @@ Train a classifier on top of a language model trained with `pretrain_lm.py`.
 Optionally fine-tune LM before.
 """
 
-from fastai.callbacks import CSVLogger
-from fastai.text import *
-
-from fastai_contrib.utils import PAD_TOKEN_ID
-
 import fire
 
-from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST, json_save
+from fastai.callbacks import CSVLogger
+from fastai.text import *
+from fastai_contrib.utils import PAD_TOKEN_ID
+from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
 
 
 class CLSHyperParams(LMHyperParams):
