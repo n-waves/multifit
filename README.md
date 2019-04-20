@@ -1,14 +1,19 @@
 # ulmfit-multilingual
-Temporary repository used for collaboration on application of for multiple languages.
+Repository used for collaboration on application of ulmfit for multiple languages, it helps with pertraining and uses the 
+fastai v1 . (The version in n-waves/fastai:ulmfit_multilingual)
 
 # How to train classifier
 
 ```
-$ python -m ulmfit lm --dataset-path data/wiki/wikitext-103 --bidir=False --qrnn=False --tokenizer=vf --name 'bs40' --bs=40 --cuda-id=0  -  train 20 --drop-mult=0.9
+$ LANG=en
+$ python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='f' --nl 3 --name 'orig' --max-vocab 60000 \ 
+        --lang ${LANG} --qrnn=False - train 10 --bs=50 --drop_mult=0  --label-smoothing-eps=0.0
 ...
-Model dir: data/wiki/wikitext-103/models/vf60k/lstm_bs40.m
+Model name: data/wiki/en-100/models/f60k/lstm_orig.m
 ...
-$ python -m ulmfit cls --dataset-path data/imdb --base-lm-path data/wiki/wikitext-103/models/vf60k/lstm_bs40.m - train 20   
+
+$ python -m ulmfit cls --dataset-path data/imdb --base-lm-path  data/wiki/${LANG}-100/models/f60k/lstm_orig.m  \
+        --lang=${LANG} --name orig - train 20 --bs 18 --num-cls-epochs=4 --lr_sched=1cycle --label-smoothing-eps=0.1   
 ```
  
 
@@ -78,16 +83,6 @@ Switched to a new branch 'ulmfit_multilingual'
 
 $ git push --set-upstream n-waves ulmfit_multilingual  # to automatically push ulmfit_multilingual branch to the n-waves repo
 ```
-
-## Repo structure
-
-- `fastai_contrib`  -- anything that can be ported to fastai once we finish the project like:  NLI models, Sentence Piece tok.,
-- `ulmfit`  
-    - `data`  -- scripts to fetch and prepare data: wikipedia, xnli, classification data sets  
-    - `lm` -- scripts to train language models
-    - `bilm` -- scripts to train biLM ELMo style, Bert style
-    - `class`  -- scripts to test classifiers on multiple languages
-    - `xnli` -- scripts to test nli 
 
 
 ## Running tests
