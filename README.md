@@ -15,8 +15,21 @@ Model name: data/wiki/en-100/models/f60k/lstm_orig.m
 $ python -m ulmfit cls --dataset-path data/imdb --base-lm-path  data/wiki/${LANG}-100/models/f60k/lstm_orig.m  \
         --lang=${LANG} --name orig - train 20 --bs 18 --num-cls-epochs=4 --lr_sched=1cycle --label-smoothing-eps=0.1   
 ```
- 
 
+You can re-evaluate classifiers by running
+```
+python -m ulmfit eval --glob="imdb/models/*/lstm_*.m"
+```
+
+The same command can be used to quickly trian multiple classifiers, by adding the `--name` parameter:
+```
+python -m ulmfit eval --glob="imdb/models/*/lstm_nl3.m" --name "nl3-my-test1" --num-cls-epochs 4 --label-smoothing-eps=0.1 --lr_sched=1cycle
+``` 
+
+To create a tar with model simply run 
+```
+python -m ulmfit tar data/imdb/models/f60k/lstm_nl3.m
+```
 
 ## data directory strucutre
 
