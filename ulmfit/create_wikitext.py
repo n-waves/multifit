@@ -27,7 +27,7 @@ def get_texts(root):
                     yield (f"={title}=\n"+text)
 
 
-def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):
+def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w', num_tokens_article_min=100):
     total_num_tokens = 0
     print(f'Writing to {file_path}...')
     i = 0
@@ -49,8 +49,8 @@ def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):
                 # calculate length based on tokens; add 1 for newline
                 num_tokens_article += len(tokens) + 1
 
-            if num_tokens_article < 100:
-                # only use articles that have at least 100 tokens
+            if num_tokens_article < num_tokens_article_min:
+                # only use articles that have at least num_tokens_article_min tokens
                 continue
 
             for tokenized in tokenized_paragraphs:
@@ -87,7 +87,7 @@ def main(args):
     token_nums = [2000000, 200000, 200000]
     for split, token_num in zip(splits, token_nums):
         sml_file_path = sml_wiki / f'{args.lang}.wiki.{split}.tokens'
-        write_wikitext(sml_file_path, text_iter, mt, token_num)
+        write_wikitext(sml_file_path, text_iter, mt, token_num, num_tokens_article_min=args.tokens_min)
         lrg_file_path = lrg_wiki / f'{args.lang}.wiki.{split}.tokens'
         all_file_path = all_wiki / f'{args.lang}.wiki.{split}.tokens'
         # copy the content of the small file to the large file
@@ -97,10 +97,10 @@ def main(args):
 
     # add the new articles to the existing ones
     lrg_wiki_train = lrg_wiki / f'{args.lang}.wiki.train.tokens'
-    write_wikitext(lrg_wiki_train, text_iter, mt, 98000000, mode='a')
+    write_wikitext(lrg_wiki_train, text_iter, mt, 98000000, mode='a', num_tokens_article_min=args.tokens_min)
     all_wiki_train = all_wiki / f'{args.lang}.wiki.train.tokens'
     copyfile(lrg_wiki_train, all_wiki_train)
-    write_wikitext(all_wiki_train, text_iter, mt,  None, mode='a')
+    write_wikitext(all_wiki_train, text_iter, mt,  None, mode='a', num_tokens_article_min=args.tokens_min)
 
 if __name__ == '__main__':
 
@@ -115,5 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--lang', required=True,
                         help='the iso code of the language of the Wikipedia '
                              'documents, e.g. en, fr, de, etc.')
+    parser.add_argument('-t', '--tokens_min', required=False, type=int, default=100,
+                        help='the minimal number of tokens in an article')
     args = parser.parse_args()
     main(args)
+
