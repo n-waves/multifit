@@ -12,6 +12,12 @@ import fire
 
 from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
 
+from sklearn.metrics import f1_score as f1s, precision_score, recall_score
+
+def f1_score(preds, targs):
+    preds = torch.max(preds, dim=1)[1].cpu().numpy()
+    targs = targs.cpu().numpy()
+    return torch.tensor(f1s(targs, preds))
 
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
@@ -107,9 +113,12 @@ class CLSHyperParams(LMHyperParams):
         if data_tst is None:
             _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3)
+            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=[f1_score, accuracy])
             learn.unfreeze()
         learn.load(save_name)
+        print(data_tst.one_batch()[1])
+        print(data_tst.one_batch()[1])
+        print(data_tst.one_batch()[1])
         results = learn.validate(data_tst.valid_dl)
         print(f"Loss and accuracy using ({save_name}):", results)
         return list(map(float, results))
@@ -141,7 +150,7 @@ class CLSHyperParams(LMHyperParams):
         self.model_dir.mkdir(exist_ok=True, parents=True)
         add_trn_to_lm = True
         lang = self.lang
-        use_moses = True
+        use_moses = False #True
         if 'xnli' in str(self.dataset_dir):
             NotImplementedError("Support for Xnli is not implemented yet")
         if 'imdb' in self.dataset_dir.name:

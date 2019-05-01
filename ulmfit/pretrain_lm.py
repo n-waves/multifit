@@ -39,7 +39,9 @@ def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
 
 def read_wiki_articles(filename):
+    return pd.read_csv(filename, sep="\t", header=None, names=["texts"])
     articles = []
+
     with open(filename, encoding='utf8') as f:
         lines = f.readlines()
     current_article = []
@@ -70,7 +72,8 @@ class LMHyperParams:
 
     # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
     # for training on smaller datasets, more dropout is necessary
-    dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
+    # buggy dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
+    dps = dict(input_p=0.25, output_p=0.1, weight_p=0.2, embed_p=0.02, hidden_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
     # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
@@ -171,10 +174,10 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0, out_bias=True):
         self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
-        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
+        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps, out_bias=out_bias)
         print("Bptt", data_lm.bptt)
         learn.true_wd = true_wd
         if num_epochs > 0:
@@ -204,10 +207,10 @@ class LMHyperParams:
         # do we need to return `learn'? it adds noise to Fire output
         #return learn
 
-    def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, **kwargs):
+    def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, out_bias=True, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn,
-                          tie_weights=True, out_bias=True)
+                          tie_weights=True, out_bias=out_bias)
         config.update(dps or self.dps)
         trn_args = dict(clip=self.clip, alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)

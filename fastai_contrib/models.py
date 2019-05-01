@@ -1,7 +1,7 @@
 from fastai.torch_core import *
 from fastai.layers import *
 from fastai.text.models import *
-
+from fastai.text.learner import *
 #region New code
 
 class BiLMModel(nn.Module):

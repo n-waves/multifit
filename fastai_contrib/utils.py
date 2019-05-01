@@ -80,7 +80,7 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None,
     pre_rules = pre_rules if pre_rules is not None else defaults.text_pre_rules
     post_rules = post_rules if post_rules is not None else defaults.text_post_rules
 
-    special_cases = defaults.text_spec_tok
+    special_cases = defaults.text_spec_tok + ['<link>', '<user>', '<number>', '<emoji>', '</emoji>']
     if not os.path.isfile(cache_dir / 'spm.model') or not os.path.isfile(cache_dir / f'itos.pkl'):
         # load the text from the train tokens file
         text = load_text()
@@ -100,7 +100,7 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None,
         sp_params = [
             f"--input={raw_text_path}",
             f"--character_coverage={char_coverage}",
-            f"--unk_id={len(defaults.text_spec_tok)}",
+            f"--unk_id={len(special_cases)}",
             f"--pad_id=-1",
             f"--bos_id=-1",
             f"--eos_id=-1",
