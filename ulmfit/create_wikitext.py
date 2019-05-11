@@ -7,6 +7,7 @@ Articles are tokenized using the Moses tokenizer. Articles with least than
 import argparse
 from pathlib import Path
 import json
+import csv
 
 from shutil import copyfile
 
@@ -24,7 +25,7 @@ def get_texts(root):
                     if text.strip() == title:
                         # print('No content continuing...')
                         continue
-                    yield (f"={title}=\n"+text)
+                    yield text
 
 
 def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):
@@ -65,7 +66,43 @@ def write_wikitext(file_path, text_iter, mt, num_tokens, mode='w'):
         file_path, i, total_num_tokens))
 
 
-def main(args):
+def wiki2csv(file_path, text_iter, num_tokens):
+    total_num_tokens = 0
+    print(f'Writing to {file_path}...')
+    i = 0
+    
+    with open(file_path, 'w', encoding='utf-8') as csvfile:
+        f_out = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        for i, text in enumerate(text_iter):
+            num_tokens_article = 0  # count the number of tokens in an article
+            tokenized_paragraphs = []
+            paragraphs = text.split('\n')
+
+            for paragraph in paragraphs:
+                tokenized = paragraph.strip()
+                tokenized_paragraphs.append(tokenized)
+
+                tokens = tokenized.split(' ')  # split on whitespace to keep newlines
+                # don't count empty lines
+                tokens = [token for token in tokens if token]
+
+                # calculate length based on tokens; add 1 for newline
+                num_tokens_article += len(tokens) + 1
+
+            if num_tokens_article < 100:
+                # only use articles that have at least 100 tokens
+                continue
+
+            f_out.writerow(['\n'.join(tokenized_paragraphs)])
+
+            total_num_tokens += num_tokens_article + 1
+            if num_tokens is not None and total_num_tokens > num_tokens:
+                break
+            if i % 10000 == 0 and i > 0:
+                print('Processed {:,} documents. Total # tokens: {:,}.'.format(i, total_num_tokens))
+
+
+def main2(args):
 
     input_path = Path(args.input)
     output = Path(args.output)
@@ -101,6 +138,20 @@ def main(args):
     all_wiki_train = all_wiki / f'{args.lang}.wiki.train.tokens'
     copyfile(lrg_wiki_train, all_wiki_train)
     write_wikitext(all_wiki_train, text_iter, mt,  None, mode='a')
+
+def main(args):
+
+    input_path = Path(args.input)
+    output = Path(args.output)
+    assert input_path.exists(), f'Error: {input_path} does not exist.'
+    output.mkdir(exist_ok=True)
+
+    lrg_wiki = output / f'{args.lang}-100'
+    lrg_wiki.mkdir(exist_ok=True)
+
+    text_iter = get_texts(input_path)
+
+    wiki2csv(lrg_wiki / "rawtexts.csv", text_iter, int(2e7))
 
 if __name__ == '__main__':
 

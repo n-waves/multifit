@@ -3,7 +3,7 @@ Train a classifier on top of a language model trained with `pretrain_lm.py`.
 Optionally fine-tune LM before.
 """
 
-from fastai.callbacks import CSVLogger
+from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 
 from fastai_contrib.utils import PAD_TOKEN_ID
@@ -71,7 +71,7 @@ class CLSHyperParams(LMHyperParams):
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0, random_init=False):
+                  label_smoothing_eps=0.0, random_init=False, seed=None, dump_preds=None):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -82,11 +82,15 @@ class CLSHyperParams(LMHyperParams):
 
         if self.need_fine_tune_lm and not random_init:
             if not (self.model_dir/(ENC_BEST+".pth")).exists():
-                self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
+                self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps, seed=seed)
             else:
                 print("Language model already exist, skipping finetuning")
+        loss_func = CrossEntropyFlat(weight=torch.FloatTensor([0.5,30]).cuda())
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len,
-                                        label_smoothing_eps=label_smoothing_eps, random_init=random_init)
+                                        label_smoothing_eps=label_smoothing_eps, random_init=random_init,
+                                        metrics=[FBeta(beta=1.0), f1_score, accuracy],
+                                        loss_func=loss_func)
+
         if not random_init:
             try:
                 learn.load('cls_best')
@@ -96,6 +100,12 @@ class CLSHyperParams(LMHyperParams):
         else:
             print("Starting classifier from random weights")
 
+        if seed is not None:
+            print(f"Setting seed to {seed}")
+            torch.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            np.random.seed(seed)
 
         if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
@@ -105,22 +115,27 @@ class CLSHyperParams(LMHyperParams):
 
         print(f"Saving models at {learn.path / learn.model_dir}")
         learn.save('cls_last', with_opt=False)
-        learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
+        #learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None, dump_preds=None):
         if data_tst is None:
             _, _, data_tst = self.load_cls_data(bs)
         if learn is None:
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=[f1_score, accuracy])
+            fbeta = FBeta(beta=1.0)
+            fbeta.on_train_begin()
+            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=[fbeta, f1_score, accuracy])
             learn.unfreeze()
         learn.load(save_name)
-        print(data_tst.one_batch()[1])
-        print(data_tst.one_batch()[1])
-        print(data_tst.one_batch()[1])
+        probs, targets = learn.get_preds(ordered=True)
+        preds = np.argmax(probs.cpu().numpy(), axis=1)
+        if dump_preds:
+            with open(dump_preds, 'w') as f:
+                f.write('\n'.join([str(x) for x in preds]))
         results = learn.validate(data_tst.valid_dl)
-        print(f"Loss and accuracy using ({save_name}):", results)
+        print(f"F1 score bin: {results[1].item()}")
+        print(f"Loss, f1_score, almost f1_score and accuracy using ({save_name}):", results)
         return list(map(float, results))
 
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
@@ -140,7 +155,7 @@ class CLSHyperParams(LMHyperParams):
             learn.freeze()
 
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
-                               #partial(SaveModelCallback, every='improvement', name='cls_best') disabled due to memory issues
+                               partial(SaveModelCallback, every='improvement', name='cls_best', monitor="f_beta")
                                ]
         if label_smoothing_eps > 0.0:
             learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)

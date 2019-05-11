@@ -11,6 +11,7 @@ import fire
 
 from fastai import *
 from fastai.callbacks import CSVLogger, SaveModelCallback
+import fastai.text
 from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
@@ -39,6 +40,7 @@ def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
 
 def read_wiki_articles(filename):
+    return pd.read_csv(filename, header=None, names=["texts"]).fillna("")
     return pd.read_csv(filename, sep="\t", header=None, names=["texts"])
     articles = []
 
@@ -174,7 +176,14 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0, out_bias=True):
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0, out_bias=True, seed=None):
+        if seed is not None:
+            print(f"Setting seed to {seed}")
+            torch.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            np.random.seed(seed)
+
         self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps, out_bias=out_bias)
