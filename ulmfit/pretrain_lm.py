@@ -67,7 +67,8 @@ class LMHyperParams:
 
     # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
     # for training on smaller datasets, more dropout is necessary
-    dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
+    # buggy dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
+    dps = dict(input_p=0.25, output_p=0.1, weight_p=0.2, embed_p=0.02, hidden_p=0.15) 
     clip: float = 0.12
     bptt: int = 70
     # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
