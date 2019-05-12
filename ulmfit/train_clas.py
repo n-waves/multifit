@@ -14,20 +14,30 @@ from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
 
 from sklearn.metrics import f1_score as f1s, precision_score, recall_score
 
-def f1_score(preds, targs):
-    preds = torch.max(preds, dim=1)[1].cpu().numpy()
-    targs = targs.cpu().numpy()
-    return torch.tensor(f1s(targs, preds))
-
+@dataclass
 class CLSHyperParams(LMHyperParams):
     # dir_path -> data/imdb/
-    use_test_for_validation=False
+    use_test_for_validation: bool=False
+    ftseed: int = None
+    clsweightseed: int = None
+    clstrainseed: int = None
 
     bicls_head:str = 'BiPoolingLinearClassifier'
 
     def __post_init__(self, *args, **kwargs):
         super().__post_init__(*args, **kwargs)
         self.dataset_dir=self.dataset_path
+
+    @property
+    def model_suffix(self):
+        s1 = '' if self.lmseed is None else f'lmseed-{self.lmseed}'
+        s2 = '' if self.ftseed is None else f'ftseed-{self.ftseed}'
+        s3 = '' if self.clsweightseed is None else f'clsweightseed-{self.clsweightseed}'
+        s4 = '' if self.clstrainseed is None else f'clstrainseed-{self.clstrainseed}'
+        s = '-'.join([x for x in [s1, s2, s3, s4] if x != ''])
+        if s != '':
+            return '_'+s
+        return ''
 
     @property
     def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
@@ -69,9 +79,28 @@ class CLSHyperParams(LMHyperParams):
             if num_cls_epochs > 5:
                 learn.fit_one_cycle(num_cls_epochs-4, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7), wd=1e-7)
 
+    def get_metrics(self):
+        f1_score = FBeta(beta=1.0)
+        precision = Precision()
+        recall = Recall()
+        metrics = [f1_score, precision, recall]
+
+        # TODO: fix this in fast.ai
+        for metric in metrics: metric.on_train_begin()
+        metrics.append(accuracy)
+        return metrics
+
+    def output_metrics(self, results):
+        print(f"F1 score bin: {results[1].item()}")
+        print(f"Loss: {results[0]}")
+        print(f"Precision: {results[2].item()}")
+        print(f"Recall: {results[3].item()}")
+        print(f"Accuracy: {results[4].item()}")
+
+
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0, random_init=False, seed=None, dump_preds=None):
+                  label_smoothing_eps=0.0, random_init=False, dump_preds=None):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -82,13 +111,16 @@ class CLSHyperParams(LMHyperParams):
 
         if self.need_fine_tune_lm and not random_init:
             if not (self.model_dir/(ENC_BEST+".pth")).exists():
-                self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps, seed=seed)
+                self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
             else:
                 print("Language model already exist, skipping finetuning")
         loss_func = CrossEntropyFlat(weight=torch.FloatTensor([0.5,30]).cuda())
+
+        self.set_seed(self.clsweightseed, "classifier weights")
+
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len,
                                         label_smoothing_eps=label_smoothing_eps, random_init=random_init,
-                                        metrics=[FBeta(beta=1.0), f1_score, accuracy],
+                                        metrics=self.get_metrics(),
                                         loss_func=loss_func)
 
         if not random_init:
@@ -100,12 +132,8 @@ class CLSHyperParams(LMHyperParams):
         else:
             print("Starting classifier from random weights")
 
-        if seed is not None:
-            print(f"Setting seed to {seed}")
-            torch.manual_seed(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            np.random.seed(seed)
+
+        self.set_seed(self.clstrainseed, "classifier train")
 
         if hasattr(self, 'lr_schedule_'+lr_sched):
             learn.true_wd = True
@@ -119,13 +147,11 @@ class CLSHyperParams(LMHyperParams):
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None, dump_preds=None):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None, dump_preds=None, mode="test"):
         if data_tst is None:
-            _, _, data_tst = self.load_cls_data(bs)
+            data_clas , _, data_tst = self.load_cls_data(bs)
         if learn is None:
-            fbeta = FBeta(beta=1.0)
-            fbeta.on_train_begin()
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=[fbeta, f1_score, accuracy])
+            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=self.get_metrics())
             learn.unfreeze()
         learn.load(save_name)
         probs, targets = learn.get_preds(ordered=True)
@@ -133,9 +159,11 @@ class CLSHyperParams(LMHyperParams):
         if dump_preds:
             with open(dump_preds, 'w') as f:
                 f.write('\n'.join([str(x) for x in preds]))
-        results = learn.validate(data_tst.valid_dl)
-        print(f"F1 score bin: {results[1].item()}")
-        print(f"Loss, f1_score, almost f1_score and accuracy using ({save_name}):", results)
+        results = learn.validate(data_tst.valid_dl if mode == "test" else data_clas.valid_dl)
+        print(f"Model: {self.name}")
+        print(f"Validation on: {mode}")
+        self.output_metrics(results)
+
         return list(map(float, results))
 
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):

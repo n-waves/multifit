@@ -71,6 +71,9 @@ class LMHyperParams:
     emb_sz:int = 400
     nh: int = None
     nl: int = 3
+    out_bias: bool = True
+
+    lmseed: int = None
 
     # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
     # for training on smaller datasets, more dropout is necessary
@@ -123,7 +126,10 @@ class LMHyperParams:
     def model_prefix(self): return self.model_direction + ('qrnn' if self.qrnn else 'lstm')
 
     @property
-    def model_name(self): return f"{self.model_prefix}_{self.name}.m"
+    def model_name(self): return f"{self.model_prefix}_{self.name}{self.model_suffix}.m"
+
+    @property
+    def model_suffix(self): return '' if self.lmseed is None else f'_lmseed-{self.lmseed}'
 
     @property
     def pretrained_fnames(self): return [self.base_lm_path / LM_BEST, self.base_lm_path / '../itos'] if self.base_lm_path else None
@@ -167,6 +173,14 @@ class LMHyperParams:
                 f"self.tokenizer has wrong value {self.tokenizer}, Allowed values are taken from {Tokenizers}")
         return args
 
+    def set_seed(self, seed, name):
+        if seed is not None:
+            print(f"Setting {name} seed to {seed}")
+            torch.manual_seed(seed)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            np.random.seed(seed)
+
     def save_info(self):
         from dataclasses import asdict
         vals = {k: (str(v) if isinstance(v, Path) else v) for k,v in asdict(self).items()}
@@ -176,17 +190,15 @@ class LMHyperParams:
         with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
         print("Saving info", self.model_dir / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0, out_bias=True, seed=None):
-        if seed is not None:
-            print(f"Setting seed to {seed}")
-            torch.manual_seed(seed)
-            torch.backends.cudnn.deterministic = True
-            torch.backends.cudnn.benchmark = False
-            np.random.seed(seed)
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
+        if self.ftseed is None:
+            self.set_seed(self.lmseed, "LM")
+        else:
+            self.set_seed(self.ftseed, "fine-tune")
 
         self.model_dir.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
-        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps, out_bias=out_bias)
+        learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
         print("Bptt", data_lm.bptt)
         learn.true_wd = true_wd
         if num_epochs > 0:
@@ -216,10 +228,10 @@ class LMHyperParams:
         # do we need to return `learn'? it adds noise to Fire output
         #return learn
 
-    def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, out_bias=True, **kwargs):
+    def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn,
-                          tie_weights=True, out_bias=out_bias)
+                          tie_weights=True, out_bias=self.out_bias)
         config.update(dps or self.dps)
         trn_args = dict(clip=self.clip, alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)
