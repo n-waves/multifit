@@ -27,7 +27,7 @@ def get_dataset_path(p, dataset_template):
     ds = [x for x in p.parents if x.name == "models"][0].parent
     lang = get_lang_from_dataset_path(ds)
     pattern = Template(dataset_template).substitute(lang=lang, ds_name=ds.name)
-    print(pattern)
+    print(f"Searching for {pattern}, {ds.parent}")
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
 
@@ -80,17 +80,32 @@ class ULMFiT:
         with tarfile.open(tar_name, mode="w") as tar:
             for g in map(params.model_dir.glob, ['*_best.pth', 'info.json', '../spm.*', '../itos.*',]):
                 for f in g:
-                    dest = f.resolve().relative_to(Path.cwd())
+                    dest = f.resolve().relative_to(data_dir.parent)
                     print("Adding", f, dest)
                     tar.add(f, dest)
 
-    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${lang}-1', name="tmp-100", num_lm_epochs=0, cuda_id=0, **trn_params):
+    #def eval_repeat(self, glob, num_lm_epochs=0, cuda_id=0, **trn_params):
+
+
+    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name="tmp-100", num_lm_epochs=0,
+             cuda_id=None, lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None, **trn_params):
         results = OrderedDict()
+        model_args = {}
+        if clsweightseed is not None:
+            model_args["clsweightseed"] = clsweightseed
+        if clstrainseed is not None:
+            model_args['clstrainseed'] = clstrainseed
+        if ftseed is not None:
+            model_args['ftseed'] = ftseed
+        if lmseed is not None:
+            model_args['lmseed'] = lmseed
+
         for base_model in sorted(Path("data").glob(glob)):
             print("Processing", base_model)
+            print(base_model, dataset_template)
             for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
                 try:
-                    params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, cuda_id=cuda_id)
+                    params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, **model_args)
                     key = str(params.model_dir.relative_to(Path.cwd()))
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")

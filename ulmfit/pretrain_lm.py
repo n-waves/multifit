@@ -100,7 +100,7 @@ class LMHyperParams:
         self.base_lm_path = Path(self.base_lm_path) if self.base_lm_path is not None else None
         self.tokenizer = Tokenizers(self.tokenizer) if isinstance(self.tokenizer, str) else self.tokenizer
 
-        assert self.dataset_path.exists()
+        assert self.dataset_path.exists(), f"The dataset_path {self.dataset_path} does not exists"
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
         self.model_dir = self.cache_dir / self.model_name
 
