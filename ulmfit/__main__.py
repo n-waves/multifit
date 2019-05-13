@@ -109,6 +109,9 @@ class ULMFiT:
             print("Setting lmseed ", lmseed)
 
         dataset_template=f"../hate/pl-10-{lmtype}"
+        if name is None:
+            name = f"ft{kwargs.get('num_lm_epochs',6)}_cl{kwargs.get('num_cls_epochs',6)}"
+            print("Setting name to ", name)
 
         return self.poleval19_eval(glob=base,
                          name=name,
@@ -127,17 +130,13 @@ class ULMFiT:
             print("Seed: ", seed_name, seed)
             self.poleval19_eval(glob=base, name=name, num_lm_epochs=0, **kwargs)
 
-    def poleval19_eval(self, glob, name=None, num_lm_epochs=6, num_cls_epochs=8, bs=160, **kwargs):
-        if name is None:
-            name = f"ft{num_lm_epochs}_cl{num_cls_epochs}"
-            print("Setting name to ", name)
-
+    def poleval19_eval(self, glob, name=None, num_lm_epochs=6, num_cls_epochs=8, bs=160, lr_sched="1cycle", **kwargs):
         return self.eval(glob=glob,
                   name=name,
                   num_lm_epochs=num_lm_epochs,
                   num_cls_epochs=num_cls_epochs,
                   bs=bs,
-                  lr_sched="1cycle",
+                  lr_sched=lr_sched,
                   **kwargs)
 
     def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
@@ -170,7 +169,11 @@ class ULMFiT:
                     last_model_dir = params.model_dir.relative_to(data_dir.parent)
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
-                        d = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True)
+                        d_tst = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
+                        d_val = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
+                        d={}
+                        d.update(d_val)
+                        d.update(d_tst)
                     elif train:
                         print("Training")
                         d = params.train_cls(num_lm_epochs=num_lm_epochs, label_smoothing_eps=label_smoothing_eps, **trn_params)
@@ -195,7 +198,7 @@ class ULMFiT:
             df.to_csv(to_csv)
         if return_df:
             return last_model_dir, df
-        return last_model_dir
+        return str(last_model_dir)
 
     def remove_lm_saves(self):
         for lm_save in Path("data").glob("**/lm_*.pth"):

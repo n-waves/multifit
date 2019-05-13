@@ -171,7 +171,15 @@ class CLSHyperParams(LMHyperParams):
         if dump_preds:
             with open(dump_preds, 'w') as f:
                 f.write('\n'.join([str(x) for x in preds]))
-        results = learn.validate(data_tst.valid_dl if mode == "test" else data_clas.valid_dl)
+        if mode == "test":
+            ds = data_tst.valid_dl
+        elif mode == "valid" or mode == "dev":
+            ds = data_clas.valid_dl
+        elif mode == "train":
+            ds = data_clas.valid_dl
+        else:
+            raise AttributeError(f"Unrecognized mode {mode}, valid options: test, valid, train optionally dev==valid")
+        results = learn.validate(ds)
         print(f"Model: {self.name}")
         print(f"Validation on: {mode}")
         labeled_results = self.output_metrics(results, mode=mode)
