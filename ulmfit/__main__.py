@@ -5,8 +5,10 @@ import tarfile
 import shutil
 from collections import OrderedDict
 from functools import wraps
+import numpy as np
 import pandas as pd
 import fire
+
 from .pretrain_lm import LMHyperParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
@@ -64,11 +66,6 @@ class ULMFiT:
                           lr_sched=lr_sched,
                           label_smoothing_eps=label_smoothing_eps,
                           **kwargs)
-            val = next(iter(d.values()), -1)
-            results.append((noise/100, val))
-        df = pd.DataFrame(results, columns=["noise", "accuracy"])
-        df.to_csv(f"noise_{lang}-{size}{prefix_name}.csv")
-        print(df)
 
     def tar(self, model_path):
         data_dir = (Path.cwd()/"data").resolve()
@@ -84,12 +81,58 @@ class ULMFiT:
                     print("Adding", f, dest)
                     tar.add(f, dest)
 
-    #def eval_repeat(self, glob, num_lm_epochs=0, cuda_id=0, **trn_params):
+    def poleval19_init(self, base, name=None, **kwargs):
+        clstrainseed = clsweightseed = ftseed = lmseed = 0
+        if "wiki" in base:
+            lmtype = "wiki"
+        elif "reddit" in base:
+            lmtype = "reddit"
+        else:
+            raise AttributeError("unkown lm ty")
+
+        if "seed0" in base:
+            lmseed = 0
+            print("Setting lmseed ", lmseed)
+        elif "seed1" in base:
+            lmseed = 1
+            print("Setting lmseed ", lmseed)
+
+        dataset_template=f"../hate/pl-10-{lmtype}"
+
+        return self.poleval19_eval(glob=base,
+                         name=name,
+                         dataset_template=dataset_template,
+                         lmseed=lmseed,
+                         ftseed=ftseed,
+                         clstrainseed=clstrainseed,
+                         clsweightseed=clsweightseed,
+                         **kwargs)
 
 
-    def eval(self, glob="mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name="tmp-100", num_lm_epochs=0,
-             cuda_id=None, lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None, **trn_params):
-        results = OrderedDict()
+    def poleval19_seeds(self, base, seed_name='clsweightseed', model_num=10, **kwargs):
+        for seed in range(0, model_num, 1):
+            kwargs[seed_name] = seed
+            print("Seed: ", seed_name, seed)
+            self.poleval19_eval(glob=base, **kwargs)
+
+    def poleval19_eval(self, glob, name=None, num_lm_epochs=6, num_cls_epochs=8, bs=160, **kwargs):
+        if name is None:
+            name = f"ft{num_lm_epochs}_cl{num_cls_epochs}"
+            print("Setting name to ", name)
+
+        self.eval(glob=glob,
+                  name=name,
+                  num_lm_epochs=num_lm_epochs,
+                  num_cls_epochs=num_cls_epochs,
+                  bs=bs,
+                  lr_sched="1cycle",
+                  **kwargs)
+
+    def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
+             num_lm_epochs=0, train=True, to_csv=None, return_df=False, label_smoothing_eps=0.0,
+             lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None,
+             skip_on_error=True, **trn_params):
+        results = []
         model_args = {}
         if clsweightseed is not None:
             model_args["clsweightseed"] = clsweightseed
@@ -99,27 +142,44 @@ class ULMFiT:
             model_args['ftseed'] = ftseed
         if lmseed is not None:
             model_args['lmseed'] = lmseed
-
-        for base_model in sorted(Path("data").glob(glob)):
+        data_dir = Path("data").absolute()
+        if not glob.startswith("data"):
+            glob = "data/"+glob
+        for base_model in sorted(data_dir.parent.glob(glob)):
             print("Processing", base_model)
-            print(base_model, dataset_template)
             for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
                 try:
-                    params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=name, **model_args)
-                    key = str(params.model_dir.relative_to(Path.cwd()))
+                    _name = name
+                    if name is None:
+                        _name = base_model.name.replace(".m","").replace("lstm_","").replace("qrnn_","")
+                    params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, **model_args)
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
-                        results[key] = params.validate_cls()[1]
-                    else:
+                        d = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True)
+                    elif train:
                         print("Training")
-                        results[key] = params.train_cls(num_lm_epochs=num_lm_epochs, **trn_params)[1]
+                        d = params.train_cls(num_lm_epochs=num_lm_epochs, label_smoothing_eps=label_smoothing_eps, **trn_params)
+                    else:
+                        print("Skipping", (params.model_dir/"cls_best.pth"))
+                        d  = None
+                    if d is not None:
+                        d['model_dir_parent'] = params.model_dir.relative_to(data_dir.parent).parent
+                        d['model_name'] = params.model_name
+                        np.save(params.model_dir / "results.npy", d)
+                        results.append(d)
                     del params
                 except Exception as e:
                     print("Error", e)
+                    if not skip_on_error:
+                        raise e
                 gc.collect()
-
-        pprint.pprint(results)
-        return results
+        df = pd.DataFrame.from_records(results)
+        print(df)
+        if to_csv is not None:
+            print(f"Saving result to: {to_csv}")
+            df.to_csv(to_csv)
+        if return_df:
+            return df
 
     def remove_lm_saves(self):
         for lm_save in Path("data").glob("**/lm_*.pth"):

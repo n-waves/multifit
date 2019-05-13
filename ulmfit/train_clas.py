@@ -91,13 +91,18 @@ class CLSHyperParams(LMHyperParams):
         metrics.append(accuracy)
         return metrics
 
-    def output_metrics(self, results):
+    def output_metrics(self, results, mode="test"):
         print(f"F1 score bin: {results[1].item()}")
         print(f"Loss: {results[0]}")
         print(f"Precision: {results[2].item()}")
         print(f"Recall: {results[3].item()}")
         print(f"Accuracy: {results[4].item()}")
-
+        d = {f"{mode} F1 score bin": results[1].item(),
+                f"{mode} Loss": results[0],
+                f"{mode} Precision": results[2].item(),
+                f"{mode} Recall": results[3].item(),
+                f"{mode} Accuracy": results[4].item()}
+        return {k:float(str(v)) for k,v in d.items()} # float(str(x)) to avoid float32 -> float64 conversion isssues
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
@@ -148,7 +153,13 @@ class CLSHyperParams(LMHyperParams):
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None, dump_preds=None, mode="test"):
+    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None,
+                     dump_preds=None, mode="test", label_smoothing_eps=None, use_cache=False):
+        cache_file = (self.model_dir / f'results_{mode}.json')
+        if use_cache and cache_file.exists():
+            with cache_file.open("r") as fp:
+                return json.load(fp)
+
         if data_tst is None:
             data_clas , _, data_tst = self.load_cls_data(bs)
         if learn is None:
@@ -163,9 +174,12 @@ class CLSHyperParams(LMHyperParams):
         results = learn.validate(data_tst.valid_dl if mode == "test" else data_clas.valid_dl)
         print(f"Model: {self.name}")
         print(f"Validation on: {mode}")
-        self.output_metrics(results)
+        labeled_results = self.output_metrics(results, mode=mode)
 
-        return list(map(float, results))
+        with cache_file.open("w") as fp:
+            json.dump(labeled_results, fp)
+
+        return labeled_results
 
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
