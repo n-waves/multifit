@@ -34,9 +34,9 @@ def get_dataset_path(p, dataset_template):
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
 
-name_re = re.compile("(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
+name_re = re.compile("(bwd)?(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
 def folder_name_to_model_name(folder_name):
-    return name_re.match(folder_name).group(2)
+    return name_re.match(folder_name).group(3)
 
 class ULMFiT:
     @wraps(LMHyperParams)
