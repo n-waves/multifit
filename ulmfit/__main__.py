@@ -123,8 +123,9 @@ class ULMFiT:
                          **kwargs)
 
 
-    def poleval19_seeds(self, base, seed_name='clsweightseed', model_num=10, **kwargs):
-        name = folder_name_to_model_name(Path(base).name)
+    def poleval19_seeds(self, base, name=None, seed_name='clsweightseed', model_num=10, **kwargs):
+        if name is None:
+            name = folder_name_to_model_name(Path(base).name)
         for seed in range(0, model_num, 1):
             kwargs[seed_name] = seed
             print("Seed: ", seed_name, seed)
