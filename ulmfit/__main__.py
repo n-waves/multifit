@@ -1,5 +1,6 @@
 import gc
 import os
+import re
 import pprint
 import tarfile
 import shutil
@@ -32,6 +33,10 @@ def get_dataset_path(p, dataset_template):
     print(f"Searching for {pattern}, {ds.parent}")
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
+
+name_re = re.compile("(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
+def folder_name_to_model_name(folder_name):
+    return name_re.match(folder_name).group(2)
 
 class ULMFiT:
     @wraps(LMHyperParams)
@@ -81,6 +86,12 @@ class ULMFiT:
                     print("Adding", f, dest)
                     tar.add(f, dest)
 
+
+    def poleval19_full(self, base, name=None, num_lm_epochs=6, **kwargs):
+        clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, **kwargs)
+        self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
+        self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
+
     def poleval19_init(self, base, name=None, **kwargs):
         clstrainseed = clsweightseed = ftseed = lmseed = 0
         if "wiki" in base:
@@ -110,17 +121,18 @@ class ULMFiT:
 
 
     def poleval19_seeds(self, base, seed_name='clsweightseed', model_num=10, **kwargs):
+        name = folder_name_to_model_name(Path(base).name)
         for seed in range(0, model_num, 1):
             kwargs[seed_name] = seed
             print("Seed: ", seed_name, seed)
-            self.poleval19_eval(glob=base, **kwargs)
+            self.poleval19_eval(glob=base, name=name, num_lm_epochs=0, **kwargs)
 
     def poleval19_eval(self, glob, name=None, num_lm_epochs=6, num_cls_epochs=8, bs=160, **kwargs):
         if name is None:
             name = f"ft{num_lm_epochs}_cl{num_cls_epochs}"
             print("Setting name to ", name)
 
-        self.eval(glob=glob,
+        return self.eval(glob=glob,
                   name=name,
                   num_lm_epochs=num_lm_epochs,
                   num_cls_epochs=num_cls_epochs,
@@ -134,6 +146,7 @@ class ULMFiT:
              skip_on_error=True, **trn_params):
         results = []
         model_args = {}
+        last_model_dir = None
         if clsweightseed is not None:
             model_args["clsweightseed"] = clsweightseed
         if clstrainseed is not None:
@@ -143,7 +156,8 @@ class ULMFiT:
         if lmseed is not None:
             model_args['lmseed'] = lmseed
         data_dir = Path("data").absolute()
-        if not glob.startswith("data"):
+        glob=str(glob)
+        if "data" not in glob and not glob.startswith("/"):
             glob = "data/"+glob
         for base_model in sorted(data_dir.parent.glob(glob)):
             print("Processing", base_model)
@@ -151,8 +165,9 @@ class ULMFiT:
                 try:
                     _name = name
                     if name is None:
-                        _name = base_model.name.replace(".m","").replace("lstm_","").replace("qrnn_","")
+                        _name = folder_name_to_model_name(base_model.name)
                     params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, **model_args)
+                    last_model_dir = params.model_dir.relative_to(data_dir.parent)
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
                         d = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True)
@@ -179,7 +194,8 @@ class ULMFiT:
             print(f"Saving result to: {to_csv}")
             df.to_csv(to_csv)
         if return_df:
-            return df
+            return last_model_dir, df
+        return last_model_dir
 
     def remove_lm_saves(self):
         for lm_save in Path("data").glob("**/lm_*.pth"):
