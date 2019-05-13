@@ -141,7 +141,7 @@ class ULMFiT:
 
     def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
              num_lm_epochs=0, train=True, to_csv=None, return_df=False, label_smoothing_eps=0.0,
-             lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None,
+             lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None, save_name="cls_best",
              skip_on_error=True, **trn_params):
         results = []
         model_args = {}
@@ -169,8 +169,8 @@ class ULMFiT:
                     last_model_dir = params.model_dir.relative_to(data_dir.parent)
                     if (params.model_dir/"cls_best.pth").exists():
                         print("Evaluating previously trained model")
-                        d_tst = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
-                        d_val = params.validate_cls(label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
+                        d_tst = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
+                        d_val = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
                         d={}
                         d.update(d_val)
                         d.update(d_tst)

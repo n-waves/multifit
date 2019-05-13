@@ -155,7 +155,7 @@ class CLSHyperParams(LMHyperParams):
 
     def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None,
                      dump_preds=None, mode="test", label_smoothing_eps=None, use_cache=False):
-        cache_file = (self.model_dir / f'results_{mode}.json')
+        cache_file = (self.model_dir / f'results_{mode+("" if save_name == "cls_best" else save_name)}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
                 return json.load(fp)
