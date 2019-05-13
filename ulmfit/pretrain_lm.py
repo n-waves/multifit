@@ -191,7 +191,7 @@ class LMHyperParams:
         print("Saving info", self.model_dir / 'info.json')
 
     def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
-        if self.ftseed is None:
+        if not hasattr(self, 'ftseed'):
             self.set_seed(self.lmseed, "LM")
         else:
             self.set_seed(self.ftseed, "fine-tune")
