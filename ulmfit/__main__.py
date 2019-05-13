@@ -92,7 +92,7 @@ class ULMFiT:
         self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
 
-    def poleval19_init(self, base, name=None, **kwargs):
+    def poleval19_init(self, base, name=None, lmseed=None, **kwargs):
         clstrainseed = clsweightseed = ftseed = lmseed = 0
         if "wiki" in base:
             lmtype = "wiki"

@@ -148,7 +148,7 @@ class CLSHyperParams(LMHyperParams):
             raise ValueError(f"Wrong lr_sched: {lr_sched}")
 
         print(f"Saving models at {learn.path / learn.model_dir}")
-        learn.save('cls_last', with_opt=False)
+        learn.save('cls_best', with_opt=False)
         #learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
         del learn
         return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
@@ -198,7 +198,7 @@ class CLSHyperParams(LMHyperParams):
             learn.freeze()
 
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
-                               partial(SaveModelCallback, every='improvement', name='cls_best', monitor="f_beta")
+                               partial(SaveModelCallback, every='improvement', name='cls_best_tmp', monitor="f_beta")
                                ]
         if label_smoothing_eps > 0.0:
             learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
