@@ -87,7 +87,7 @@ class ULMFiT:
                     tar.add(f, dest)
 
 
-    def poleval19_full(self, base, name=None, num_lm_epochs=6, **kwargs):
+    def poleval19_full(self, base, num_lm_epochs=6, **kwargs):
         clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
