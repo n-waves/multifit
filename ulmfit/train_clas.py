@@ -197,6 +197,7 @@ class CLSHyperParams(LMHyperParams):
             ds = data_clas.valid_dl
         else:
             raise AttributeError(f"Unrecognized mode {mode}, valid options: test, valid, train optionally dev==valid")
+        np.save(self.model_dir / f"preds-on-{mode}.npy", probs.cpu().numpy())
         results = learn.validate(ds)
         print(f"Model: {self.name}")
         print(f"Validation on: {mode}")
