@@ -33,9 +33,9 @@ def get_dataset_path(p, dataset_template):
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
 
-name_re = re.compile("(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
+name_re = re.compile("(bwd)?(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
 def folder_name_to_model_name(folder_name):
-    return name_re.match(folder_name).group(2)
+    return name_re.match(folder_name).group(3)
 
 class ULMFiT:
     @wraps(LMHyperParams)
@@ -86,19 +86,20 @@ class ULMFiT:
                     tar.add(f, dest)
 
 
-    def poleval19_full(self, base, num_lm_epochs=6, **kwargs):
-        clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, **kwargs)
+    def poleval19_full(self, base, num_lm_epochs=6, lmtype=None, **kwargs):
+        clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, lmtype=lmtype, **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
 
-    def poleval19_init(self, base, name=None, lmseed=None, **kwargs):
-        clstrainseed = clsweightseed = ftseed = lmseed = 0
-        if "wiki" in base:
-            lmtype = "wiki"
-        elif "reddit" in base:
-            lmtype = "reddit"
-        else:
-            raise AttributeError("unkown lm ty")
+    def poleval19_init(self, base, name=None, lmseed=None, lmtype=None, **kwargs):
+        clstrainseed = clsweightseed = ftseed = 0
+        if lmtype is None:
+            if "wiki" in base:
+                lmtype = "wiki"
+            elif "reddit" in base:
+                lmtype = "reddit"
+            else:
+                raise AttributeError("unkown lm ty")
 
         if "seed0" in base:
             lmseed = 0
