@@ -87,19 +87,20 @@ class ULMFiT:
                     tar.add(f, dest)
 
 
-    def poleval19_full(self, base, num_lm_epochs=6, **kwargs):
-        clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, **kwargs)
+    def poleval19_full(self, base, num_lm_epochs=6, lmtype=None, **kwargs):
+        clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, lmtype=lmtype, **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
 
-    def poleval19_init(self, base, name=None, lmseed=None, **kwargs):
-        clstrainseed = clsweightseed = ftseed = lmseed = 0
-        if "wiki" in base:
-            lmtype = "wiki"
-        elif "reddit" in base:
-            lmtype = "reddit"
-        else:
-            raise AttributeError("unkown lm ty")
+    def poleval19_init(self, base, name=None, lmseed=None, lmtype=None, **kwargs):
+        clstrainseed = clsweightseed = ftseed = 0
+        if lmtype is None:
+            if "wiki" in base:
+                lmtype = "wiki"
+            elif "reddit" in base:
+                lmtype = "reddit"
+            else:
+                raise AttributeError("unkown lm ty")
 
         if "seed0" in base:
             lmseed = 0
