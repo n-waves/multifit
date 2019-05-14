@@ -122,7 +122,7 @@ class CLSHyperParams(LMHyperParams):
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0, random_init=False, dump_preds=None, early_stopping=True):
+                  label_smoothing_eps=0.0, random_init=False, dump_preds=None, early_stopping=True, weighted_cross_entropy=True):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -136,8 +136,10 @@ class CLSHyperParams(LMHyperParams):
                 self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
             else:
                 print("Language model already exist, skipping finetuning")
-        loss_func = CrossEntropyFlat(weight=torch.FloatTensor([0.5,30]).cuda())
-
+        if weighted_cross_entropy:
+            loss_func = CrossEntropyFlat(weight=torch.FloatTensor([0.5,30]).cuda())
+        else:
+            loss_func = CrossEntropyFlat()
         self.set_seed(self.clsweightseed, "classifier weights")
 
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len,
