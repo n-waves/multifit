@@ -30,7 +30,6 @@ def get_dataset_path(p, dataset_template):
     ds = [x for x in p.parents if x.name == "models"][0].parent
     lang = get_lang_from_dataset_path(ds)
     pattern = Template(dataset_template).substitute(lang=lang, ds_name=ds.name)
-    print(f"Searching for {pattern}, {ds.parent}")
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
 
@@ -140,6 +139,17 @@ class ULMFiT:
                   lr_sched=lr_sched,
                   **kwargs)
 
+    def ls(self, glob, dataset_template='${ds_name}'):
+        data_dir = Path("data").absolute()
+        glob = str(glob)
+        if "data" not in glob and not glob.startswith("/"):
+            glob = "data/" + glob
+        results = []
+        for base_model in sorted(data_dir.parent.glob(glob)):
+            for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
+                results.append((base_model, lang, dataset_path))
+        return results
+
     def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
              num_lm_epochs=0, train=True, to_csv=None, return_df=False, label_smoothing_eps=0.0,
              lmseed=None, ftseed=None, clsweightseed=None, clstrainseed=None, save_name="cls_best",
@@ -159,39 +169,37 @@ class ULMFiT:
         glob=str(glob)
         if "data" not in glob and not glob.startswith("/"):
             glob = "data/"+glob
-        for base_model in sorted(data_dir.parent.glob(glob)):
-            print("Processing", base_model)
-            for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
-                try:
-                    _name = name
-                    if name is None:
-                        _name = folder_name_to_model_name(base_model.name)
-                    params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, **model_args)
-                    last_model_dir = params.model_dir.relative_to(data_dir.parent)
-                    if (params.model_dir/"cls_best.pth").exists():
-                        print("Evaluating previously trained model")
-                        d_tst = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
-                        d_val = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
-                        d={}
-                        d.update(d_val)
-                        d.update(d_tst)
-                    elif train:
-                        print("Training")
-                        d = params.train_cls(num_lm_epochs=num_lm_epochs, label_smoothing_eps=label_smoothing_eps, **trn_params)
-                    else:
-                        print("Skipping", (params.model_dir/"cls_best.pth"))
-                        d  = None
-                    if d is not None:
-                        d['model_dir_parent'] = params.model_dir.relative_to(data_dir.parent).parent
-                        d['model_name'] = params.model_name
-                        np.save(params.model_dir / "results.npy", d)
-                        results.append(d)
-                    del params
-                except Exception as e:
-                    print("Error", e)
-                    if not skip_on_error:
-                        raise e
-                gc.collect()
+        for base_model, lang, dataset_path in self.ls(glob, dataset_template):
+            try:
+                _name = name
+                if name is None:
+                    _name = folder_name_to_model_name(base_model.name)
+                params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, **model_args)
+                last_model_dir = params.model_dir.relative_to(data_dir.parent)
+                if (params.model_dir/"cls_best.pth").exists():
+                    print("Evaluating previously trained model")
+                    d_tst = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
+                    d_val = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
+                    d={}
+                    d.update(d_val)
+                    d.update(d_tst)
+                elif train:
+                    print("Training")
+                    d = params.train_cls(num_lm_epochs=num_lm_epochs, label_smoothing_eps=label_smoothing_eps, **trn_params)
+                else:
+                    print("Skipping", (params.model_dir/"cls_best.pth"))
+                    d  = None
+                if d is not None:
+                    d['model_dir_parent'] = params.model_dir.relative_to(data_dir.parent).parent
+                    d['model_name'] = params.model_name
+                    np.save(params.model_dir / "results.npy", d)
+                    results.append(d)
+                del params
+            except Exception as e:
+                print("Error", e)
+                if not skip_on_error:
+                    raise e
+            gc.collect()
         df = pd.DataFrame.from_records(results)
         print(df)
         if to_csv is not None:

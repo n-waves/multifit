@@ -66,6 +66,19 @@ class CLSHyperParams(LMHyperParams):
         learn.unfreeze()
         learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
 
+    def lr_schedule_reverse_2cycle(self, learn, num_cls_epochs):
+        print("Reverse 2cycle ")
+        learn.unfreeze()
+        for g in learn.layer_groups[-1:]:
+            for l in g:
+                if not learn.train_bn or not isinstance(l, bn_types): requires_grad(l, False)
+        learn.create_opt(defaults.lr)
+        print("training LM")
+        learn.fit_one_cycle(num_cls_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
+        learn.unfreeze()
+        print("training ALL")
+        learn.fit_one_cycle(num_cls_epochs, slice(1e-3 / (2.6 ** 4), 2e-3), moms=(0.8, 0.7))
+
     def lr_schedule_false_wd(self, learn, num_cls_epochs):
         learn.true_wd = False
         print("Starting classifier training")
@@ -83,8 +96,9 @@ class CLSHyperParams(LMHyperParams):
         f1_score = FBeta(beta=1.0)
         precision = Precision()
         recall = Recall()
-        metrics = [f1_score, precision, recall]
-
+        kappa_lin = KappaScore('linear')
+        matthews_correff = MatthewsCorreff()
+        metrics = [f1_score, precision, recall, kappa_lin, matthews_correff]
         # TODO: fix this in fast.ai
         if init:
             for metric in metrics: metric.on_train_begin()
@@ -96,17 +110,19 @@ class CLSHyperParams(LMHyperParams):
         print(f"Loss: {results[0]}")
         print(f"Precision: {results[2].item()}")
         print(f"Recall: {results[3].item()}")
-        print(f"Accuracy: {results[4].item()}")
+        print(f"Accuracy: {results[6].item()}")
         d = {f"{mode} F1 score bin": results[1].item(),
                 f"{mode} Loss": results[0],
                 f"{mode} Precision": results[2].item(),
                 f"{mode} Recall": results[3].item(),
-                f"{mode} Accuracy": results[4].item()}
+                f"{mode} Kappa Linear": results[4].item(),
+                f"{mode} Matthews Correff": results[5].item(),
+                f"{mode} Accuracy": results[6].item()}
         return {k:float(str(v)) for k,v in d.items()} # float(str(x)) to avoid float32 -> float64 conversion isssues
 
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0, random_init=False, dump_preds=None):
+                  label_smoothing_eps=0.0, random_init=False, dump_preds=None, early_stopping=True):
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -127,7 +143,7 @@ class CLSHyperParams(LMHyperParams):
         learn = self.create_cls_learner(data_clas, drop_mult=drop_mul_cls, max_len=cls_max_len,
                                         label_smoothing_eps=label_smoothing_eps, random_init=random_init,
                                         metrics=self.get_metrics(),
-                                        loss_func=loss_func)
+                                        loss_func=loss_func, early_stopping=early_stopping)
 
         if not random_init:
             try:
@@ -189,7 +205,7 @@ class CLSHyperParams(LMHyperParams):
 
         return labeled_results
 
-    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, **kwargs):
+    def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, early_stopping=True, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
         config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
         config.update(dps or self.dps)
@@ -205,9 +221,12 @@ class CLSHyperParams(LMHyperParams):
             learn.load_pretrained(*fnames, strict=False)
             learn.freeze()
 
-        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history"),
-                               partial(SaveModelCallback, every='improvement', name='cls_best_tmp', monitor="f_beta")
-                               ]
+        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/cls-history")]
+        if early_stopping:
+            learn.callback_fns += [partial(SaveModelCallback, every='improvement',
+                                            name='cls_best_tmp',
+                                            monitor="f_beta")]
+
         if label_smoothing_eps > 0.0:
             learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
