@@ -46,9 +46,13 @@ class ULMFiT:
 
     lm2 = LMHyperParams
     @wraps(CLSHyperParams)
-    def cls(self, dataset_path, base_lm_path, **changes):
-        params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
+    def cls(self, dataset_path, base_lm_path=None, **changes):
+        if base_lm_path is not None:
+            params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
+        else:
+            params = CLSHyperParams(dataset_path=dataset_path, **changes)
         return FireView(train=params.train_cls, validate_cls=params.validate_cls)
+
 
     @wraps(CLSHyperParams)
     def load_cls(self, model_path, **changes):
@@ -86,10 +90,11 @@ class ULMFiT:
                     tar.add(f, dest)
 
 
-    def poleval19_full(self, base, num_lm_epochs=6, lmtype=None, **kwargs):
+    def poleval19_full(self, base, num_lm_epochs=6, lmtype=None, skip_train_seed=False, **kwargs):
         clsbase = self.poleval19_init(base, num_lm_epochs=num_lm_epochs, lmtype=lmtype, **kwargs)
         self.poleval19_seeds(clsbase, seed_name='clsweightseed', **kwargs)
-        self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
+        if skip_train_seed:
+            self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
 
     def poleval19_init(self, base, name=None, lmseed=None, lmtype=None, **kwargs):
         clstrainseed = clsweightseed = ftseed = 0

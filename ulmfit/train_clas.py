@@ -24,6 +24,8 @@ class CLSHyperParams(LMHyperParams):
 
     bicls_head:str = 'BiPoolingLinearClassifier'
 
+    use_tst_for_lm:bool = True
+
     def __post_init__(self, *args, **kwargs):
         super().__post_init__(*args, **kwargs)
         self.dataset_dir=self.dataset_path
@@ -238,7 +240,7 @@ class CLSHyperParams(LMHyperParams):
         self.model_dir.mkdir(exist_ok=True, parents=True)
         add_trn_to_lm = True
         lang = self.lang
-        use_moses = False #True
+        use_moses = True
         if 'xnli' in str(self.dataset_dir):
             NotImplementedError("Support for Xnli is not implemented yet")
         if 'imdb' in self.dataset_dir.name:
@@ -247,6 +249,8 @@ class CLSHyperParams(LMHyperParams):
         if 'mldoc' in str(self.dataset_dir):
             add_trn_to_lm = False  # False as trn_df is contained in unsup already
             lang = self.lang
+        if 'hate' in str(self.dataset_dir):
+            use_moses = False
 
         data = self.load_data(lang=lang,
                               add_trn_to_lm=add_trn_to_lm,
@@ -287,7 +291,7 @@ class CLSHyperParams(LMHyperParams):
         return trn_df
 
     def databunches(self, bs, trn_df, val_df, tst_df, unsup_df, add_trn_to_lm=True, use_moses=False, force=False, limit=None, noise=0.0):
-        lm_trn_df = pd.concat([unsup_df, val_df, tst_df] + ([trn_df] if add_trn_to_lm else []))
+        lm_trn_df = pd.concat([unsup_df, val_df] + ([tst_df] if self.use_tst_for_lm else []) + ([trn_df] if add_trn_to_lm else []))
         val_len = max(int(len(lm_trn_df) * 0.1), 2)
         lm_trn_df = lm_trn_df[val_len:]
         lm_val_df = lm_trn_df[:val_len]
@@ -308,6 +312,7 @@ class CLSHyperParams(LMHyperParams):
         args['text_cols'] = list(trn_df.columns.values)[1:]
         args['mark_fields'] = True
         lm_suffix = self.bptt if self.bptt != 70 else ""
+        lm_suffix = self.use_tst_for_lm if "" else "-notst"
         data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, **args)
         args['vocab'] = data_lm.vocab
         data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
