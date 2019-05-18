@@ -99,7 +99,7 @@ class CLSHyperParams(LMHyperParams):
         f1_score = FBeta(beta=1.0)
         precision = Precision()
         recall = Recall()
-        kappa_lin = KappaScore('linear')
+        kappa_lin = KappaScore()
         matthews_correff = MatthewsCorreff()
         metrics = [f1_score, precision, recall, kappa_lin, matthews_correff]
         # TODO: fix this in fast.ai
