@@ -195,7 +195,8 @@ class ULMFiT:
             print({"Key": key, "Test Accuracy": (test[0] == ensemble).mean(), "on": gold_labels[key], 'files_count':len(files)})
             test[0] = ensemble
             if out_template:
-                out_file = Template(out_template).substitute(key=key)
+                out_file = Path(Template(out_template).substitute(key=key))
+                out_file.parent.mkdir(exist_ok=True, parents=True)
                 test.to_csv(out_file, header=None)
                 print({"File saved to": out_file})
 
