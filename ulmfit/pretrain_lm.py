@@ -4,7 +4,8 @@ expected to have been tokenized with Moses and processed with `postprocess_wikit
 That is, the data is expected to be white-space separated and numbers are expected
 to be split.
 """
-from dataclasses import InitVar
+from dataclasses import InitVar, asdict
+from string import Template
 
 import fastai
 import fire
@@ -56,10 +57,35 @@ def read_wiki_articles(filename):
     print(f"Wiki text was split to {len(articles)} articles")
     return pd.DataFrame({'texts': np.array(articles, dtype=np.object)})
 
-@dataclass
-class LMHyperParams:
-    dataset_path: str # data_dir
+name_re = re.compile("(bwd)?(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
+def folder_name_to_model_name(folder_name):
+    if hasattr(folder_name, 'name'):
+        folder_name = folder_name.name
+    match = name_re.match(folder_name)
+    if match:
+        return match.group(3)
+    return None
 
+@dataclass
+class DataSetParams:
+    dataset_path: str  # data_dir
+    lang: str = None
+
+    def __post_init__(self):
+        if self.lang is None:
+            self.lang = infer_lang_from_dataset(self.dataset_path.name)
+
+    def resolve_template(self, template, **additional_options):
+        try:
+            params = asdict(self)
+            params.update(additional_options)
+            params["dataset_name"] = self.dataset_path.name
+            return Template(template).substitute(**params)
+        except KeyError as e:
+            raise KeyError(f"{e} , options:{repr(list(params.keys()))}")
+
+@dataclass
+class LMHyperParams(DataSetParams):
     base_lm_path: str = None
     backwards: str = False
     bidir: bool =False
@@ -85,7 +111,6 @@ class LMHyperParams:
     rnn_alpha: float = 2  # activation regularization (AR)
     rnn_beta: float = 1  # temporal activation regularization (TAR)
 
-    lang: str = 'en'
     name: str = None
     cuda_id: InitVar[int] = 0
 
@@ -104,9 +129,6 @@ class LMHyperParams:
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
         self.model_dir = self.cache_dir / self.model_name
 
-        print('Max vocab:', self.max_vocab)
-        print('Cache dir:', self.cache_dir)
-        print('Model dir:', self.model_dir)
         if self.nh is None: self.nh = 1550 if self.qrnn else 1150
         if self.name is None: self.name = self.lang
 
@@ -191,6 +213,10 @@ class LMHyperParams:
         print("Saving info", self.model_dir / 'info.json')
 
     def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
+        print("Training lm")
+        print('Max vocab:', self.max_vocab)
+        print('Cache dir:', self.cache_dir)
+        print('Model dir:', self.model_dir)
         if self.pretrained_fnames or self.pretrained_model:
             self.set_seed(self.ftseed, "fine-tune")
         else:
@@ -342,10 +368,11 @@ class LMHyperParams:
 
         d.update(kwargs)
         return cls(**d)
+
     @classmethod
     def from_json(cls, model_path:Path, **kwargs):
         model_path = Path(model_path).resolve()
-        name = re.search(r"[a-z]+_(.+).m", model_path.name).group(1)
+        name = folder_name_to_model_name(model_path)
         with open(model_path / 'info.json', 'r') as f:
             d = json.load(f)
         d.update(kwargs)
@@ -354,6 +381,9 @@ class LMHyperParams:
         d['dataset_path'] = str(dataset_path)
         d['lang'] = infer_lang_from_dataset(dataset_path.name)
         return cls(**d)
+
+    def resolve_template(self, template, **additional_options):
+        return super().resolve_template(template, model_dir=self.model_dir, **additional_options)
 
 def infer_lang_from_dataset(name:str):
     return name.split("-")[0]

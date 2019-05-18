@@ -1,16 +1,14 @@
 import gc
 import os
-import re
-import pprint
 import tarfile
-import shutil
-from collections import OrderedDict
+from collections import defaultdict
+import re
 from functools import wraps
 import numpy as np
 import pandas as pd
 import fire
 
-from .pretrain_lm import LMHyperParams
+from .pretrain_lm import LMHyperParams, folder_name_to_model_name, DataSetParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
 from string import Template
@@ -32,10 +30,6 @@ def get_dataset_path(p, dataset_template):
     pattern = Template(dataset_template).substitute(lang=lang, ds_name=ds.name)
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
-
-name_re = re.compile("(bwd)?(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
-def folder_name_to_model_name(folder_name):
-    return name_re.match(folder_name).group(3)
 
 class ULMFiT:
     @wraps(LMHyperParams)
@@ -155,6 +149,55 @@ class ULMFiT:
             for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
                 results.append((base_model, lang, dataset_path))
         return results
+
+    # file_glob = "${ds_name}/${lang}.train.csv"
+    def ensemble(self, glob="data/mldoc*/*-1/models/sp15k/qrnn_*.m",
+                 file_template="${model_dir}/preds-on-test.npy",
+                 gold_labels_template="${dataset_path}/${lang}.test.csv",
+                 out_template="${key}.ensemble.csv",
+                 key_template='${lang}', verbose=False, exclude_re=None):
+
+        def load_labels(file, verbose=False):
+            if file.suffix == ".npy":
+                labels = np.load(str(file))
+
+            elif file.suffix == ".csv":
+                df = pd.read_csv(file, header=None)
+                labels =  np.array([df[c] for c in df.columns if np.issubdtype(df[c].dtype, np.number)]).T.squeeze()
+            else:
+                raise AttributeError("Unknown result file type", file.extension)
+            if verbose: print(file, labels.shape)
+            return labels
+
+        files_for_ensemble = defaultdict(list)
+        gold_labels = {}
+        for folder in Path.cwd().glob(glob):
+            if exclude_re is not None and re.match(exclude_re, str(folder)):
+                print("Skipping", folder)
+                continue
+            if folder.suffix == ".m":
+                params = CLSHyperParams.from_json(folder)
+            else:
+                params = DataSetParams(folder)
+
+            key = params.resolve_template(key_template)
+            file_glob = params.resolve_template(file_template)
+            files_for_ensemble[key].append(Path(file_glob))
+            gold_label_glob = params.resolve_template(gold_labels_template)
+            gold_file = Path(gold_label_glob)
+            gold_labels[key] = gold_file
+
+        for key, files in files_for_ensemble.items():
+            ensemble = np.array([load_labels(file, verbose) for file in files]).mean(axis=0)
+            if len(ensemble.shape) != 1:
+                ensemble = np.argmax(ensemble, axis=1)
+            test = pd.read_csv(gold_labels[key], header=None)
+            print({"Key": key, "Test Accuracy": (test[0] == ensemble).mean(), "on": gold_labels[key], 'files_count':len(files)})
+            test[0] = ensemble
+            if out_template:
+                out_file = Template(out_template).substitute(key=key)
+                test.to_csv(out_file, header=None)
+                print({"File saved to": out_file})
 
     def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
              num_lm_epochs=0, train=True, to_csv=None, return_df=False, label_smoothing_eps=0.0,

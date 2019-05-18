@@ -2,6 +2,7 @@
 Train a classifier on top of a language model trained with `pretrain_lm.py`.
 Optionally fine-tune LM before.
 """
+import re
 
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
@@ -125,6 +126,10 @@ class CLSHyperParams(LMHyperParams):
     def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
                   label_smoothing_eps=0.0, random_init=False, dump_preds=None, early_stopping=True, weighted_cross_entropy=True):
+        print("Training CLS")
+        print('Max vocab:', self.max_vocab)
+        print('Cache dir:', self.cache_dir)
+        print('Model dir:', self.model_dir)
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
         self.model_dir.mkdir(exist_ok=True, parents=True)
 
@@ -331,6 +336,3 @@ class CLSHyperParams(LMHyperParams):
 
 if __name__ == '__main__':
     fire.Fire(CLSHyperParams)
-
-##
-
