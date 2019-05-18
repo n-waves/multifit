@@ -197,7 +197,7 @@ class ULMFiT:
             if out_template:
                 out_file = Path(Template(out_template).substitute(key=key))
                 out_file.parent.mkdir(exist_ok=True, parents=True)
-                test.to_csv(out_file, header=None)
+                test.to_csv(out_file, header=None, index=False)
                 print({"File saved to": out_file})
 
     def eval(self, glob="data/mldoc/*-1/models/sp30k/lstm_nl4.m", dataset_template='${ds_name}', name=None,
