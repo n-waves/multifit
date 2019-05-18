@@ -182,24 +182,28 @@ class CLSHyperParams(LMHyperParams):
 
         if data_tst is None:
             data_clas , _, data_tst = self.load_cls_data(bs)
+            dt = data_tst if mode == "test" else data_clas
+        else:
+            dt = data_tst
         if learn is None:
-            learn = self.create_cls_learner(data_tst, drop_mult=0.3, metrics=self.get_metrics(True))
+            learn = self.create_cls_learner(dt, drop_mult=0.3, metrics=self.get_metrics(True))
             learn.unfreeze()
         learn.load(save_name)
-        probs, targets = learn.get_preds(ordered=True)
-        preds = np.argmax(probs.cpu().numpy(), axis=1)
-        if dump_preds:
-            with open(dump_preds, 'w') as f:
-                f.write('\n'.join([str(x) for x in preds]))
         if mode == "test":
             ds = data_tst.valid_dl
         elif mode == "valid" or mode == "dev":
             ds = data_clas.valid_dl
         elif mode == "train":
-            ds = data_clas.valid_dl
+            ds = data_clas.train_dl
         else:
             raise AttributeError(f"Unrecognized mode {mode}, valid options: test, valid, train optionally dev==valid")
-        np.save(self.model_dir / f"preds-on-{mode}.npy", probs.cpu().numpy())
+        if mode in ["test", "valid", "dev"]:
+            probs, targets = learn.get_preds(ordered=True)
+            preds = np.argmax(probs.cpu().numpy(), axis=1)
+            if dump_preds:
+                with open(dump_preds, 'w') as f:
+                    f.write('\n'.join([str(x) for x in preds]))
+            np.save(self.model_dir / f"preds-on-{mode}.npy", probs.cpu().numpy())
         results = learn.validate(ds)
         print(f"Model: {self.name}")
         print(f"Validation on: {mode}")
