@@ -317,7 +317,7 @@ class CLSHyperParams(LMHyperParams):
             val_df = self.add_noise(val_df, noise)
             cls_name = f'{cls_name}noise{noise}tv'
 
-        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: trn_df[1], use_moses=use_moses)
+        args = self.tokenizer_to_fastai_args(sp_data_func=lambda: lm_trn_df[1], use_moses=use_moses)
         args['text_cols'] = list(trn_df.columns.values)[1:]
         args['mark_fields'] = True
         lm_suffix = self.bptt if self.bptt != 70 else ""
