@@ -321,7 +321,7 @@ class CLSHyperParams(LMHyperParams):
         args['text_cols'] = list(trn_df.columns.values)[1:]
         args['mark_fields'] = True
         lm_suffix = self.bptt if self.bptt != 70 else ""
-        lm_suffix = self.use_tst_for_lm if "" else "-notst"
+        lm_suffix += self.use_tst_for_lm if "" else "-notst"
         data_lm = self.lm_databunch(f'lm{lm_suffix}', train_df=lm_trn_df, valid_df=lm_val_df, bs=bs, force=force, bptt=self.bptt, **args)
         args['vocab'] = data_lm.vocab
         data_cls = self.cls_databunch(cls_name, train_df=trn_df, valid_df=val_df, bs=bs, force=force, **args)
