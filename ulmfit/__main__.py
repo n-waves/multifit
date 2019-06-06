@@ -12,6 +12,8 @@ from .pretrain_lm import LMHyperParams, folder_name_to_model_name, DataSetParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
 from string import Template
+from fastai.metrics import fbeta
+import torch
 
 class FireView:
     def __init__(self, **kwargs):
@@ -28,6 +30,7 @@ def get_dataset_path(p, dataset_template):
     ds = [x for x in p.parents if x.name == "models"][0].parent
     lang = get_lang_from_dataset_path(ds)
     pattern = Template(dataset_template).substitute(lang=lang, ds_name=ds.name)
+    print("Selected cls dataset", (ds.parent.relative_to(Path.cwd())/pattern).resolve())
     for ds_path in ds.parent.glob(pattern):
         yield lang, ds_path
 
@@ -41,6 +44,7 @@ class ULMFiT:
     lm2 = LMHyperParams
     @wraps(CLSHyperParams)
     def cls(self, dataset_path, base_lm_path=None, **changes):
+        print(dataset_path, repr(base_lm_path))
         if base_lm_path is not None:
             params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
         else:
@@ -91,7 +95,10 @@ class ULMFiT:
             self.poleval19_seeds(clsbase, seed_name='clstrainseed', **kwargs)
 
     def poleval19_init(self, base, name=None, lmseed=None, lmtype=None, **kwargs):
-        clstrainseed = clsweightseed = ftseed = 0
+        clstrainseed = kwargs.pop('clstrainseed', 0)
+        clsweightseed = kwargs.pop('clsweightseed', 0)
+        ftseed = kwargs.pop('ftseed', 0)
+
         if lmtype is None:
             if "wiki" in base:
                 lmtype = "wiki"
@@ -146,9 +153,14 @@ class ULMFiT:
             glob = "data/" + glob
         results = []
         for base_model in sorted(data_dir.parent.glob(glob)):
-            for lang, dataset_path in sorted(get_dataset_path(base_model, dataset_template)):
+            datasets = list(sorted(get_dataset_path(base_model, dataset_template)))
+            print(f"Base model: {base_model} length: {len(datasets)}")
+            if len(datasets) == 0:
+                print(f"Debug: {dataset_template}")
+            for lang, dataset_path in datasets:
                 results.append((base_model, lang, dataset_path))
         return results
+
 
     # file_glob = "${ds_name}/${lang}.train.csv"
     def ensemble(self, glob="data/mldoc*/*-1/models/sp15k/qrnn_*.m",
@@ -163,7 +175,7 @@ class ULMFiT:
 
             elif file.suffix == ".csv":
                 df = pd.read_csv(file, header=None)
-                labels =  np.array([df[c] for c in df.columns if np.issubdtype(df[c].dtype, np.number)]).T.squeeze()
+                labels = np.array([df[c] for c in df.columns if np.issubdtype(df[c].dtype, np.number)]).T.squeeze()
             else:
                 raise AttributeError("Unknown result file type", file.extension)
             if verbose: print(file, labels.shape)
@@ -187,12 +199,27 @@ class ULMFiT:
             gold_file = Path(gold_label_glob)
             gold_labels[key] = gold_file
 
+        def fbeta(y_pred, y_true, thresh: float = 0.2, beta: float = 2, eps: float = 1e-9,
+                  sigmoid: bool = True, dim=1):
+            "Computes the f_beta between `preds` and `targets`"
+            beta2 = beta ** 2
+            if sigmoid: y_pred = y_pred.sigmoid()
+            y_pred = (y_pred > thresh).float()
+            y_true = y_true.float()
+            TP = (y_pred * y_true).sum(dim=dim)
+            prec = TP / (y_pred.sum(dim=dim) + eps)
+            rec = TP / (y_true.sum(dim=dim) + eps)
+            res = (prec * rec) / (prec * beta2 + rec + eps) * (1 + beta2)
+            return res.mean()
+
         for key, files in files_for_ensemble.items():
-            ensemble = np.array([load_labels(file, verbose) for file in files]).mean(axis=0)
+            ensemble = np.array([load_labels(file, verbose) for file in files if file.exists()]).mean(axis=0)
             if len(ensemble.shape) != 1:
                 ensemble = np.argmax(ensemble, axis=1)
             test = pd.read_csv(gold_labels[key], header=None)
-            print({"Key": key, "Test Accuracy": (test[0] == ensemble).mean(), "on": gold_labels[key], 'files_count':len(files)})
+
+            f1beta = fbeta(torch.tensor(ensemble), torch.tensor(test[0]), sigmoid=False, beta=1, dim=0)
+            print({"Key": key, "Test Accuracy": (test[0] == ensemble).mean(), "Test F1":f1beta, "on": gold_labels[key], 'files_count':len(files)})
             test[0] = ensemble
             if out_template:
                 out_file = Path(Template(out_template).substitute(key=key))
@@ -267,6 +294,7 @@ class ULMFiT:
             if int(num) not in [5, 10, 15]:
                 print("rm ", lm_save)
                 os.remove(lm_save)
+
 
 # python -m ulmfit cls --dataset-path data/mldoc/de-1-laser  --base-lm-path data/mldoc/de-1/models/sp30k/lstm_nl4.m  --lang=de --name 'nl4' --cuda-id=1 - train 0 --bs 40 --num-cls-epochs=2
 
