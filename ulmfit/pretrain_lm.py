@@ -41,8 +41,9 @@ def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
 
 def read_wiki_articles(filename):
-    return pd.read_csv(filename, header=None, names=["texts"]).fillna("")
-    return pd.read_csv(filename, sep="\t", header=None, names=["texts"])
+    if "reddit" in filename: # Temporary hack to handle poleval reddit dataset
+        return pd.read_csv(filename, header=None, names=["texts"]).fillna("")
+
     articles = []
 
     with open(filename, encoding='utf8') as f:
@@ -113,6 +114,7 @@ class LMHyperParams(DataSetParams):
 
     name: str = None
     cuda_id: InitVar[int] = 0
+    tokenizer_mod: str = ''
 
     def __post_init__(self, cuda_id):
         if self.bidir and self.backwards:
@@ -133,7 +135,7 @@ class LMHyperParams(DataSetParams):
         if self.name is None: self.name = self.lang
 
     @property
-    def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k"
+    def tokenizer_prefix(self): return f"{self.tokenizer.value}{self.max_vocab // 1000}k{self.tokenizer_mod}"
 
     @property
     def model_direction(self):
@@ -177,7 +179,8 @@ class LMHyperParams(DataSetParams):
                                      vocab_size=self.max_vocab,
                                      lang=self.lang,
                                      pre_rules=moses_preproc + defaults.text_pre_rules,
-                                     post_rules=defaults.text_post_rules)
+                                     post_rules=defaults.text_post_rules,
+                                     fixed_character_coverage=(self.tokenizer_mod=='-fix'))
         elif self.tokenizer is Tokenizers.MOSES:
             args = dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
                                             lang=self.lang,
