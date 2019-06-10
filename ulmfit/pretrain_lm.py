@@ -41,7 +41,7 @@ def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
 
 def read_wiki_articles(filename):
-    if "reddit" in filename: # Temporary hack to handle poleval reddit dataset
+    if "reddit" in str(filename): # Temporary hack to handle poleval reddit dataset
         return pd.read_csv(filename, header=None, names=["texts"]).fillna("")
 
     articles = []
