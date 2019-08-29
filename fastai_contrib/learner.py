@@ -114,7 +114,7 @@ def convert_weights_with_prefix(wgts:Weights, stoi_wgts:Dict[str,int], itos_new:
 #endregion
 #region Replace code in fastai
 
-import fastai.text.learner
-fastai.text.learner.convert_weights = convert_weights
+# import fastai.text.learner
+# fastai.text.learner.convert_weights = convert_weights
 
 #endregion
