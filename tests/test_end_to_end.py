@@ -34,10 +34,10 @@ def get_test_data():
     test_imdb.mkdir(exist_ok=True, parents=True)
 
     sz=1
-    # we use the same text to see if models can overfit
-    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.train.tokens', n=1000*sz)
-    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.valid.tokens', n=600*sz)
-    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.test.tokens', n=600*sz)
+    # we use the same text to see if models overfits
+    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.train.tokens', n=100*sz)
+    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.valid.tokens', n=60*sz)
+    copy_head(wt / 'en.wiki.train.tokens', test_wt / 'en.wiki.test.tokens', n=60*sz)
     copy_head(imdb / 'train.csv', test_imdb / 'train.csv', n=10*sz)
     copy_head(imdb / 'train.csv', test_imdb / 'test.csv', n=6 * sz)
     copy_head(imdb / 'train.csv', test_imdb / 'dev.csv', n=6 * sz)
@@ -46,11 +46,20 @@ def get_test_data():
     return test_data, test_wt
 
 
+def test_evaluate():
+    """  Test ulmfit with (default) Moses tokenizer on small wikipedia dataset.
+    """
+    os.chdir(get_data_folder()/"..")
+    fastai.core.defaults.cpus=0
+    test_data, wt2 = get_test_data()
+    exp = ulmfit.train_clas.CLSHyperParams(test_data / 'imdb', lang='en', qrnn=False, max_vocab=1000, name="tst")
+    exp.evaluate_cls(save_name=None, bs=2)
+
+
 def test_ulmfit_works_with_relative_paths():
     """  Test ulmfit with (default) Moses tokenizer on small wikipedia dataset.
     """
     os.chdir(get_data_folder()/"..")
-
 
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-default'
@@ -121,7 +130,7 @@ def test_ulmfit_fastai_end_to_end_label_smoothing():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
     """
     test_data, wt2 = get_test_data()
-    lm_name = 'end-to-end-test-fastai'
+    lm_name = 'end-to-end-test-fastai-lablel-smoothing'
 
     exp = ulmfit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
@@ -133,53 +142,8 @@ def test_ulmfit_fastai_end_to_end_label_smoothing():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2, label_smoothing_eps=0.1)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir, name=lm_name)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, label_smoothing_eps=0.1 )
-
-
-def test_ulmfit_fastai_bidir_end_to_end():
-    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
-    """
-    test_data, wt2 = get_test_data()
-    lm_name = 'end-to-end-test-fastai'
-
-    exp = ulmfit.pretrain_lm.LMHyperParams(
-        dataset_path=wt2,
-        lang='en',
-        cuda_id=cuda_id,
-        qrnn=False,
-        bidir=True,
-        tokenizer='f',
-        max_vocab=100,
-        name=lm_name,
-    )
-    exp.train_lm(num_epochs=1, bs=2)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(str(test_data / 'imdb'), str(exp.model_dir))
-    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
-
-def test_ulmfit_moses_fa_bidir_end_to_end():
-    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
-    """
-    test_data, wt2 = get_test_data()
-    lm_name = 'end-to-end-test-fastai'
-
-    exp = ulmfit.pretrain_lm.LMHyperParams(
-        dataset_path=wt2,
-        lang='en',
-        cuda_id=cuda_id,
-        qrnn=False,
-        bidir=True,
-        tokenizer='vf',
-        max_vocab=100,
-        name=lm_name,
-    )
-    exp.train_lm(num_epochs=1, bs=2)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
-    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
-
-# def test_classification_model_work_with_different_dropmul():
-#     learn = self.create_cls_learner(data_clas, drop_mult=0.1)
-#     learn = self.create_cls_learner(data_clas, drop_mult=0.0)
 
 def test_ulmfit_sentencepiece_end_to_end():
     """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
@@ -201,6 +165,25 @@ def test_ulmfit_sentencepiece_end_to_end():
     exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
+def test_ulmfit_sentencepiece_fastai_impl_end_to_end():
+    """ Test ulmfit with sentencepiece tokenizer on small wikipedia dataset.
+    """
+    test_data, wt2 = get_test_data()
+    lm_name = 'end-to-end-test-spm-fa'
+
+    exp = ulmfit.pretrain_lm.LMHyperParams(
+        dataset_path=wt2,
+        lang='en',
+        cuda_id=cuda_id,
+        qrnn=False,
+        tokenizer=ulmfit.pretrain_lm.Tokenizers.FASTAI_SUBWORD,
+        max_vocab=200,
+        name=lm_name,
+    )
+    exp.train_lm(num_epochs=1, bs=2)
+    # not supported yet
+    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 if __name__ == "__main__":
     fire.Fire()  # allows using all functions via CLI

@@ -49,13 +49,13 @@ class ULMFiT:
             params = CLSHyperParams.from_lm(dataset_path, base_lm_path, **changes)
         else:
             params = CLSHyperParams(dataset_path=dataset_path, **changes)
-        return FireView(train=params.train_cls, validate_cls=params.validate_cls)
+        return FireView(train=params.train_cls, evaluate_cls=params.evaluate_cls)
 
 
     @wraps(CLSHyperParams)
     def load_cls(self, model_path, **changes):
         params = CLSHyperParams.from_json(model_path, **changes)
-        return FireView(train=params.train_cls, validate_cls=params.validate_cls)
+        return FireView(train=params.train_cls, evaluate_cls=params.evaluate_cls)
 
 
     def eval_noise_resistance(self, lang="de", size=1, prefix_name="", model="sp15k/qrnn_nl4.m",
@@ -255,8 +255,8 @@ class ULMFiT:
                 last_model_dir = params.model_dir.relative_to(data_dir.parent)
                 if (params.model_dir/"cls_best.pth").exists():
                     print("Evaluating previously trained model")
-                    d_tst = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
-                    d_val = params.validate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
+                    d_tst = params.evaluate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
+                    d_val = params.evaluate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
                     d={}
                     d.update(d_val)
                     d.update(d_tst)

@@ -17,7 +17,7 @@ from fastai.text import *
 import torch
 from fastai_contrib.utils import read_file, read_whitespace_file, \
     validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, \
-    replace_std_toks, MosesPreprocessingFunc
+    replace_std_toks, MosesPreprocessingFunc, get_sentencepiece_fastai
 from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd, bilm_text_classifier_learner
 import pickle
 
@@ -31,14 +31,16 @@ ENC_BEST = "enc_best"
 
 
 class Tokenizers(Enum):
+    FASTAI_SUBWORD = 'fsp'
     SUBWORD='sp'
-    BROKENSUBWORD = 'bsp'
     MOSES='v'
     MOSES_FA='vf'
     FASTAI='f'
 
+
 def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
+
 
 def read_wiki_articles(filename):
     if "reddit" in str(filename): # Temporary hack to handle poleval reddit dataset
@@ -58,6 +60,7 @@ def read_wiki_articles(filename):
     print(f"Wiki text was split to {len(articles)} articles")
     return pd.DataFrame({'texts': np.array(articles, dtype=np.object)})
 
+
 name_re = re.compile("(bwd)?(lstm|qrnn)_(.*)_(lmseed-)?.*\.m")
 def folder_name_to_model_name(folder_name):
     if hasattr(folder_name, 'name'):
@@ -66,6 +69,7 @@ def folder_name_to_model_name(folder_name):
     if match:
         return match.group(3)
     return None
+
 
 @dataclass
 class DataSetParams:
@@ -85,11 +89,40 @@ class DataSetParams:
         except KeyError as e:
             raise KeyError(f"{e} , options:{repr(list(params.keys()))}")
 
+# temporary loading function as from_df does not support processors
+def make_data_bunch_from_df(cls, path: PathOrStr, train_df: DataFrame, valid_df: DataFrame,
+            tokenizer: Tokenizer = None, vocab: Vocab = None, classes: Collection[str] = None,
+            text_cols: IntsOrStrs = 1,
+            label_cols: IntsOrStrs = 0, label_delim: str = None, chunksize: int = 10000,
+            max_vocab: int = 60000,
+            min_freq: int = 2, mark_fields: bool = False, include_bos: bool = True,
+            include_eos: bool = False, processor=None, **kwargs) -> DataBunch:
+    "Create a `TextDataBunch` from DataFrames. `kwargs` are passed to the dataloader creation."
+    assert processor is None or tokenizer is None, "Processor and tokenizer are mutually exclusive."
+
+    if processor is None:
+        processor = fastai.text.data._get_processor(tokenizer=tokenizer, vocab=vocab, chunksize=chunksize, max_vocab=max_vocab,
+                                   min_freq=min_freq, mark_fields=mark_fields,
+                                   include_bos=include_bos, include_eos=include_eos)
+
+    if classes is None and is_listy(label_cols) and len(label_cols) > 1: classes = label_cols
+    src = ItemLists(path, TextList.from_df(train_df, path, cols=text_cols, processor=processor),
+                    TextList.from_df(valid_df, path, cols=text_cols, processor=processor))
+    if cls == TextLMDataBunch:
+        src = src.label_for_lm()
+    else:
+        if label_delim is not None:
+            src = src.label_from_df(cols=label_cols, classes=classes, label_delim=label_delim)
+        else:
+            src = src.label_from_df(cols=label_cols, classes=classes)
+    return src.databunch(**kwargs)
+
+
 @dataclass
 class LMHyperParams(DataSetParams):
     base_lm_path: str = None
     backwards: str = False
-    bidir: bool =False
+    bidir: bool = False
     qrnn: bool = True
     max_vocab: int = 60000
     tokenizer: Tokenizers = Tokenizers.MOSES
@@ -131,7 +164,7 @@ class LMHyperParams(DataSetParams):
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
         self.model_dir = self.cache_dir / self.model_name
 
-        if self.nh is None: self.nh = 1550 if self.qrnn else 1150
+        if self.nh is None: self.nh = 1552 if self.qrnn else 1152
         if self.name is None: self.name = self.lang
 
     @property
@@ -169,7 +202,17 @@ class LMHyperParams(DataSetParams):
 
     def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if use_moses else []
-        if self.tokenizer is Tokenizers.SUBWORD or self.tokenizer is Tokenizers.BROKENSUBWORD:
+        if self.tokenizer is Tokenizers.FASTAI_SUBWORD:
+            if self.base_lm_path and not (self.cache_dir / "spm.model").exists():  # ensure we are using the same sentence piece model
+                shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
+                shutil.copy(self.base_lm_path / '..' / 'spm.vocab', self.cache_dir)
+            args = get_sentencepiece_fastai(
+                    cache_dir=self.cache_dir,
+                    vocab_size=self.max_vocab,
+                    lang=self.lang,
+                    pre_rules=moses_preproc + defaults.text_pre_rules)
+
+        elif self.tokenizer is Tokenizers.SUBWORD:
             if self.base_lm_path and not(self.cache_dir/"spm.model").exists(): # ensure we are using the same sentence piece model
                 shutil.copy(self.base_lm_path / '..' / 'itos.pkl', self.cache_dir)
                 shutil.copy(self.base_lm_path / '..' / 'spm.model', self.cache_dir)
@@ -230,6 +273,7 @@ class LMHyperParams(DataSetParams):
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
         print("Bptt", data_lm.bptt)
         learn.true_wd = true_wd
+        #learn = learn.to_fp16()
         if num_epochs > 0:
             if self.pretrained_fnames or self.pretrained_model:
                 print("Training lm from: ", self.pretrained_fnames or self.pretrained_model)
@@ -337,12 +381,13 @@ class LMHyperParams(DataSetParams):
             data = load_data(self.cache_dir, name, bs=bs)
         else:
             print(f"Running tokenization {name}...")
-            data = bunch_class.from_df(path=self.cache_dir,
+            data = make_data_bunch_from_df(cls=bunch_class, path=self.cache_dir,
                                        train_df=train_df,
                                        valid_df=valid_df,
                                        max_vocab=self.max_vocab,
                                        bs=bs,
                                        **args)
+
             data.save(name)
         with open(self.cache_dir/"itos.pkl", 'wb') as f:
             pickle.dump(data.vocab.itos, f)

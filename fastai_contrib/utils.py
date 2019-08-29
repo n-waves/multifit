@@ -80,8 +80,7 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None,
     pre_rules = pre_rules if pre_rules is not None else defaults.text_pre_rules
     post_rules = post_rules if post_rules is not None else defaults.text_post_rules
 
-    #special_cases = defaults.text_spec_tok + ['<link>', '<user>', '<number>', '<emoji>', '</emoji>']
-    special_cases = defaults.text_spec_tok + ['xxlink', 'xxuser', 'xxnumber', 'xxemoji', 'yyemoji']
+    special_cases = defaults.text_spec_tok # + ['xxlink', 'xxuser', 'xxnumber', 'xxemoji', 'yyemoji']
     if not os.path.isfile(cache_dir / 'spm.model') or not os.path.isfile(cache_dir / f'itos.pkl'):
         # load the text from the train tokens file
         text = load_text()
@@ -129,6 +128,30 @@ def get_sentencepiece(cache_dir:PathOrStr, load_text, pre_rules: ListRules=None,
                                 post_rules=post_rules)
     return {'tokenizer': tokenizer, 'vocab': vocab}
 
+def get_sentencepiece_fastai(cache_dir: PathOrStr,  pre_rules: ListRules = None,
+                          post_rules: ListRules = None,
+                          vocab_size: int = 30000, lang='en'):
+    cache_dir = pathlib.Path(cache_dir)
+
+    sp_model = cache_dir / 'spm.model'
+    if not sp_model.is_file():
+        sp_model = None
+
+    sp_vocab = cache_dir / 'spm.vocab'
+    if not sp_vocab.is_file():
+        sp_vocab = None
+
+    processor = SPProcessor(
+        pre_rules=pre_rules,
+        post_rules=post_rules,
+        mark_fields=True,
+        vocab_sz=vocab_size,
+        sp_model=sp_model,
+        sp_vocab=sp_vocab,
+        lang=lang,
+        tmp_dir=cache_dir.absolute()  # absolute make sure that dataset path is not added as prefix
+    )
+    return {'processor': processor}
 
 def clear_cache_directory(path:PathOrStr, cache_name:str='tmp'):
     path = pathlib.Path(path)

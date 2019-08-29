@@ -134,3 +134,7 @@ Traceback (most recent call last):
     return [torch.cat([l[si] for l in arrs], dim=1) for si in range_of(arrs[0])]
 RuntimeError: CUDA error: out of memory
 ```
+
+## Fixed sentence piece 
+LANG=zh
+python -m ulmfit lm --dataset-path data/wiki/${LANG}-100 --tokenizer='sp' --nl 4 --name 'nl4' --max-vocab 15000 --lang ${LANG} --qrnn=True "--tokenizer-mod=-fix" --lmseed=1 - train 10 --bs=50 --drop_mult=0

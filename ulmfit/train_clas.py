@@ -102,9 +102,9 @@ class CLSHyperParams(LMHyperParams):
         kappa_lin = KappaScore()
         matthews_correff = MatthewsCorreff()
         metrics = [f1_score, precision, recall, kappa_lin, matthews_correff]
-        # TODO: fix this in fast.ai
-        if init:
-            for metric in metrics: metric.on_train_begin()
+        # # TODO: fix this in fast.ai
+        # if init:
+        #     for metric in metrics: metric.on_train_begin()
         metrics.append(accuracy)
         return metrics
 
@@ -176,11 +176,11 @@ class CLSHyperParams(LMHyperParams):
         learn.save('cls_best', with_opt=False)
         #learn.save('cls_best', with_opt=False) # we don't use early stopping for the time being
         del learn
-        return self.validate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
+        return self.evaluate_cls('cls_best', bs=bs, data_tst=data_tst, learn=None)
 
-    def validate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None,
+    def evaluate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None,
                      dump_preds=None, mode="test", label_smoothing_eps=None, use_cache=False):
-        cache_file = (self.model_dir / f'results_{mode+("" if save_name == "cls_best" else save_name)}.json')
+        cache_file = (self.model_dir / f'results_{mode+("" if save_name == "cls_best" else str(save_name))}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
                 return json.load(fp)
@@ -191,9 +191,13 @@ class CLSHyperParams(LMHyperParams):
         else:
             dt = data_tst
         if learn is None:
-            learn = self.create_cls_learner(dt, drop_mult=0.3, metrics=self.get_metrics(True))
+            learn = self.create_cls_learner(dt, drop_mult=0.3, metrics=self.get_metrics(True), silent=True, early_stopping=False)
             learn.unfreeze()
-        learn.load(save_name)
+        if save_name is not None:
+            learn.load(save_name)
+        else:
+            print("Using random weights!")
+
         if mode == "test":
             ds = data_tst.valid_dl
         elif mode == "valid" or mode == "dev":
@@ -211,7 +215,7 @@ class CLSHyperParams(LMHyperParams):
             np.save(self.model_dir / f"preds-on-{mode}.npy", probs.cpu().numpy())
         results = learn.validate(ds)
         print(f"Model: {self.name}")
-        print(f"Validation on: {mode}")
+        print(f"Evaluation on: {mode}")
         labeled_results = self.output_metrics(results, mode=mode)
 
         with cache_file.open("w") as fp:
@@ -243,6 +247,8 @@ class CLSHyperParams(LMHyperParams):
 
         if label_smoothing_eps > 0.0:
             learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
+
+        #learn = learn.to_fp16()
         return learn
 
     def load_cls_data(self, bs, **kwargs):
