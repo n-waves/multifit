@@ -1,19 +1,12 @@
-import os
-import glob
-import fire
-import ulmfit.pretrain_lm
-import ulmfit.train_clas
-from fastai import *
-from fastai.text import *
-from fastai_contrib.utils import *
-
-"""
-It is a mixture of a pytest unit test and woven together to compose an end to end functional test. 
-"""
+import multifit.pretrain_lm
+import multifit.train_clas
+from multifit.datasets.utils import *
+from multifit.pretrain_lm import get_data_folder
 
 import fastai.core
 fastai.core.defaults.cpus = 1
 cuda_id=0
+
 def copy_head(src_fn, dst_fn, n=1000):
     with src_fn.open("r") as s, dst_fn.open("w") as d:
         for i in range(n):
@@ -52,7 +45,7 @@ def test_evaluate():
     os.chdir(get_data_folder()/"..")
     fastai.core.defaults.cpus=0
     test_data, wt2 = get_test_data()
-    exp = ulmfit.train_clas.CLSHyperParams(test_data / 'imdb', lang='en', qrnn=False, max_vocab=1000, name="tst")
+    exp = multifit.train_clas.CLSHyperParams(test_data / 'imdb', lang='en', qrnn=False, max_vocab=1000, name="tst")
     exp.evaluate_cls(save_name=None, bs=2)
 
 
@@ -64,7 +57,7 @@ def test_ulmfit_works_with_relative_paths():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-default'
     cuda_id = 0
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2.relative_to(Path.cwd()),
         lang='en',
         qrnn=False,
@@ -76,12 +69,12 @@ def test_ulmfit_works_with_relative_paths():
 
     #assert exp.results['accuracy'] > 0.02
 
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=1, unfreeze=False, bs=4,)
 
     # should work for the second time as well
 
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 
@@ -91,7 +84,7 @@ def test_ulmfit_default_end_to_end():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-default'
     cuda_id = 0
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
         qrnn=False,
@@ -103,7 +96,7 @@ def test_ulmfit_default_end_to_end():
 
     #assert exp.results['accuracy'] > 0.02
 
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4,)
 
 def test_ulmfit_fastai_end_to_end():
@@ -112,7 +105,7 @@ def test_ulmfit_fastai_end_to_end():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-fastai'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
@@ -123,7 +116,7 @@ def test_ulmfit_fastai_end_to_end():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_fastai_end_to_end_label_smoothing():
@@ -132,7 +125,7 @@ def test_ulmfit_fastai_end_to_end_label_smoothing():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-fastai-lablel-smoothing'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
@@ -142,7 +135,7 @@ def test_ulmfit_fastai_end_to_end_label_smoothing():
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2, label_smoothing_eps=0.1)
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir, name=lm_name)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir, name=lm_name)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, label_smoothing_eps=0.1 )
 
 def test_ulmfit_sentencepiece_end_to_end():
@@ -151,18 +144,18 @@ def test_ulmfit_sentencepiece_end_to_end():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-spm'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
         qrnn=False,
-        tokenizer=ulmfit.pretrain_lm.Tokenizers.SUBWORD,
+        tokenizer=multifit.pretrain_lm.Tokenizers.SUBWORD,
         max_vocab=200,
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2)
     # not supported yet
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 def test_ulmfit_sentencepiece_fastai_impl_end_to_end():
@@ -171,18 +164,18 @@ def test_ulmfit_sentencepiece_fastai_impl_end_to_end():
     test_data, wt2 = get_test_data()
     lm_name = 'end-to-end-test-spm-fa'
 
-    exp = ulmfit.pretrain_lm.LMHyperParams(
+    exp = multifit.pretrain_lm.LMHyperParams(
         dataset_path=wt2,
         lang='en',
         cuda_id=cuda_id,
         qrnn=False,
-        tokenizer=ulmfit.pretrain_lm.Tokenizers.FASTAI_SUBWORD,
+        tokenizer=multifit.pretrain_lm.Tokenizers.FASTAI_SUBWORD,
         max_vocab=200,
         name=lm_name,
     )
     exp.train_lm(num_epochs=1, bs=2)
     # not supported yet
-    exp2 = ulmfit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
+    exp2 = multifit.train_clas.CLSHyperParams.from_lm(test_data / 'imdb', exp.model_dir)
     exp2.train_cls(num_lm_epochs=0, unfreeze=False, bs=4, )
 
 if __name__ == "__main__":

@@ -102,7 +102,7 @@ def wiki2csv(file_path, text_iter, num_tokens):
                 print('Processed {:,} documents. Total # tokens: {:,}.'.format(i, total_num_tokens))
 
 
-def main2(args):
+def main(args):
 
     input_path = Path(args.input)
     output = Path(args.output)
@@ -139,19 +139,19 @@ def main2(args):
     copyfile(lrg_wiki_train, all_wiki_train)
     write_wikitext(all_wiki_train, text_iter, mt,  None, mode='a')
 
-def main(args):
-
-    input_path = Path(args.input)
-    output = Path(args.output)
-    assert input_path.exists(), f'Error: {input_path} does not exist.'
-    output.mkdir(exist_ok=True)
-
-    lrg_wiki = output / f'{args.lang}-100'
-    lrg_wiki.mkdir(exist_ok=True)
-
-    text_iter = get_texts(input_path)
-
-    wiki2csv(lrg_wiki / "rawtexts.csv", text_iter, int(2e7))
+# def main(args):
+#
+#     input_path = Path(args.input)
+#     output = Path(args.output)
+#     assert input_path.exists(), f'Error: {input_path} does not exist.'
+#     output.mkdir(exist_ok=True)
+#
+#     lrg_wiki = output / f'{args.lang}-100'
+#     lrg_wiki.mkdir(exist_ok=True)
+#
+#     text_iter = get_texts(input_path)
+#
+#     wiki2csv(lrg_wiki / "rawtexts.csv", text_iter, int(2e7))
 
 if __name__ == '__main__':
 
