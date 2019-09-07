@@ -10,7 +10,7 @@ from pathlib import Path
 
 import fire
 
-from fastai_contrib.utils import replace_number, UNK
+from multifit.datasets.utils import replace_number, UNK
 
 
 def build_vocab(file_path, cutoff=3):

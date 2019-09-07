@@ -12,7 +12,6 @@ from .pretrain_lm import LMHyperParams, folder_name_to_model_name, DataSetParams
 from .train_clas import CLSHyperParams
 from pathlib import Path
 from string import Template
-from fastai.metrics import fbeta
 import torch
 
 class FireView:
@@ -146,6 +145,27 @@ class ULMFiT:
                   lr_sched=lr_sched,
                   **kwargs)
 
+
+    def multifit_seeds(self, base, name=None, seed_name='clsweightseed', model_num=10, **kwargs):
+        if name is None:
+            name = folder_name_to_model_name(Path(base).name)
+        for seed in range(0, model_num, 1):
+            kwargs[seed_name] = seed
+            print("Seed: ", seed_name, seed)
+            self.multifit_eval(glob=base, name=name, num_lm_epochs=0, **kwargs)
+
+
+    def multifit_eval(self, glob, name=None, num_lm_epochs=20, num_cls_epochs=8, bs=20, lr_sched="1cycle", label_smoothing_eps=0.1, **kwargs):
+        return self.eval(
+                  glob=glob,
+                  name=name,
+                  num_lm_epochs=num_lm_epochs,
+                  num_cls_epochs=num_cls_epochs,
+                  bs=bs,
+                  lr_sched=lr_sched,
+                  label_smoothing_eps=label_smoothing_eps,
+                  **kwargs)
+
     def ls(self, glob, dataset_template='${ds_name}'):
         data_dir = Path("data").absolute()
         glob = str(glob)
@@ -252,8 +272,8 @@ class ULMFiT:
                 if name is None:
                     _name = folder_name_to_model_name(base_model.name)
                 params = CLSHyperParams.from_lm(dataset_path, base_model, lang=lang, name=_name, **model_args)
-                last_model_dir = params.model_dir.relative_to(data_dir.parent)
-                if (params.model_dir/"cls_best.pth").exists():
+                last_model_dir = params.model_path.relative_to(data_dir.parent)
+                if (params.model_path / "cls_best.pth").exists():
                     print("Evaluating previously trained model")
                     d_tst = params.evaluate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="test")
                     d_val = params.evaluate_cls(save_name=save_name, label_smoothing_eps=label_smoothing_eps, use_cache=True, mode="valid")
@@ -264,12 +284,12 @@ class ULMFiT:
                     print("Training")
                     d = params.train_cls(num_lm_epochs=num_lm_epochs, label_smoothing_eps=label_smoothing_eps, **trn_params)
                 else:
-                    print("Skipping", (params.model_dir/"cls_best.pth"))
-                    d  = None
+                    print("Skipping", (params.model_path / "cls_best.pth"))
+                    d = None
                 if d is not None:
-                    d['model_dir_parent'] = params.model_dir.relative_to(data_dir.parent).parent
+                    d['model_dir_parent'] = params.model_path.relative_to(data_dir.parent).parent
                     d['model_name'] = params.model_name
-                    np.save(params.model_dir / "results.npy", d)
+                    np.save(params.model_path / "results.npy", d)
                     results.append(d)
                 del params
             except Exception as e:

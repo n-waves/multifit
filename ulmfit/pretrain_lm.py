@@ -4,27 +4,24 @@ expected to have been tokenized with Moses and processed with `postprocess_wikit
 That is, the data is expected to be white-space separated and numbers are expected
 to be split.
 """
-from dataclasses import InitVar, asdict
+import pathlib
+from dataclasses import asdict
 from string import Template
 
 import fastai
-import fire
 
 from fastai import *
-from fastai.callbacks import CSVLogger, SaveModelCallback
+from fastai.callbacks import CSVLogger
 import fastai.text
 from fastai.text import *
 import torch
-from fastai_contrib.utils import read_file, read_whitespace_file, \
-    validate, PAD, UNK, get_sentencepiece, read_clas_data, TRN, VAL, TST, PAD_TOKEN_ID, \
-    replace_std_toks, MosesPreprocessingFunc, get_sentencepiece_fastai
-from fastai_contrib.learner import bilm_learner, accuracy_fwd, accuracy_bwd, bilm_text_classifier_learner
+from ulmfit.datasets.utils import read_whitespace_file, \
+    validate, UNK
+from fastai_contrib.text_data import MosesPreprocessingFunc, get_sentencepiece, get_sentencepiece_fastai, \
+    make_data_bunch_from_df
 import pickle
 
 from pathlib import Path
-
-from collections import Counter
-import fastai_contrib.data as contrib_data
 
 LM_BEST = "lm_best"
 ENC_BEST = "enc_best"
@@ -37,10 +34,8 @@ class Tokenizers(Enum):
     MOSES_FA='vf'
     FASTAI='f'
 
-
 def istitle(line):
     return len(re.findall(r'^ ?= [^=]* = ?$', line)) != 0
-
 
 def read_wiki_articles(filename):
     if "reddit" in str(filename): # Temporary hack to handle poleval reddit dataset
@@ -89,35 +84,6 @@ class DataSetParams:
         except KeyError as e:
             raise KeyError(f"{e} , options:{repr(list(params.keys()))}")
 
-# temporary loading function as from_df does not support processors
-def make_data_bunch_from_df(cls, path: PathOrStr, train_df: DataFrame, valid_df: DataFrame,
-            tokenizer: Tokenizer = None, vocab: Vocab = None, classes: Collection[str] = None,
-            text_cols: IntsOrStrs = 1,
-            label_cols: IntsOrStrs = 0, label_delim: str = None, chunksize: int = 10000,
-            max_vocab: int = 60000,
-            min_freq: int = 2, mark_fields: bool = False, include_bos: bool = True,
-            include_eos: bool = False, processor=None, **kwargs) -> DataBunch:
-    "Create a `TextDataBunch` from DataFrames. `kwargs` are passed to the dataloader creation."
-    assert processor is None or tokenizer is None, "Processor and tokenizer are mutually exclusive."
-
-    if processor is None:
-        processor = fastai.text.data._get_processor(tokenizer=tokenizer, vocab=vocab, chunksize=chunksize, max_vocab=max_vocab,
-                                   min_freq=min_freq, mark_fields=mark_fields,
-                                   include_bos=include_bos, include_eos=include_eos)
-
-    if classes is None and is_listy(label_cols) and len(label_cols) > 1: classes = label_cols
-    src = ItemLists(path, TextList.from_df(train_df, path, cols=text_cols, processor=processor),
-                    TextList.from_df(valid_df, path, cols=text_cols, processor=processor))
-    if cls == TextLMDataBunch:
-        src = src.label_for_lm()
-    else:
-        if label_delim is not None:
-            src = src.label_from_df(cols=label_cols, classes=classes, label_delim=label_delim)
-        else:
-            src = src.label_from_df(cols=label_cols, classes=classes)
-    return src.databunch(**kwargs)
-
-
 @dataclass
 class LMHyperParams(DataSetParams):
     base_lm_path: str = None
@@ -135,10 +101,6 @@ class LMHyperParams(DataSetParams):
 
     lmseed: int = None
 
-    # these hyperparameters are for training on ~100M tokens (e.g. WikiText-103)
-    # for training on smaller datasets, more dropout is necessary
-    # buggy dps = dict(output_p=0.25, hidden_p=0.1, input_p=0.2, embed_p=0.02, weight_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
-    dps = dict(input_p=0.25, output_p=0.1, weight_p=0.2, embed_p=0.02, hidden_p=0.15) # consider removing dps & clip from the default hyperparams and put them to train
     clip: float = 0.12
     bptt: int = 70
     # alpha and beta - defaults like in fastai/text/learner.py:RNNLearner()
@@ -162,7 +124,7 @@ class LMHyperParams(DataSetParams):
 
         assert self.dataset_path.exists(), f"The dataset_path {self.dataset_path} does not exists"
         self.cache_dir = self.dataset_path / 'models' / self.tokenizer_prefix
-        self.model_dir = self.cache_dir / self.model_name
+        self.model_path = self.cache_dir / self.model_name
 
         if self.nh is None: self.nh = 1552 if self.qrnn else 1152
         if self.name is None: self.name = self.lang
@@ -191,15 +153,6 @@ class LMHyperParams(DataSetParams):
     @property
     def pretrained_fnames(self): return [self.base_lm_path / LM_BEST, self.base_lm_path / '../itos'] if self.base_lm_path else None
 
-    @property
-    def lm_type(self):
-        if self.bidir:
-            return contrib_data.LanguageModelType.BiLM
-        if self.backwards:
-            return contrib_data.LanguageModelType.BwdLM
-        else:
-            return contrib_data.LanguageModelType.FwdLM
-
     def tokenizer_to_fastai_args(self, sp_data_func, use_moses):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if use_moses else []
         if self.tokenizer is Tokenizers.FASTAI_SUBWORD:
@@ -227,7 +180,7 @@ class LMHyperParams(DataSetParams):
         elif self.tokenizer is Tokenizers.MOSES:
             args = dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
                                             lang=self.lang,
-                                            pre_rules=moses_preproc + [replace_std_toks],
+                                            pre_rules=moses_preproc,
                                             post_rules=[]))
         elif self.tokenizer is Tokenizers.MOSES_FA:
             args = dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
@@ -255,20 +208,20 @@ class LMHyperParams(DataSetParams):
         vals.pop('name', None)
         vals.pop('lang', None)
         vals['tokenizer'] = self.tokenizer.value
-        with (self.model_dir / 'info.json').open("w") as fp: json.dump(vals, fp)
-        print("Saving info", self.model_dir / 'info.json')
+        with (self.model_path / 'info.json').open("w") as fp: json.dump(vals, fp)
+        print("Saving info", self.model_path / 'info.json')
 
-    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, lr=5e-3, label_smoothing_eps=0.0):
+    def train_lm(self, num_epochs=20, data_lm=None, bs=70, true_wd=False, drop_mult=0.0, label_smoothing_eps=0.0):
         print("Training lm")
         print('Max vocab:', self.max_vocab)
         print('Cache dir:', self.cache_dir)
-        print('Model dir:', self.model_dir)
+        print('Model dir:', self.model_path)
         if self.pretrained_fnames or self.pretrained_model:
             self.set_seed(self.ftseed, "fine-tune")
         else:
             self.set_seed(self.lmseed, "LM")
 
-        self.model_dir.mkdir(exist_ok=True, parents=True)
+        self.model_path.mkdir(exist_ok=True, parents=True)
         data_lm = self.load_wiki_data(bs=bs) if data_lm is None else data_lm
         learn = self.create_lm_learner(data_lm, drop_mult=drop_mult, label_smoothing_eps=label_smoothing_eps)
         print("Bptt", data_lm.bptt)
@@ -290,8 +243,8 @@ class LMHyperParams(DataSetParams):
             else:
                 print("Training lm from random weights")
                 learn.unfreeze()
-                if not learn.true_wd: learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7), wd=1e-7)
-                else:                 learn.fit_one_cycle(num_epochs, lr, (0.8, 0.7)) # TODO find proper values
+                if not learn.true_wd: learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7), wd=1e-7)
+                else:                 learn.fit_one_cycle(num_epochs, 5e-3, (0.8, 0.7)) # TODO find proper values
         learn.save("lm_best_with_opt", with_opt=True)
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
@@ -303,13 +256,16 @@ class LMHyperParams(DataSetParams):
 
     def create_lm_learner(self, data_lm, dps=None, label_smoothing_eps=0.0, **kwargs):
         assert self.bidir == False, "bidirectional model is not yet supported"
-        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn,
-                          tie_weights=True, out_bias=self.out_bias)
-        config.update(dps or self.dps)
+        config = awd_lstm_lm_config.copy()
+        config.update(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, qrnn=self.qrnn,
+                      tie_weights=True, out_bias=self.out_bias)
+        if dps is not None:
+            config.update(dps)
+
         trn_args = dict(clip=self.clip, alpha=self.rnn_alpha, beta=self.rnn_beta)
         trn_args.update(kwargs)
-        print ("Training args: ", trn_args, "dps: ", dps or self.dps)
-        learn = language_model_learner(data_lm, AWD_LSTM, config=config, model_dir=self.model_dir.relative_to(data_lm.path), pretrained=False, **trn_args)
+        print ("Training args: ", trn_args, "config: ", config)
+        learn = language_model_learner(data_lm, AWD_LSTM, config=config, model_dir=self.model_path.relative_to(data_lm.path), pretrained=False, **trn_args)
         if self.pretrained_model is not None:
             print("Loading pretrained model")
             model_path = untar_data(self.pretrained_model, data=False)
@@ -323,10 +279,7 @@ class LMHyperParams(DataSetParams):
             learn.freeze()
         # compared to standard Adam, we set beta_1 to 0.8
         learn.opt_fn = partial(optim.Adam, betas=(0.8, 0.99))
-        learn.metrics = [accuracy_fwd, accuracy_bwd] if self.bidir else [accuracy]
-        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history"),
-                               # partial(SaveModelCallback, every='improvement', name='lm') disabled due to Memory issues
-                               ]
+        learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history")]
         if label_smoothing_eps > 0.0:
             learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=label_smoothing_eps)
         return learn
@@ -337,7 +290,7 @@ class LMHyperParams(DataSetParams):
             return [line.rstrip('\n') for line in f]
 
     def load_wiki_data(self, bs=70):
-        self.model_dir.mkdir(exist_ok=True, parents=True)
+        self.model_path.mkdir(exist_ok=True, parents=True)
         trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
         val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
         tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
@@ -382,11 +335,11 @@ class LMHyperParams(DataSetParams):
         else:
             print(f"Running tokenization {name}...")
             data = make_data_bunch_from_df(cls=bunch_class, path=self.cache_dir,
-                                       train_df=train_df,
-                                       valid_df=valid_df,
-                                       max_vocab=self.max_vocab,
-                                       bs=bs,
-                                       **args)
+                                           train_df=train_df,
+                                           valid_df=valid_df,
+                                           max_vocab=self.max_vocab,
+                                           bs=bs,
+                                           **args)
 
             data.save(name)
         with open(self.cache_dir/"itos.pkl", 'wb') as f:
@@ -430,8 +383,9 @@ class LMHyperParams(DataSetParams):
         d['lang'] = infer_lang_from_dataset(dataset_path.name)
         return cls(**d)
 
+
     def resolve_template(self, template, **additional_options):
-        return super().resolve_template(template, model_dir=self.model_dir, **additional_options)
+        return super().resolve_template(template, model_dir=self.model_path, **additional_options)
 
 def infer_lang_from_dataset(name:str):
     return name.split("-")[0]
@@ -452,5 +406,8 @@ def validate_lm(self):
         logloss, perplexity = validate(learn.model, tst_ids, self.exp.bptt)
         print('Test logloss:', logloss.item(), 'perplexity:', perplexity.item())
 
-if __name__ == '__main__':
-    fire.Fire(LMHyperParams)
+def get_data_folder() -> Path:
+    """
+    return data folder to use for future processing
+    """
+    return (pathlib.Path(__file__).parent.parent / "data")

@@ -7,13 +7,11 @@ import re
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 
-from fastai_contrib.utils import PAD_TOKEN_ID
+from ulmfit.datasets.utils import PAD_TOKEN_ID
 
 import fire
 
 from ulmfit.pretrain_lm import LMHyperParams, ENC_BEST
-
-from sklearn.metrics import f1_score as f1s, precision_score, recall_score
 
 @dataclass
 class CLSHyperParams(LMHyperParams):
@@ -43,7 +41,7 @@ class CLSHyperParams(LMHyperParams):
         return ''
 
     @property
-    def need_fine_tune_lm(self): return not (self.model_dir/f"enc_best.pth").exists()
+    def need_fine_tune_lm(self): return not (self.model_path / f"enc_best.pth").exists()
 
     def lr_schedule_layered(self, learn, num_cls_epochs):
         learn.freeze_to(-1)
@@ -123,15 +121,15 @@ class CLSHyperParams(LMHyperParams):
                 f"{mode} Accuracy": results[6].item()}
         return {k:float(str(v)) for k,v in d.items()} # float(str(x)) to avoid float32 -> float64 conversion isssues
 
-    def train_cls(self, num_lm_epochs, unfreeze=True, num_cls_frozen_epochs=1, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
+    def train_cls(self, num_lm_epochs, unfreeze=True, bs=40, drop_mul_lm=0.3, drop_mul_cls=0.5,
                   use_test_for_validation=False, num_cls_epochs=2, limit=None, noise=0.0, cls_max_len=20*70, lr_sched='layered',
-                  label_smoothing_eps=0.0, random_init=False, dump_preds=None, early_stopping=True, weighted_cross_entropy=True):
+                  label_smoothing_eps=0.0, random_init=False, early_stopping=True, weighted_cross_entropy=True):
         print("Training CLS")
         print('Max vocab:', self.max_vocab)
         print('Cache dir:', self.cache_dir)
-        print('Model dir:', self.model_dir)
+        print('Model dir:', self.model_path)
         assert use_test_for_validation == False, "use_test_for_validation=True is not supported"
-        self.model_dir.mkdir(exist_ok=True, parents=True)
+        self.model_path.mkdir(exist_ok=True, parents=True)
 
         if not unfreeze:
            num_cls_epochs = 1
@@ -139,7 +137,7 @@ class CLSHyperParams(LMHyperParams):
         data_clas, data_lm, data_tst = self.load_cls_data(bs, limit=limit, noise=noise)
 
         if self.need_fine_tune_lm and not random_init:
-            if not (self.model_dir/(ENC_BEST+".pth")).exists():
+            if not (self.model_path / (ENC_BEST + ".pth")).exists():
                 self.train_lm(num_lm_epochs, data_lm=data_lm, drop_mult=drop_mul_lm, label_smoothing_eps=label_smoothing_eps)
             else:
                 print("Language model already exist, skipping finetuning")
@@ -180,7 +178,7 @@ class CLSHyperParams(LMHyperParams):
 
     def evaluate_cls(self, save_name='cls_best', bs=40, data_tst=None, learn=None,
                      dump_preds=None, mode="test", label_smoothing_eps=None, use_cache=False):
-        cache_file = (self.model_dir / f'results_{mode+("" if save_name == "cls_best" else str(save_name))}.json')
+        cache_file = (self.model_path / f'results_{mode + ("" if save_name == "cls_best" else str(save_name))}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
                 return json.load(fp)
@@ -212,7 +210,7 @@ class CLSHyperParams(LMHyperParams):
             if dump_preds:
                 with open(dump_preds, 'w') as f:
                     f.write('\n'.join([str(x) for x in preds]))
-            np.save(self.model_dir / f"preds-on-{mode}.npy", probs.cpu().numpy())
+            np.save(self.model_path / f"preds-on-{mode}.npy", probs.cpu().numpy())
         results = learn.validate(ds)
         print(f"Model: {self.name}")
         print(f"Evaluation on: {mode}")
@@ -224,13 +222,16 @@ class CLSHyperParams(LMHyperParams):
         return labeled_results
 
     def create_cls_learner(self, data_clas, dps=None, label_smoothing_eps=0.0, random_init=False, early_stopping=True, **kwargs):
-        assert self.bidir == False, "bidirectional model is not yet supported"
-        config = dict(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, pad_token=PAD_TOKEN_ID, qrnn=self.qrnn)
-        config.update(dps or self.dps)
-        trn_args=dict(bptt=self.bptt, clip=self.clip)
+
+        config = awd_lstm_clas_config.copy()
+        config.update(emb_sz=self.emb_sz, n_hid=self.nh, n_layers=self.nl, qrnn=self.qrnn)
+        if dps is not None:
+            config.update(dps)
+
+        trn_args = dict(bptt=self.bptt, clip=self.clip)
         trn_args.update(kwargs)
         learn = text_classifier_learner(data_clas, AWD_LSTM, config=config,
-            pretrained=False, path=self.model_dir.parent, model_dir=self.model_dir.name, **trn_args)
+                                        pretrained=False, path=self.model_path.parent, model_dir=self.model_path.name, **trn_args)
 
         if self.pretrained_model is not None and not random_init:
             print("Loading pretrained model", self.pretrained_model)
@@ -252,7 +253,7 @@ class CLSHyperParams(LMHyperParams):
         return learn
 
     def load_cls_data(self, bs, **kwargs):
-        self.model_dir.mkdir(exist_ok=True, parents=True)
+        self.model_path.mkdir(exist_ok=True, parents=True)
         add_trn_to_lm = True
         lang = self.lang
         use_moses = True
@@ -339,6 +340,3 @@ class CLSHyperParams(LMHyperParams):
 
     def cls_databunch(self, name, *args, **kwargs):
         return self.databunch(name, bunch_class=TextClasDataBunch, *args, **kwargs)
-
-if __name__ == '__main__':
-    fire.Fire(CLSHyperParams)
