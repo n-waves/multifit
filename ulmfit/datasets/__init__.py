@@ -11,7 +11,7 @@ from fastai.text import *
 import torch
 from ulmfit.datasets.utils import read_whitespace_file, \
     validate, UNK
-from fastai_contrib.text_data import MosesPreprocessingFunc, get_sentencepiece, get_sentencepiece_fastai, \
+from fastai_contrib.text_data import MosesPreprocessingFunc, get_sentencepiece_fastai, \
     make_data_bunch_from_df
 import pickle
 

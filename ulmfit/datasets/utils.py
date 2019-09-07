@@ -9,8 +9,6 @@ import pathlib
 import tarfile
 from typing import Dict, Tuple, List
 
-from fastai_contrib.text_data import SentencePieceTokenizer
-
 EOS = 'xxeos' # fastai does not use eos, but we do
 SEP = 'xxsep' # special separator token for NLI
 
@@ -123,15 +121,7 @@ def read_xnli(dir_path, lang, split, spm_path=None) -> Tuple[List[List[str]], Li
         file_path = f'XNLI-MT-1.0/xnli/{file_name}'
     file_path = dir_path / file_path
     
-    if spm_path is not None:
-        tokenizer = SentencePieceTokenizer(spm_path,
-                                           use_moses=False,
-                                           lang=lang)
-        tok = tokenizer.tok_fun_with_sp(lang)
-        tokenize = lambda x: tokenizer.process_text(x, tok)
-        print("WARNING: Sentence Piece is not tested on XNLI yet")
-    else:
-        tokenize = lambda x: x.split(' ')
+    tokenize = lambda x: x.split(' ')
 
     toks, lbls = [], []
     print(f'Reading {file_path}...')
