@@ -454,3 +454,11 @@ class ULMFiT:
         self.finetuine_lm.replace_(**kwargs)
         self.classifier.replace_(**kwargs)
         return self
+
+    def pprint(self):
+        print(f"""ULMFiT(
+    {self.arch},
+    {self.pretrain_lm},
+    {self.finetuine_lm},
+    {self.classifier},
+)""")
