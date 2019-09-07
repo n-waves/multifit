@@ -44,8 +44,10 @@ class ULMFITArchitecture(Params):
         tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
         return f'models/{tokenizer_prefix}'
 
-    def dataset(self, dataset_path, **args):
-        return ULMFiTDataset(dataset_path=dataset_path, tokenizer=self.tokenizer, max_vocab=self.max_vocab, **args)
+    def dataset(self, dataset_path_or_object, **args):
+        if isinstance(dataset_path_or_object, Dataset):
+            return dataset_path_or_object
+        return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=self.tokenizer, max_vocab=self.max_vocab, **args)
 
 
 def set_seed(seed, name):
@@ -77,6 +79,7 @@ class ULMFiTTrainingCommand(Params):
     name: str = None
     arch: ULMFITArchitecture = field(repr=False, default=None)
     experiment_path: Path = None
+    dataset_path: Path = None
 
     @property
     def model_name(self):
@@ -86,6 +89,16 @@ class ULMFiTTrainingCommand(Params):
     @property
     def info_json(self):
         return self.__class__.__name__.lower().replace("ulmfit", "") + ".json"
+
+
+    def _set_dataset_(self, dataset_or_path):
+        dataset_or_path = self.arch.dataset(dataset_or_path or self.dataset_path or getattr(self, 'base', self).dataset_path)
+        self.dataset_path = dataset_or_path.dataset_path
+        return dataset_or_path
+
+    @property
+    def dataset(self):
+        return self.arch.dataset(self.dataset_path)
 
     def save_paramters(self):
         params = dataclasses.asdict(self)
@@ -115,9 +128,12 @@ class ULMFiTTrainingCommand(Params):
         self.replace_(**d)
         if base is not None:
             other_arch = getattr(self, 'base').load_(Path(base), tantetive=True)
-            if not other_arch == arch:
-                warn(f"architecuture does not match {arch}, {other_arch}")
+            if other_arch and other_arch != arch:
+                warn(f"Architecuture does not match {arch}, {other_arch}")
         self.name = experiment_path.name
+        dataset_path = experiment_path.parent.parent.parent  # data/mldoc/de-1/models/fsp15k/multfit_fp16 -> data/mldoc/de-1
+        self.dataset_path = Path(dataset_path)
+        self.experiment_path = Path(experiment_path)
         return arch
 
 
@@ -167,7 +183,8 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
         learn.unfreeze()
         learn.fit_one_cycle(self.num_epochs, self.lr, (0.8, 0.7))
 
-    def train_(self, dataset, **train_config):
+    def train_(self, dataset_or_path=None, **train_config):
+        dataset = self._set_dataset_(dataset_or_path)
         self.replace_(**train_config, _strict=True)
         set_seed(self.seed, "LM weights seed")
         if hasattr(self, 'base'):
@@ -242,9 +259,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     random_init: bool = False
     seed: int = 0
     bptt: int = 70
-    arch: ULMFITArchitecture = None
-    dataset_path: Path = None
     fp16: bool = False
+    arch: ULMFITArchitecture = None
 
     def _learner(self, dataset, eval_only=False, **additional_trn_args):
         assert self.weighted_cross_entropy is None or self.label_smoothing_eps == 0, "Label smoohting not implemented with weighted_cross_entropy"
@@ -288,7 +304,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
             learn.to_fp16()
         return learn
 
-    def train_(self, dataset, **train_config):
+    def train_(self, dataset_or_path=None, **train_config):
+        dataset = self._set_dataset_(dataset_or_path)
         self.replace_(**train_config, _strict=True)
         dataset.use_base_model_subword_vocabulary(self.base.experiment_path)
         learn = self._learner(dataset)
@@ -311,7 +328,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         results_dict['name'] = self.name
         return results_dict
 
-    def validate(self, dataset, save_name=CLS_BEST, use_cache=True):
+    def validate(self, save_name=CLS_BEST, use_cache=True):
+        dataset = self.dataset
         cache_file = (self.experiment_path / f'results{"" if save_name == CLS_BEST else "-" + save_name}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
@@ -320,6 +338,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         learn = self._learner(dataset, eval_only=True)
         avg = 'binary' if learn.data.c == 2 else 'macro'
         learn.metrics = [FBeta(beta=1.0, average=avg), Precision(average=avg), Recall(average=avg), accuracy]
+        print(f"Loading model {save_name}")
         learn.load(save_name)
 
         probs, targets = learn.get_preds(ordered=True, ds_type=DatasetType.Test, activ=partial(F.softmax, dim=-1))
@@ -337,7 +356,6 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         getattr(self, '_fit_schedule_' + self.fit_schedule)(learn)
 
     def _fit_schedule_1cycle(self, learn):
-        print("Single training schedule")
         learn.unfreeze()
         learn.fit_one_cycle(self.num_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
 
@@ -354,7 +372,6 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
             learn.fit_one_cycle(self.num_epochs - 4, slice(1e-3 / (2.6 ** 4), 1e-3), moms=(0.8, 0.7))
 
     def _fit_schedule_2cycle(self, learn):
-        print("2cycle training schedule")
         learn.freeze_to(-1)
         learn.fit_one_cycle(1, 2e-2, moms=(0.8, 0.7))
         learn.unfreeze()
@@ -362,21 +379,17 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
             learn.fit_one_cycle(self.num_epochs - 1, slice(1e-2 / (2.6 ** 4), 1e-2), moms=(0.8, 0.7))
 
     def _fit_schedule_reverse_2cycle(self, learn):
-        print("Reverse 2cycle ")
         learn.unfreeze()
         for g in learn.layer_groups[-1:]:
             for l in g:
                 if not learn.train_bn or not isinstance(l, bn_types): requires_grad(l, False)
         learn.create_opt(defaults.lr)
-        print("training LM")
         learn.fit_one_cycle(self.num_epochs, slice(1e-2 / (2.6 ** 4), 2e-2), moms=(0.8, 0.7))
         learn.unfreeze()
-        print("training ALL")
         learn.fit_one_cycle(self.num_epochs, slice(1e-3 / (2.6 ** 4), 2e-3), moms=(0.8, 0.7))
 
     def _fit_schedule_false_wd(self, learn):
         learn.true_wd = False
-        print("Starting classifier training")
         learn.fit_one_cycle(1, 5e-2, moms=(0.8, 0.7), wd=1e-7)
         if self.num_epochs > 1:
             learn.freeze_to(-2)
@@ -398,18 +411,18 @@ def path_if_model_exists(path, weights_name):
 class ULMFiT:
     arch: ULMFITArchitecture = None
     pretrain_lm: ULMFiTPretraining = None
-    finetune_lm: ULMFiTFinetuining = None
+    finetuine_lm: ULMFiTFinetuining = None
     classifier: ULMFiTClassifier = None
 
     def __post_init__(self):
         self.arch = ULMFITArchitecture()
         self.pretrain_lm = ULMFiTPretraining(arch=self.arch)
-        self.finetune_lm = ULMFiTFinetuining(arch=self.arch, base=self.pretrain_lm)
-        self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetune_lm)
+        self.finetuine_lm = ULMFiTFinetuining(arch=self.arch, base=self.pretrain_lm)
+        self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetuine_lm)
 
-    def load_(self, experiment_path):
+    def load_(self, experiment_path:Path):
         success = (self.classifier.load_(experiment_path) or
-                   self.finetune_lm.load_(experiment_path) or
+                   self.finetuine_lm.load_(experiment_path) or
                    self.pretrain_lm.load_(experiment_path) or
                    self.load_legacy_(experiment_path))
         if not success:
@@ -427,14 +440,17 @@ class ULMFiT:
         self.replace_(**d)
         if "wiki" in str(experiment_path):
             self.pretrain_lm.experiment_path = path_if_model_exists(experiment_path, LM_BEST)
+            self.pretrain_lm.dataset_path = experiment_path.parent.parent.parent
         else:
-            self.finetune_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
+            self.finetuine_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
+            self.finetuine_lm.dataset_path = experiment_path.parent.parent.parent
             self.classifier.experiment_path = path_if_model_exists(experiment_path, CLS_BEST)
+            self.classifier.dataset_path = experiment_path.parent.parent.parent
         return True
 
     def replace_(self, **kwargs):
         self.arch.replace_(**kwargs)
         self.pretrain_lm.replace_(**kwargs)
-        self.finetune_lm.replace_(**kwargs)
+        self.finetuine_lm.replace_(**kwargs)
         self.classifier.replace_(**kwargs)
         return self
