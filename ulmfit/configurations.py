@@ -1,11 +1,5 @@
 from .training import *
 
-def ulmfit_orig():
-    raise NotImplementedError("TODO move hyper params")
-
-def multifit_paper_version():
-    raise NotImplementedError("TODO move hyper params")
-
 def multifit1552_fp32(bs=64):
     self = ULMFiT()
     self.replace_(
@@ -41,4 +35,32 @@ multifit_fp16 = multifit1552_fp16
 def multifit_lstm():
     return multifit1552_fp32(bs=128).replace_(qrnn=False, n_hid=1552, name=multifit_lstm.__name__)
 
+def multifit_paper_version():
+    self = multifit1552_fp32()
+    self.replace_(
+        seed=None,
+        name="multifit_paper_version"
+    )
+    self.arch.replace_(
+        tokenizer='sp', # sentence piece model that prefixes each control token with space token
+        n_hid=1550
+    )
+    self.pretrain_lm.replace_(drop_mult=0.0, lr=5e-3, use_adam_08=True, true_wd=False, wd=1e-7, bs=50,)
+    self.finetuine_lm.replace_(drop_mult=0.3, lr=1e-3, num_epochs=20, true_wd=False, wd=1e-7, bs=20)
+    self.classifier.replace_(early_stopping='accuracy', bs=20)
+    return self
 
+def ulmfit_orig():
+    self = multifit_paper_version()
+    self.replace_(
+        seed=None,
+        name="ulfmfit"
+    )
+    self.arch.replace_(
+        tokenizer='f',
+        max_vocab=60000,
+        qrnn=False,
+        n_layers=3,
+        n_hid=1150
+    )
+    return self
