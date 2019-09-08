@@ -45,7 +45,7 @@ class ULMFITArchitecture(Params):
         return f'models/{tokenizer_prefix}'
 
     def dataset(self, dataset_path_or_object, **args):
-        if isinstance(dataset_path_or_object, Dataset):
+        if hasattr(dataset_path_or_object, 'load_lm_databunch'):
             return dataset_path_or_object
         return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=self.tokenizer, max_vocab=self.max_vocab, **args)
 
@@ -219,7 +219,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
 
 
 @dataclass
-class ULMFiTFinetuining(ULMFiTPretraining):
+class ULMFiTFinetuning(ULMFiTPretraining):
     base: ULMFiTPretraining = field(repr=False, default=None)
     pretrained: bool = True
 
@@ -255,7 +255,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     weighted_cross_entropy: tuple = None
     early_stopping: str = 'accuracy'
     fit_schedule: str = '1cycle'
-    base: ULMFiTFinetuining = field(repr=False, default=None)
+    base: ULMFiTFinetuning = field(repr=False, default=None)
     random_init: bool = False
     seed: int = 0
     bptt: int = 70
@@ -411,18 +411,18 @@ def path_if_model_exists(path, weights_name):
 class ULMFiT:
     arch: ULMFITArchitecture = None
     pretrain_lm: ULMFiTPretraining = None
-    finetuine_lm: ULMFiTFinetuining = None
+    finetune_lm: ULMFiTFinetuning = None
     classifier: ULMFiTClassifier = None
 
     def __post_init__(self):
         self.arch = ULMFITArchitecture()
         self.pretrain_lm = ULMFiTPretraining(arch=self.arch)
-        self.finetuine_lm = ULMFiTFinetuining(arch=self.arch, base=self.pretrain_lm)
-        self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetuine_lm)
+        self.finetune_lm = ULMFiTFinetuning(arch=self.arch, base=self.pretrain_lm)
+        self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetune_lm)
 
     def load_(self, experiment_path:Path):
         success = (self.classifier.load_(experiment_path) or
-                   self.finetuine_lm.load_(experiment_path) or
+                   self.finetune_lm.load_(experiment_path) or
                    self.pretrain_lm.load_(experiment_path) or
                    self.load_legacy_(experiment_path))
         if not success:
@@ -442,8 +442,8 @@ class ULMFiT:
             self.pretrain_lm.experiment_path = path_if_model_exists(experiment_path, LM_BEST)
             self.pretrain_lm.dataset_path = experiment_path.parent.parent.parent
         else:
-            self.finetuine_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
-            self.finetuine_lm.dataset_path = experiment_path.parent.parent.parent
+            self.finetune_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
+            self.finetune_lm.dataset_path = experiment_path.parent.parent.parent
             self.classifier.experiment_path = path_if_model_exists(experiment_path, CLS_BEST)
             self.classifier.dataset_path = experiment_path.parent.parent.parent
         return True
@@ -451,7 +451,7 @@ class ULMFiT:
     def replace_(self, **kwargs):
         self.arch.replace_(**kwargs)
         self.pretrain_lm.replace_(**kwargs)
-        self.finetuine_lm.replace_(**kwargs)
+        self.finetune_lm.replace_(**kwargs)
         self.classifier.replace_(**kwargs)
         return self
 
@@ -459,6 +459,6 @@ class ULMFiT:
         print(f"""ULMFiT(
     {self.arch},
     {self.pretrain_lm},
-    {self.finetuine_lm},
+    {self.finetune_lm},
     {self.classifier},
 )""")
