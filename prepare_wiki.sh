@@ -13,6 +13,13 @@ else
 fi
 echo "Chosen language: ""$LANG"
 
+if [ "$2" == "" ] ; then
+    read -p "Enter the minimal tokens per articles [100]: " tokens_min
+    TOKENS_MIN=${tokens_min:-100}
+else
+    TOKENS_MIN="$2"
+fi
+
 DUMP_DIR="${ROOT}/wiki_dumps"
 EXTR_DIR="${ROOT}/wiki_extr"
 WIKI_DIR="${ROOT}/wiki"
@@ -46,7 +53,7 @@ else
   echo "${EXTR_PATH} already exists. Skipping extraction."
 fi
 
-python -m ulmfit.create_wikitext -i "${EXTR_PATH}"  -l "${LANG}" -o "${WIKI_DIR}"
+python -m ulmfit.create_wikitext -i "${EXTR_PATH}"  -l "${LANG}" -o "${WIKI_DIR}" -t "${TOKENS_MIN}"
 
 python -m ulmfit.postprocess_wikitext "${WIKI_DIR}/${LANG}-2" $LANG
 python -m ulmfit.postprocess_wikitext "${WIKI_DIR}/${LANG}-100" $LANG
