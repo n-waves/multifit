@@ -113,7 +113,7 @@ class ULMFiTTrainingCommand(Params):
                 f.write(json_str)
             return json_str
 
-    def load_(self, experiment_path, tantetive=True):
+    def load_(self, experiment_path, tantetive=True, update_arch=True):
         fn = experiment_path / self.info_json
         if not fn.exists():
             if not tantetive:
@@ -124,14 +124,13 @@ class ULMFiTTrainingCommand(Params):
             d = json.load(f)
         base = d.pop('base', None)
         arch = d.pop('arch')
-        self.arch.replace_(**arch)
+        if hasattr(self, 'base'):
+            self.base.load_(Path(base), tantetive=True, update_arch=False)
+        if update_arch:
+            self.arch.replace_(**arch)
         self.replace_(**d)
-        if base is not None:
-            other_arch = getattr(self, 'base').load_(Path(base), tantetive=True)
-            if other_arch and other_arch != arch:
-                warn(f"Architecuture does not match {arch}, {other_arch}")
         self.name = experiment_path.name
-        dataset_path = experiment_path.parent.parent.parent  # data/mldoc/de-1/models/fsp15k/multfit_fp16 -> data/mldoc/de-1
+        dataset_path = experiment_path.parent.parent.parent # ./de-1/models/fsp15k/multfit_fp16 -> ./de-1
         self.dataset_path = Path(dataset_path)
         self.experiment_path = Path(experiment_path)
         return arch
@@ -208,7 +207,9 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     @property
     def model_fnames(self):
         if self.experiment_path:
-            return [self.experiment_path.absolute() / LM_BEST, self.experiment_path.parent.absolute() / 'itos']
+            model_path = self.experiment_path.absolute()
+            cache_path = (model_path if (model_path / "itos.pkl").exists() else model_path.parent)
+            return [model_path / LM_BEST,  cache_path /'itos']
         return None
 
     @property
@@ -434,18 +435,18 @@ class ULMFiT:
             return False
         with (experiment_path / "info.json").open('r') as f:
             d = json.load(f)
-        d.pop('dataset_path', None)
+        dataset_path = d.pop('dataset_path', "")
         d['n_hid'] = d['nh']
         d['n_layers'] = d['nl']
         self.replace_(**d)
-        if "wiki" in str(experiment_path):
+        if "wiki" in str(dataset_path):
             self.pretrain_lm.experiment_path = path_if_model_exists(experiment_path, LM_BEST)
-            self.pretrain_lm.dataset_path = experiment_path.parent.parent.parent
+            self.pretrain_lm.dataset_path = dataset_path if dataset_path in str(experiment_path) else None
         else:
             self.finetune_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
-            self.finetune_lm.dataset_path = experiment_path.parent.parent.parent
+            self.finetune_lm.dataset_path = dataset_path if dataset_path in str(experiment_path) else None
             self.classifier.experiment_path = path_if_model_exists(experiment_path, CLS_BEST)
-            self.classifier.dataset_path = experiment_path.parent.parent.parent
+            self.classifier.dataset_path = dataset_path if dataset_path in str(experiment_path) else None
         return True
 
     def replace_(self, **kwargs):

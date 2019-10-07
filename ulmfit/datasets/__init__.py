@@ -203,8 +203,9 @@ class ULMFiTDataset(Dataset):
             and we expect finetuning to handle the conversion
         """
         # reuse base model sentencepiece vocabulary
-        self.cache_path.mkdir(exist_ok=True)
-        if (base_lm_path / '..' / 'spm.vocab').exists() and (base_lm_path.parent.resolve() != self.cache_path.resolve()):
+        self.cache_path.mkdir(exist_ok=True, parents=True)
+        if base_lm_path and (base_lm_path / '..' / 'spm.vocab').exists() and \
+           (base_lm_path.parent.resolve() != self.cache_path.resolve()):
             shutil.copy(str(base_lm_path / '..' / 'itos.pkl'), str(self.cache_path))
             shutil.copy(str(base_lm_path / '..' / 'spm.model'), str(self.cache_path))
             shutil.copy(str(base_lm_path / '..' / 'spm.vocab'), str(self.cache_path))
@@ -309,4 +310,6 @@ class ULMFiTDataset(Dataset):
                                         post_rules=defaults.text_post_rules))
 
     def _get_processor_pure_fastai(self, ds_need_moses):
+        if ds_need_moses:
+            warn("Fast ai dont use moses, make sure you trained from wikpiedia that wasm't tokenized with moses.")
         return dict()
