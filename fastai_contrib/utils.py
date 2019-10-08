@@ -305,7 +305,7 @@ def read_file(file_path, outname=None):
     with open(file_path, encoding='utf8') as f:
         text = f.readlines()
     df = pd.DataFrame(
-        {'text': np.array(text), 'labels': np.zeros(len(text))},
+        {'text': text, 'labels': np.zeros(len(text))},
         columns=['labels', 'text'])
     if outname is not None:
         df.to_csv(file_path.parent / f'{outname}.csv', header=False, index=False)
