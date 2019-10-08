@@ -268,7 +268,7 @@ class LMHyperParams:
         if (bunch_path / 'itos.pkl').exists():
             data = bunch_class.load(self.cache_dir, name, bs=bs)
         elif bunch_path.exists():
-            data = load_data(self.cache_dir, fname=name, bs=bs)
+            data = load_data(self.cache_dir, file=name, bs=bs)
         else:
             print(f"Running tokenization {name}...")
             data = bunch_class.from_df(path=self.cache_dir,
