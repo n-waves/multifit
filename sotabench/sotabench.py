@@ -29,7 +29,7 @@ def evaluate(pretrained_name):
 
     ds.use_base_model_subword_vocabulary(model.pretrain_lm.experiment_path)
 
-    test_df = ds._read_data(ds.tst_path)
+    test_df = ds.read_data(ds.tst_path)
     data_lm = ds.databunch_from_df(TextLMDataBunch, test_df, test_df, bs=20, bptt=70)
     learn = model.finetune_lm._learner(data_lm)
 
