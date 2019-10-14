@@ -12,8 +12,8 @@ class Experiment:
     def load(self, model_path):
         return ulmfit.ULMFiT().load_(Path(model_path))
 
-    def download(self):
-        raise NotImplementedError("implement model fetching")
+    def from_pretrained(self):
+        return ulmfit.ULMFiT.from_pretrained
 
 if __name__ == '__main__':
     fire.Fire(Experiment())

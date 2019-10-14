@@ -462,3 +462,15 @@ class ULMFiT:
     {self.finetune_lm},
     {self.classifier},
 )""")
+
+    def from_pretrained_(self, name, repo="PiotrCzapla/multifit-models"):
+        name = name.rstrip(".tgz")  # incase someone put's tgz name the name
+        url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
+        path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
+        return self.load_(path)
+
+    @classmethod
+    def from_pretrained(cls, name):
+        #TODO: Detect name and load configuration
+        from . import configurations
+        return configurations.multifit_paper_version().from_pretrained_(name)
