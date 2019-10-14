@@ -22,29 +22,6 @@ class SPProcessor2(SPProcessor):
         ds.vocab.sp_model = self.sp_model
         ds.vocab.sp_vocab = self.sp_vocab
 
-def get_sentencepiece_fastai(cache_dir: PathOrStr,  pre_rules: ListRules = None,
-                          post_rules: ListRules = None,
-                          vocab_size: int = 30000, lang='en'):
-    cache_dir = pathlib.Path(cache_dir)
-
-    sp_model = cache_dir / 'spm.model'
-    if not sp_model.is_file():
-        sp_model = None
-    sp_vocab = cache_dir / 'spm.vocab'
-    if not sp_vocab.is_file():
-        sp_vocab = None
-    processor = SPProcessor2(
-        pre_rules=pre_rules,
-        post_rules=post_rules,
-        mark_fields=True,
-        vocab_sz=vocab_size,
-        sp_model=sp_model,
-        sp_vocab=sp_vocab,
-        lang=lang,
-        tmp_dir=cache_dir.absolute()  # absolute make sure that dataset path is not added as prefix
-    )
-    return {'processor': processor}
-
 # temporary loading function as from_df does not support processors
 def make_data_bunch_from_df(cls, path: PathOrStr, train_df: DataFrame, valid_df: DataFrame,
             tokenizer: Tokenizer = None, vocab: Vocab = None, classes: Collection[str] = None,

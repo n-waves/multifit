@@ -309,7 +309,7 @@ class ULMFiTDataset(Dataset):
                                             **args)
         return databunch
 
-    def _get_processor(self, ds_need_moses):
+    def _get_processor(self, ds_need_moses, add_open_file_processor=False):
         return {
             'fsp': self._get_processor_sentence_piece,
             'f': self._get_processor_pure_fastai,
@@ -319,31 +319,44 @@ class ULMFiTDataset(Dataset):
             'sp': self._get_processor_sentence_piece,  # deprecated
             'v': self._get_processor_pure_moses,  # deprecated
             'vf': self._get_processor_moses_fastai,  # deprecated
-        }.get(self.tokenizer)(ds_need_moses)
+        }.get(self.tokenizer)(ds_need_moses, add_open_file_processor)
 
-    def _get_processor_sentence_piece(self, ds_need_moses):
+    def _get_processor_sentence_piece(self, ds_need_moses, add_open_file_processor=False):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
-        return get_sentencepiece_fastai(
-            cache_dir=self.cache_path,
-            vocab_size=self.max_vocab,
-            lang=self.lang,
-            pre_rules=moses_preproc + defaults.text_pre_rules)
 
-    def _get_processor_pure_moses(self, ds_need_moses):
+        sp_model = self.cache_path / 'spm.model'
+        if not sp_model.is_file():
+            sp_model = None
+        sp_vocab = self.cache_path / 'spm.vocab'
+        if not sp_vocab.is_file():
+            sp_vocab = None
+        processor = SPProcessor2(
+            pre_rules=moses_preproc + defaults.text_pre_rules,
+            mark_fields=True,
+            vocab_sz=self.max_vocab,
+            sp_model=sp_model,
+            sp_vocab=sp_vocab,
+            lang=self.lang,
+            tmp_dir=self.cache_path.absolute()  # absolute make sure that dataset path is not added as prefix
+        )
+        openfile = [OpenFileProcessor()] if add_open_file_processor else []
+        return {'processor': openfile + [ processor ]}
+
+    def _get_processor_pure_moses(self, ds_need_moses, add_open_file_processor=False):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
         return dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
                                         lang=self.lang,
                                         pre_rules=moses_preproc,
                                         post_rules=[]))
 
-    def _get_processor_moses_fastai(self, ds_need_moses):
+    def _get_processor_moses_fastai(self, ds_need_moses, add_open_file_processor=False):
         moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
         return dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
                                         lang=self.lang,
                                         pre_rules=moses_preproc + defaults.text_pre_rules,
                                         post_rules=defaults.text_post_rules))
 
-    def _get_processor_pure_fastai(self, ds_need_moses):
+    def _get_processor_pure_fastai(self, ds_need_moses, add_open_file_processor=False):
         if ds_need_moses:
             warn("Fast ai dont use moses, make sure you trained from wikpiedia that wasm't tokenized with moses.")
         return dict()
