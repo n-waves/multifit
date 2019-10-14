@@ -24,7 +24,7 @@ class Params:
 
 
 @dataclass
-class ULMFITArchitecture(Params):
+class ULMFiTArchitecture(Params):
     tokenizer: str = "f"
     max_vocab: int = 60000
 
@@ -79,7 +79,7 @@ def to_json_serializable(d):
 class ULMFiTTrainingCommand(Params):
     seed: int = 0
     name: str = None
-    arch: ULMFITArchitecture = field(repr=False, default=None)
+    arch: ULMFiTArchitecture = field(repr=False, default=None)
     experiment_path: Path = None
     dataset_path: Path = None
 
@@ -261,7 +261,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     seed: int = 0
     bptt: int = 70
     fp16: bool = False
-    arch: ULMFITArchitecture = None
+    arch: ULMFiTArchitecture = None
 
     def _learner(self, data_clas, eval_only=False, **additional_trn_args):
         assert self.weighted_cross_entropy is None or self.label_smoothing_eps == 0, "Label smoohting not implemented with weighted_cross_entropy"
@@ -409,13 +409,13 @@ def path_if_model_exists(path, weights_name):
 
 @dataclass
 class ULMFiT:
-    arch: ULMFITArchitecture = None
+    arch: ULMFiTArchitecture = None
     pretrain_lm: ULMFiTPretraining = None
     finetune_lm: ULMFiTFinetuning = None
     classifier: ULMFiTClassifier = None
 
     def __post_init__(self):
-        self.arch = ULMFITArchitecture()
+        self.arch = ULMFiTArchitecture()
         self.pretrain_lm = ULMFiTPretraining(arch=self.arch)
         self.finetune_lm = ULMFiTFinetuning(arch=self.arch, base=self.pretrain_lm)
         self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetune_lm)
