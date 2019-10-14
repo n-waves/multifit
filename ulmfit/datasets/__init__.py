@@ -51,7 +51,7 @@ def read_clas_csv(fn):
 @dataclass
 class Dataset:
     dataset_path: Path
-    use_tst_for_lm: bool = True
+    use_tst_for_lm: bool = False
     noise: float = 0.0
     limit: int = None
 
@@ -127,6 +127,8 @@ class Dataset:
 
     def _language_from_dataset_path(self):
         lang, size = self.dataset_path.name.split('-')
+        if lang == "wikitext":
+            lang = "en"
         return lang
 
     def _load_n_cache_supervised_data(self):
@@ -232,7 +234,7 @@ class ULMFiTDataset(Dataset):
 
         print('Size of vocabulary:', len(data_lm.vocab.itos))
         print('First 20 words in vocab:', data_lm.vocab.itos[:20])
-
+        data_lm.lang = self.lang
         return data_lm
 
     def load_vocab(self):
@@ -253,7 +255,9 @@ class ULMFiTDataset(Dataset):
         data_cls = self._databunch(cls_name, data_loader=lambda: self.load_supervised_data()[:2], **args)
         # Hack to load test dataset with labels
         data_tst = self._databunch('tst', data_loader=lambda: self.load_supervised_data()[1:], **args)
-        return data_cls, data_tst
+        data_cls.test_dl = data_tst.valid_dl # data_tst.valid_dl holds test data
+        data_cls.lang = self.lang
+        return data_cls
 
     def _databunch(self, name, bunch_class, data_loader, bs, **args):
         bunch_path = self.cache_path / name
@@ -261,18 +265,22 @@ class ULMFiTDataset(Dataset):
             databunch = load_data(self.cache_path, name, bs=bs)
         else:
             print(f"Running tokenization {name}...")
-            args.update(**self._get_processor(ds_need_moses=not self.uses_moses)) #TODO depends on the previous model
             train_df, valid_df = data_loader()
-            databunch = make_data_bunch_from_df(cls=bunch_class,
-                                                path=self.cache_path,
-                                                train_df=train_df,
-                                                valid_df=valid_df,
-                                                max_vocab=self.max_vocab,
-                                                mark_fields=True,
-                                                text_cols=list(train_df.columns.values)[1:],
-                                                **args)
+            databunch = self.databunch_from_df(bunch_class, train_df, valid_df, **args)
             databunch.save(name)
         print(f"Data {name}, trn: {len(databunch.train_ds)}, val: {len(databunch.valid_ds)}")
+        return databunch
+
+    def databunch_from_df(self, bunch_class, train_df, valid_df, **args):
+        args.update(**self._get_processor(ds_need_moses=not self.uses_moses))  # TODO depends on the previous model
+        databunch = make_data_bunch_from_df(cls=bunch_class,
+                                            path=self.cache_path,
+                                            train_df=train_df,
+                                            valid_df=valid_df,
+                                            max_vocab=self.max_vocab,
+                                            mark_fields=True,
+                                            text_cols=list(train_df.columns.values)[1:],
+                                            **args)
         return databunch
 
     def _get_processor(self, ds_need_moses):
