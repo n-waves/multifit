@@ -1,4 +1,18 @@
+import inspect
 from .training import *
+__all__ = [
+    'multifit_paper_version',
+    'multifit1552_fp32', 'multifit_fp32',
+    'multifit_fp32_nl3',
+
+    'multifit1552_fp16','multifit_fp16',
+    'multifit_fp16_nl3',
+    'multifit1552_fp16_nl3_large',
+
+    'multifit_lstm',
+    'multifit1152_lstm_nl3',
+    'multifit1152_lstm_nl3_fp16_large',
+]
 
 def multifit1552_fp32(bs=64):
     self = ULMFiT()
@@ -11,7 +25,7 @@ def multifit1552_fp32(bs=64):
         bs=bs,
         use_adam_08=False,
         early_stopping=None,
-        name=multifit1552_fp32.__name__
+        name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer='fsp',
@@ -27,19 +41,36 @@ def multifit1552_fp32(bs=64):
 
 multifit_fp32 = multifit1552_fp32
 
+def multifit_fp32_nl3():
+    return multifit1552_fp32().replace_(n_layers=3, name=_use_caller_name())
+
+# FP16
+
 def multifit1552_fp16():
-    return multifit1552_fp32(bs=128).replace_(fp16=True, name=multifit1552_fp16.__name__)
+    return multifit1552_fp32(bs=128).replace_(fp16=True, name=_use_caller_name())
+
+def multifit1552_fp16_nl3_large():
+    return multifit1552_fp32(bs=448).replace_(fp16=True, n_layers=3, num_epochs=20, name=_use_caller_name())
 
 multifit_fp16 = multifit1552_fp16
 
 def multifit_lstm():
-    return multifit1552_fp32(bs=128).replace_(qrnn=False, n_hid=1552, name=multifit_lstm.__name__)
+    return multifit1552_fp32(bs=128).replace_(qrnn=False, n_hid=1552, name=_use_caller_name())
+
+def multifit1152_lstm_nl3(bs=128):
+    return multifit1552_fp32(bs).replace_(qrnn=False, n_hid=1152,  n_layers=3, name=_use_caller_name())
+
+def multifit1152_lstm_nl3_fp16_large():
+    return multifit1152_lstm_nl3(bs=448).replace_(fp16=True, num_epochs=20, name=_use_caller_name())
+
+def multifit_fp16_nl3():
+    return multifit1552_fp16().replace_(n_layers=3, name=_use_caller_name())
 
 def multifit_paper_version():
     self = multifit1552_fp32()
     self.replace_(
         seed=None,
-        name="multifit_paper_version"
+        name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer='sp', # sentence piece model that prefixes each control token with space token
@@ -54,7 +85,7 @@ def ulmfit_orig():
     self = multifit_paper_version()
     self.replace_(
         seed=None,
-        name="ulfmfit"
+        name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer='f',
@@ -64,3 +95,7 @@ def ulmfit_orig():
         n_hid=1150
     )
     return self
+
+
+def _use_caller_name():
+    return inspect.stack()[1].function
