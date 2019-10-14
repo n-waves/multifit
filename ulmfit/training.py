@@ -33,7 +33,7 @@ class ULMFITArchitecture(Params):
     n_layers: int = awd_lstm_lm_config['n_layers']
     qrnn: bool = awd_lstm_lm_config['qrnn']
 
-    def model_name(self, name):
+    def model_name(self, name=""):
         model_suffix = ''  # if self.lmseed is None else f'_lmseed-{self.lmseed}'
         model_prefix = 'qrnn' if self.qrnn else 'lstm'
 
@@ -47,6 +47,8 @@ class ULMFITArchitecture(Params):
     def dataset(self, dataset_path_or_object, **args):
         if hasattr(dataset_path_or_object, 'load_lm_databunch'):
             return dataset_path_or_object
+        if dataset_path_or_object is None:
+            return None
         return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=self.tokenizer, max_vocab=self.max_vocab, **args)
 
 
@@ -84,7 +86,7 @@ class ULMFiTTrainingCommand(Params):
     @property
     def model_name(self):
         return (self.name or self.arch.model_name()) + (
-            "" if self.seed == 0 or "seed" in self.name else f"seed{self.seed}")
+            "" if self.seed is None or self.seed == 0 or "seed" in self.name else f"seed{self.seed}")
 
     @property
     def info_json(self):
@@ -149,7 +151,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     fp16: bool = False
     lr: float = 5e-3
 
-    def _learner(self, dataset, **additional_trn_args):
+    def _learner(self, data_lm, **additional_trn_args):
         config = awd_lstm_lm_config.copy()
         config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn)
 
@@ -157,7 +159,6 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
                         pretrained=False)
         trn_args.update(**additional_trn_args)
         print("Training args: ", trn_args, "config: ", config)
-        data_lm = dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt)
         learn = language_model_learner(data_lm,
                                        AWD_LSTM,
                                        config=config,
@@ -188,7 +189,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
         set_seed(self.seed, "LM weights seed")
         if hasattr(self, 'base'):
             dataset.use_base_model_subword_vocabulary(self.base.experiment_path)
-        learn = self._learner(dataset)
+        learn = self._learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
         experiment_path = learn.path / learn.model_dir
         print("Experiment", experiment_path)
         if self.num_epochs > 0:
@@ -227,12 +228,12 @@ class ULMFiTFinetuning(ULMFiTPretraining):
     def __post_init__(self):
         self.lr = 1e-3
 
-    def _learner(self, dataset, **additional_trn_args):
+    def _learner(self, data_lm, **additional_trn_args):
         pretrained_fnames = None if self.base is None else self.base.model_fnames
-        if self.pretrained and pretrained_fnames is None and dataset.lang != 'en':
-            warn(
-                "You are using fastai english langauge model for {data_lm.lang}, you might be better off with just random weights.")
-        return super()._learner(dataset, pretrained=self.pretrained, pretrained_fnames=pretrained_fnames,
+        # data_lm.lang is added after dataloading
+        if self.pretrained and pretrained_fnames is None and data_lm.lang != 'en':
+            warn("You are using fastai english langauge model for {data_lm.lang}, you might be better off with just random weights.")
+        return super()._learner(data_lm, pretrained=self.pretrained, pretrained_fnames=pretrained_fnames,
                                 **additional_trn_args)
 
     def _fit_schedule(self, learn):
@@ -244,7 +245,6 @@ class ULMFiTFinetuning(ULMFiTPretraining):
             learn.fit_one_cycle(self.num_epochs, self.lr, moms=(0.8, 0.7))
         else:
             super()._fit_schedule(learn)
-
 
 @dataclass
 class ULMFiTClassifier(ULMFiTTrainingCommand):
@@ -263,7 +263,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     fp16: bool = False
     arch: ULMFITArchitecture = None
 
-    def _learner(self, dataset, eval_only=False, **additional_trn_args):
+    def _learner(self, data_clas, eval_only=False, **additional_trn_args):
         assert self.weighted_cross_entropy is None or self.label_smoothing_eps == 0, "Label smoohting not implemented with weighted_cross_entropy"
         if self.weighted_cross_entropy is not None:
             loss_func = CrossEntropyFlat(weight=torch.tensor(self.weighted_cross_entropy, dtype=torch.float32).cuda())
@@ -273,7 +273,6 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
             loss_func = None
 
         set_seed(self.seed, "Classifier weights seed")
-        data_clas, data_tst = dataset.load_clas_databunch(bs=self.bs)
         config = awd_lstm_clas_config.copy()
         config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn)
 
@@ -288,8 +287,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
                                         model_dir=self.model_name,
                                         silent=eval_only,
                                         **trn_args)
-        learn.data.test_dl = data_tst.valid_dl
-        if self.base and not self.random_init:
+
+        if self.base.encoder_fname and not self.random_init:
             print("Loading pretrained model", self.base.encoder_fname)
             learn.load_encoder(self.base.encoder_fname)
             learn.freeze()
@@ -309,7 +308,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         dataset = self._set_dataset_(dataset_or_path)
         self.replace_(**train_config, _strict=True)
         dataset.use_base_model_subword_vocabulary(self.base.experiment_path)
-        learn = self._learner(dataset)
+        learn = self._learner(data_clas=dataset.load_clas_databunch(bs=self.bs))
 
         self._fit_schedule(learn)
 

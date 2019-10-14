@@ -11,8 +11,8 @@ from fastai.text import *
 import torch
 from ulmfit.datasets.utils import read_whitespace_file, \
     validate, UNK
-from fastai_contrib.text_data import MosesPreprocessingFunc, get_sentencepiece_fastai, \
-    make_data_bunch_from_df
+from fastai_contrib.text_data import MosesPreprocessingFunc, \
+    make_data_bunch_from_df, SPProcessor2
 import pickle
 
 from pathlib import Path
@@ -54,44 +54,56 @@ class Dataset:
     use_tst_for_lm: bool = False
     noise: float = 0.0
     limit: int = None
-
+    ds_type:str = None
     def __post_init__(self):
         self.add_trn_to_lm = True
         self._trn_df = None
         self._tst_df = None
         self._val_df = None
 
-        if 'wiki' in str(self.dataset_path) and len(list(self.dataset_path.glob('*.wiki.*.tokens'))) >= 2:
+        if self.ds_type is None:
+            self.ds_type = str(self.dataset_path)
+
+        if 'wiki' in self.ds_type and len(list(self.dataset_path.glob('*.wiki.*.tokens'))) >= 2:
+            self.ds_type = 'wiki'
             self._post_init_tokenized_wiki()
-        elif 'reddit' in str(self.dataset_path):
+        elif 'wiki' in self.ds_type and len(list(self.dataset_path.glob('wiki.*.tokens'))) >= 2:
+            self.ds_type = 'wiki'
+            self._post_init_tokenized_wiki(wiki103=True)
+        elif 'reddit' in self.ds_type:
+            self.ds_type = 'reddit'
             self._post_init_default_csv(
                 lang='en',
                 uses_moses=False,
                 add_trn_to_lm=True,
                 use_lang_as_prefix=False)
 
-        elif 'xnli' in str(self.dataset_path):
+        elif 'xnli' in self.ds_type:
+            self.ds_type = 'xnli'
             raise NotImplementedError("Support for XNLI is not implemented yet")
-        elif 'imdb' in self.dataset_path.name:
+        elif 'imdb' in self.ds_type:
+            self.ds_type = 'imdb'
             self._post_init_default_csv(
                 lang='en',
                 uses_moses=True,
                 add_trn_to_lm=True,
                 use_lang_as_prefix=False)
-        elif 'mldoc' in str(self.dataset_path):
+        elif 'mldoc' in self.ds_type:
+            self.ds_type = 'mldoc'
             self._post_init_default_csv(
                 lang=self._language_from_dataset_path(),
                 uses_moses=False,
                 add_trn_to_lm=False,
                 use_lang_as_prefix=True)
-        elif 'hate' in str(self.dataset_path):
+        elif 'hate' in self.ds_type:
+            self.ds_type = 'hate'
             self._post_init_default_csv(
                 lang=self._language_from_dataset_path(),
                 uses_moses=False,
                 add_trn_to_lm=True,
                 use_lang_as_prefix=True)
         else:
-            raise NotImplementedError(f"Not supported dataset {self.dataset_path}")
+            raise NotImplementedError(f"Not supported dataset {self.dataset_path} {self.ds_type}")
 
     def _post_init_default_csv(self, lang, uses_moses, add_trn_to_lm, use_lang_as_prefix):
         self.lang = lang
@@ -112,18 +124,22 @@ class Dataset:
         self.tst_path = self.dataset_path / f'{prefix}test.csv'
         self.unsup_path = self.dataset_path / f'{prefix}unsup.csv'
 
-    def _post_init_tokenized_wiki(self):
+    def _post_init_tokenized_wiki(self, wiki103=False):
         self.uses_moses = True
         self.use_tst_for_lm = False
         self.add_trn_to_lm = True
         self.lang = self._language_from_dataset_path()
 
         self._read_data = read_wiki_articles
+        if wiki103:
+            prefix=""
+        else:
+            prefix=f"{self.lang}."
 
-        self.trn_path = self.dataset_path / f'{self.lang}.wiki.train.tokens'
-        self.val_path = self.dataset_path / f'{self.lang}.wiki.valid.tokens'
-        self.tst_path = self.dataset_path / f'{self.lang}.wiki.test.tokens'
-        self.unsup_path = self.dataset_path / f'{self.lang}.wiki.unsup.tokens'
+        self.trn_path = self.dataset_path / f'{prefix}wiki.train.tokens'
+        self.val_path = self.dataset_path / f'{prefix}wiki.valid.tokens'
+        self.tst_path = self.dataset_path / f'{prefix}wiki.test.tokens'
+        self.unsup_path = self.dataset_path / f'{prefix}wiki.unsup.tokens'
 
     def _language_from_dataset_path(self):
         lang, size = self.dataset_path.name.split('-')
@@ -191,11 +207,12 @@ class Dataset:
 class ULMFiTDataset(Dataset):
     tokenizer: str = 'f'
     max_vocab: int = 60000
-
+    cache_path: Path = None
     def __post_init__(self):
         super().__post_init__()
-        tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
-        self.cache_path = self.dataset_path / "models" / tokenizer_prefix
+        if self.cache_path is None:
+            tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
+            self.cache_path = self.dataset_path / "models" / tokenizer_prefix
         self._vocab = None
 
     def use_base_model_subword_vocabulary(self, base_lm_path: Path):
@@ -204,13 +221,22 @@ class ULMFiTDataset(Dataset):
             For word tokenization we still generate new vocabulary for each dataset,
             and we expect finetuning to handle the conversion
         """
+        def copy_sp(path):
+            print(f"Copy sp model from {path} to {self.cache_path}")
+            shutil.copy(str(path / 'itos.pkl'), str(self.cache_path))
+            shutil.copy(str(path / 'spm.model'), str(self.cache_path))
+            shutil.copy(str(path / 'spm.vocab'), str(self.cache_path))
+
         # reuse base model sentencepiece vocabulary
         self.cache_path.mkdir(exist_ok=True, parents=True)
-        if base_lm_path and (base_lm_path / '..' / 'spm.vocab').exists() and \
-           (base_lm_path.parent.resolve() != self.cache_path.resolve()):
-            shutil.copy(str(base_lm_path / '..' / 'itos.pkl'), str(self.cache_path))
-            shutil.copy(str(base_lm_path / '..' / 'spm.model'), str(self.cache_path))
-            shutil.copy(str(base_lm_path / '..' / 'spm.vocab'), str(self.cache_path))
+        if base_lm_path is None or base_lm_path.parent.resolve() == self.cache_path.resolve():
+            return
+
+        if (base_lm_path.parent / 'spm.vocab').exists():
+            copy_sp(base_lm_path.parent)
+
+        if (base_lm_path / 'spm.vocab').exists():
+            copy_sp(base_lm_path)
 
         # TODO: implement / maybe put the vocabulary md5 to the file names and keep spm models together?
         # sp12k/7599013a8ce538b2e3d4405684221ecaf26bcba1.lm
