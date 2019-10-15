@@ -23,12 +23,15 @@ def detect_lang_from_dataset_path(dataset_path:Path):
 
 @dataclass
 class Params:
-    def replace_(self, **changes):
+    def replace_(self, verbose_diff=False, **changes):
         for f in dataclasses.fields(self):
             if f.name in changes:
                 v = changes[f.name]
                 if f.type == Path and v is not None:
                     v = Path(v)
+                orig = getattr(self, f.name)
+                if orig != v and verbose_diff:
+                    print(f"{self.__class__.__name__} Replacing {f.name} '{orig}' with '{v}")
                 setattr(self, f.name, v)
         return self
 
@@ -147,8 +150,8 @@ class ULMFiTTrainingCommand(Params):
         if hasattr(self, 'base'):
             self.base.load_(Path(base), tantetive=True, update_arch=False)
         if update_arch:
-            self.arch.replace_(**arch)
-        self.replace_(**d)
+            self.arch.replace_(verbose_diff=True, **arch)
+        self.replace_(verbose_diff=True, **d)
         # compatiblity with older info.json formats where lang was not stored
         if self.arch.lang is None and 'dataset_path' in d:
             self.arch.lang = detect_lang_from_dataset_path(Path(d['dataset_path']))
@@ -498,7 +501,7 @@ class ULMFiT:
     {self.classifier},
 )""")
 
-    def from_pretrained_(self, name, repo="PiotrCzapla/multifit-models"):
+    def from_pretrained_(self, name, repo="n-waves/multifit-models"):
         name = name.rstrip(".tgz")  # incase someone put's tgz name the name
         url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
         path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
