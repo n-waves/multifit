@@ -184,46 +184,14 @@ class Dataset:
 
 @dataclass
 class ULMFiTDataset(Dataset):
-    tokenizer: str = 'f'
-    max_vocab: int = 60000
+    tokenizer: Tokenizer = None
     cache_path: Path = None
 
     def __post_init__(self):
         super().__post_init__()
         if self.cache_path is None:
-            tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
-            self.cache_path = self.dataset_path / "models" / tokenizer_prefix
+            self.cache_path = self.dataset_path / "models" / self.tokenizer.prefix
         self._vocab = None
-
-    def use_base_model_subword_vocabulary(self, base_lm_path: Path):
-        """
-            In case of subwoard vocabularies reuse the base model vocabulary during tokenization.
-            For word tokenization we still generate new vocabulary for each dataset,
-            and we expect finetuning to handle the conversion
-        """
-        def copy_sp(path):
-            print(f"Copy sp model from {path} to {self.cache_path}")
-            shutil.copy(str(path / 'itos.pkl'), str(self.cache_path))
-            shutil.copy(str(path / 'spm.model'), str(self.cache_path))
-            shutil.copy(str(path / 'spm.vocab'), str(self.cache_path))
-
-        # reuse base model sentencepiece vocabulary
-        self.cache_path.mkdir(exist_ok=True, parents=True)
-        if base_lm_path is None or base_lm_path.parent.resolve() == self.cache_path.resolve():
-            return
-
-        if (base_lm_path.parent / 'spm.vocab').exists():
-            copy_sp(base_lm_path.parent)
-
-        if (base_lm_path / 'spm.vocab').exists():
-            copy_sp(base_lm_path)
-
-        # TODO: implement / maybe put the vocabulary md5 to the file names and keep spm models together?
-        # sp12k/7599013a8ce538b2e3d4405684221ecaf26bcba1.lm
-        # sp12k/7599013a8ce538b2e3d4405684221ecaf26bcba1-vocab.link
-        # then we don't need the use_vocabulary, we can just use load_lm_databunch(using_vacab=XXX)
-        # we could put spm.model and spm.vocab to the model folder it self then, and copy /link it when we use the orignal model
-        # for the time being we can simply compy the spm.model on the right spot and raise an error ir the two are different?
 
     def load_lm_databunch(self, bs, bptt):
         lm_suffix = bptt if bptt != 70 else ""
@@ -278,18 +246,56 @@ class ULMFiTDataset(Dataset):
         return databunch
 
     def databunch_from_df(self, bunch_class, train_df, valid_df, **args):
-        args.update(**self.get_processor(ds_need_moses=not self.uses_moses))  # TODO depends on the previous model
+        args.update(**self.tokenizer.get_fastai_config(dataset_uses_moses=self.uses_moses))  # TODO depends on the previous model
         databunch = make_data_bunch_from_df(cls=bunch_class,
                                             path=self.cache_path,
                                             train_df=train_df,
                                             valid_df=valid_df,
-                                            max_vocab=self.max_vocab,
                                             mark_fields=True,
                                             text_cols=list(train_df.columns.values)[1:],
                                             **args)
         return databunch
 
-    def get_processor(self, ds_need_moses, add_open_file_processor=False):
+
+@dataclass
+class ULMFiTTokenizer:
+    arch: Any # should be ULMFiTArchitecture, we use Any to avoid circular dependencies between imports
+    pretrained_path: Path = None
+
+    def __post_init__(self):
+        self.temp_dir = None
+        if self.pretrained_path is None:
+            self.temp_dir = tempfile.TemporaryDirectory()
+            self.pretrained_path = Path(self.temp_dir.name)
+
+    def save(self, new_path: Path, learn: Learner):
+        """
+            In case of subwoard vocabularies reuse the base model vocabulary during tokenization.
+            For word tokenization we still generate new vocabulary for each dataset,
+            and we expect finetuning to handle the conversion
+        """
+
+        def copy_sp(path):
+            print(f"Copy sp model from {path} to {new_path}")
+            shutil.copy(str(path / 'itos.pkl'), str(new_path))
+            shutil.copy(str(path / 'spm.model'), str(new_path))
+            shutil.copy(str(path / 'spm.vocab'), str(new_path))
+
+        # reuse base model sentencepiece vocabulary
+        new_path.mkdir(exist_ok=True, parents=True)
+        if self.pretrained_path is None or self.pretrained_path.parent.resolve() == new_path.resolve():
+            return
+
+        if (self.pretrained_path.parent / 'spm.vocab').exists():
+            copy_sp(self.pretrained_path.parent)
+
+        if (self.pretrained_path / 'spm.vocab').exists():
+            copy_sp(self.pretrained_path)
+
+        with (new_path / "itos.pkl").open('wb') as f:
+            pickle.dump(learn.data.vocab.itos, f)
+
+    def get_fastai_config(self, dataset_uses_moses=False, add_open_file_processor=False):
         return {
             'fsp': self._get_processor_sentence_piece,
             'f': self._get_processor_pure_fastai,
@@ -299,44 +305,64 @@ class ULMFiTDataset(Dataset):
             'sp': self._get_processor_sentence_piece,  # deprecated
             'v': self._get_processor_pure_moses,  # deprecated
             'vf': self._get_processor_moses_fastai,  # deprecated
-        }.get(self.tokenizer)(ds_need_moses, add_open_file_processor)
+        }.get(self.arch.tokenizer)(dataset_uses_moses, add_open_file_processor)
 
-    def _get_processor_sentence_piece(self, ds_need_moses, add_open_file_processor=False):
-        moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
+    @property
+    def prefix(self):
+        return f"{self.arch.tokenizer}{self.arch.max_vocab // 1000}k"
 
-        sp_model = self.cache_path / 'spm.model'
+    def _get_processor_sentence_piece(self, ds_uses_moses, add_open_file_processor=False):
+        moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
+
+        sp_model = self.pretrained_path / 'spm.model'
         if not sp_model.is_file():
             sp_model = None
-        sp_vocab = self.cache_path / 'spm.vocab'
+        sp_vocab = self.pretrained_path / 'spm.vocab'
         if not sp_vocab.is_file():
             sp_vocab = None
         processor = SPProcessor2(
             pre_rules=moses_preproc + defaults.text_pre_rules,
             mark_fields=True,
-            vocab_sz=self.max_vocab,
+            vocab_sz=self.arch.max_vocab,
             sp_model=sp_model,
             sp_vocab=sp_vocab,
-            lang=self.lang,
-            tmp_dir=self.cache_path.absolute()  # absolute make sure that dataset path is not added as prefix
+            lang=self.arch.lang,
+            tmp_dir=self.pretrained_path.absolute()  # absolute make sure that dataset path is not added as prefix
         )
         openfile = [OpenFileProcessor()] if add_open_file_processor else []
         return {'processor': openfile + [ processor ]}
 
-    def _get_processor_pure_moses(self, ds_need_moses, add_open_file_processor=False):
-        moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
-        return dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
-                                        lang=self.lang,
-                                        pre_rules=moses_preproc,
-                                        post_rules=[]))
+    def _default_processor(self, fastai_tokenizer):
+        fastai_tokenizer = Tokenizer(SpacyTokenizer, self.arch.lang)
+        return [TokenizeProcessor(tokenizer=fastai_tokenizer), NumericalizeProcessor(max_vocab=self.arch.max_vocab)]
 
-    def _get_processor_moses_fastai(self, ds_need_moses, add_open_file_processor=False):
-        moses_preproc = [MosesPreprocessingFunc(self.lang)] if ds_need_moses else []
-        return dict(tokenizer=Tokenizer(tok_func=BaseTokenizer,
-                                        lang=self.lang,
-                                        pre_rules=moses_preproc + defaults.text_pre_rules,
-                                        post_rules=defaults.text_post_rules))
+    def _get_processor_pure_moses(self, ds_uses_moses, add_open_file_processor=False):
+        moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
+        tokenizer = Tokenizer(tok_func=BaseTokenizer,
+                              lang=self.arch.lang,
+                              pre_rules=moses_preproc,
+                              post_rules=[])
+        return dict(processor=self._default_processor(tokenizer))
 
-    def _get_processor_pure_fastai(self, ds_need_moses, add_open_file_processor=False):
-        if ds_need_moses:
-            warn("fastai dont use moses, make sure you pretrained from wikpiedia that wasn't tokenized with moses.")
-        return dict()
+    def _get_processor_moses_fastai(self, ds_uses_moses, add_open_file_processor=False):
+        moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
+        tokenizer = Tokenizer(tok_func=BaseTokenizer,
+                              lang=self.arch.lang,
+                              pre_rules=moses_preproc + defaults.text_pre_rules,
+                              post_rules=defaults.text_post_rules)
+        return dict(processor=self._default_processor(tokenizer))
+
+    def _get_processor_pure_fastai(self, ds_uses_moses, add_open_file_processor=False):
+        if not ds_uses_moses:
+            warn("Make sure your base model was not pretrained on moses tokenized Wikipedia (default for multifit).")
+        tokenizer = Tokenizer(tok_func=SpacyTokenizer, lang=self.arch.lang)
+        return dict(processor=self._default_processor(tokenizer))
+
+    def cleanup(self):
+        if self.temp_dir is not None:
+            self.temp_dir.cleanup()
+            self.temp_dir = None
+
+    def __del__(self):
+        self.cleanup()
+

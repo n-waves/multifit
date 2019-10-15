@@ -1,14 +1,24 @@
+from pathlib import Path
+
+import torch
 import dataclasses
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
-import torch
 
-from ulmfit.datasets import ULMFiTDataset
-from pathlib import Path
+from ulmfit.datasets import ULMFiTDataset,ULMFiTTokenizer
 
 CLS_BEST = 'cls_best'
 LM_BEST = "lm_best"
 ENC_BEST = "enc_best"
+
+
+def detect_lang_from_dataset_path(dataset_path:Path):
+    lang, size = dataset_path.name.split('-')
+    if lang == "wikitext":
+        lang = "en"
+    if len(lang) == 2:
+        return lang
+    return None
 
 
 @dataclass
@@ -27,6 +37,7 @@ class Params:
 class ULMFiTArchitecture(Params):
     tokenizer: str = "f"
     max_vocab: int = 60000
+    lang: str = None
 
     emb_sz: int = awd_lstm_lm_config['emb_sz']
     n_hid: int = awd_lstm_lm_config['n_hid']
@@ -44,12 +55,12 @@ class ULMFiTArchitecture(Params):
         tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
         return f'models/{tokenizer_prefix}'
 
-    def dataset(self, dataset_path_or_object, **args):
+    def dataset(self, dataset_path_or_object, tokenizer, **args):
         if hasattr(dataset_path_or_object, 'load_lm_databunch'):
             return dataset_path_or_object
         if dataset_path_or_object is None:
             return None
-        return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=self.tokenizer, max_vocab=self.max_vocab, **args)
+        return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=tokenizer, **args)
 
 
 def set_seed(seed, name):
@@ -92,15 +103,22 @@ class ULMFiTTrainingCommand(Params):
     def info_json(self):
         return self.__class__.__name__.lower().replace("ulmfit", "") + ".json"
 
-
-    def _set_dataset_(self, dataset_or_path):
-        dataset_or_path = self.arch.dataset(dataset_or_path or self.dataset_path or getattr(self, 'base', self).dataset_path)
-        self.dataset_path = dataset_or_path.dataset_path
-        return dataset_or_path
+    def _set_dataset_(self, dataset_or_path, tokenizer):
+        #TODO: refactor, this bit is unclear (set_dataset that does nothing when is None passed?)
+        dataset_or_path = dataset_or_path or self.dataset_path or getattr(self, 'base', self).dataset_path
+        dataset = self.arch.dataset(dataset_or_path, tokenizer=tokenizer)
+        self.dataset_path = dataset.dataset_path
+        return dataset
 
     @property
     def dataset(self):
-        return self.arch.dataset(self.dataset_path)
+        return self.arch.dataset(self.dataset_path, self.tokneizer)
+
+    @property
+    def tokenizer(self):
+        if self.experiment_path is None:
+            raise ValueError("There is no pretrained tokenizer, experiment_path is None")
+        return ULMFiTTokenizer(arch=self.arch, pretrained_path=self.experiment_path)
 
     def save_paramters(self):
         params = dataclasses.asdict(self)
@@ -131,6 +149,9 @@ class ULMFiTTrainingCommand(Params):
         if update_arch:
             self.arch.replace_(**arch)
         self.replace_(**d)
+        # compatiblity with older info.json formats where lang was not stored
+        if self.arch.lang is None and 'dataset_path' in d:
+            self.arch.lang = detect_lang_from_dataset_path(Path(d['dataset_path']))
         self.name = experiment_path.name
         dataset_path = experiment_path.parent.parent.parent # ./de-1/models/fsp15k/multfit_fp16 -> ./de-1
         self.dataset_path = Path(dataset_path)
@@ -183,24 +204,35 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
         learn.unfreeze()
         learn.fit_one_cycle(self.num_epochs, self.lr, (0.8, 0.7))
 
-    def train_(self, dataset_or_path=None, **train_config):
-        dataset = self._set_dataset_(dataset_or_path)
+    def train_(self, dataset_or_path, **train_config):
+        if self.arch.lang is None:
+            lang = detect_lang_from_dataset_path(Path(dataset_or_path))
+            if lang is None:
+                warn("Unable to detect language from dataset path assuming English, use replace_(lang='??') change it.")
+                lang = 'en'
+            self.arch.lang = lang
         self.replace_(**train_config, _strict=True)
         set_seed(self.seed, "LM weights seed")
         if hasattr(self, 'base'):
-            dataset.use_base_model_subword_vocabulary(self.base.experiment_path)
+            base_tokenizer = self.base.tokenizer
+        else:
+            base_tokenizer = ULMFiTTokenizer(arch=self.arch, pretrained_path=None)
+
+        dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
         learn = self._learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
         experiment_path = learn.path / learn.model_dir
         print("Experiment", experiment_path)
         if self.num_epochs > 0:
             self._fit_schedule(learn)
+
         self.experiment_path = experiment_path
+        base_tokenizer.save(self.experiment_path, learn=learn)
         learn.to_fp32()
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
         learn.destroy()
-        print("Language model saved to", self.experiment_path)
         self.save_paramters()
+        print("Language model saved to", self.experiment_path)
 
     def validate(self):
         raise NotImplementedError("The validation on the language model is not implemented.")
@@ -305,14 +337,17 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         return learn
 
     def train_(self, dataset_or_path=None, **train_config):
-        dataset = self._set_dataset_(dataset_or_path)
+
         self.replace_(**train_config, _strict=True)
-        dataset.use_base_model_subword_vocabulary(self.base.experiment_path)
+
+        base_tokenizer = self.base.tokenizer
+        dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
         learn = self._learner(data_clas=dataset.load_clas_databunch(bs=self.bs))
 
         self._fit_schedule(learn)
 
         self.experiment_path = learn.path / learn.model_dir
+        base_tokenizer.save(self.experiment_path, learn=learn)
         learn.to_fp32()
         learn.save(CLS_BEST, with_opt=False)
         print("Classifier model saved to", self.experiment_path)

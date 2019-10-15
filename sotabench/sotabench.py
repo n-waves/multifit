@@ -25,9 +25,7 @@ def evaluate(pretrained_name):
         wikitext_folder = WikiText103Evaluator.dataset.get_path(local_root="unused")
     else:
         wikitext_folder = untar_data(URLs.WIKITEXT)
-    ds = model.arch.dataset(wikitext_folder)
-
-    ds.use_base_model_subword_vocabulary(model.pretrain_lm.experiment_path)
+    ds = model.arch.dataset(wikitext_folder, tokenizer=model.pretrain_lm.tokenizer)
 
     test_df = ds.read_data(ds.tst_path)
     data_lm = ds.databunch_from_df(TextLMDataBunch, test_df, test_df, bs=20, bptt=70)
