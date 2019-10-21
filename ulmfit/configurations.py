@@ -67,18 +67,31 @@ def multifit_fp16_nl3():
     return multifit1552_fp16().replace_(n_layers=3, name=_use_caller_name())
 
 def multifit_paper_version():
-    self = multifit1552_fp32()
+    self = ULMFiT()
+    dps = {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
     self.replace_(
-        seed=None,
+        label_smoothing_eps=0.0,
+        true_wd=True,
+        wd=0.1,
+        seed=0,
+        fp16=False,
+        bs=64,
+        use_adam_08=False,
+        early_stopping=None,
+        clip=0.12,
+        dropout_values=dps,
         name=_use_caller_name()
     )
     self.arch.replace_(
-        n_hid=1550
         tokenizer_type='sp',
+        max_vocab=15000,
+        qrnn=True,
+        n_layers=4,
+        n_hid=1550 # vs 1552
     )
-    self.pretrain_lm.replace_(drop_mult=0.0, lr=5e-3, use_adam_08=True, true_wd=False, wd=1e-7, bs=50,)
-    self.finetune_lm.replace_(drop_mult=0.3, lr=1e-3, num_epochs=20, true_wd=False, wd=1e-7, bs=20)
-    self.classifier.replace_(early_stopping='accuracy', bs=20)
+    self.pretrain_lm.replace_(num_epochs=10, drop_mult=0.0, lr=5e-3, use_adam_08=True, true_wd=False, wd=1e-7, bs=50,)
+    self.finetune_lm.replace_(num_epochs=20, drop_mult=0.3, lr=1e-3, true_wd=False, wd=1e-7, bs=20)
+    self.classifier.replace_(num_epochs=8, drop_mult=0.5, bs=18, label_smoothing_eps=0.1, early_stopping=None)
     return self
 
 def ulmfit_orig():

@@ -209,7 +209,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
 
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history")]
         if self.label_smoothing_eps > 0.0:
-            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=self.label_smoothing_eps)
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=self.label_smoothing_eps / learn.data.c)
 
         set_seed(self.seed, "LM training seed")
         if self.fp16:
