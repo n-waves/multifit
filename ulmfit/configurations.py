@@ -28,7 +28,7 @@ def multifit1552_fp32(bs=64):
         name=_use_caller_name()
     )
     self.arch.replace_(
-        tokenizer='fsp',
+        tokenizer_type='fsp',
         max_vocab=15000,
         qrnn=True,
         n_layers=4,
@@ -73,8 +73,8 @@ def multifit_paper_version():
         name=_use_caller_name()
     )
     self.arch.replace_(
-        tokenizer='sp', # sentence piece model that prefixes each control token with space token
         n_hid=1550
+        tokenizer_type='sp',
     )
     self.pretrain_lm.replace_(drop_mult=0.0, lr=5e-3, use_adam_08=True, true_wd=False, wd=1e-7, bs=50,)
     self.finetune_lm.replace_(drop_mult=0.3, lr=1e-3, num_epochs=20, true_wd=False, wd=1e-7, bs=20)
@@ -88,7 +88,7 @@ def ulmfit_orig():
         name=_use_caller_name()
     )
     self.arch.replace_(
-        tokenizer='f',
+        tokenizer_type='f',
         max_vocab=60000,
         qrnn=False,
         n_layers=3,

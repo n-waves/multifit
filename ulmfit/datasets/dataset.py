@@ -80,6 +80,12 @@ class Dataset:
                 uses_moses=False,
                 add_trn_to_lm=False,
                 use_lang_as_prefix=True)
+        elif 'cls' in path:
+            self._post_init_default_csv(
+                lang=self._language_from_dataset_path(),
+                uses_moses=False,
+                add_trn_to_lm=True,
+                use_lang_as_prefix=True)
         elif 'hate' in path:
             self._post_init_default_csv(
                 lang=self._language_from_dataset_path(),
@@ -125,7 +131,8 @@ class Dataset:
         self.unsup_path = self.dataset_path / f'{prefix}wiki.unsup.tokens'
 
     def _language_from_dataset_path(self):
-        lang, size = self.dataset_path.name.split('-')
+        #TODO: Duplicate with training function
+        lang, *size = self.dataset_path.name.split('-')
         if lang == "wikitext":
             lang = "en"
         return lang
@@ -189,13 +196,11 @@ class ULMFiTDataset(Dataset):
 
     def __post_init__(self):
         super().__post_init__()
-        if self.cache_path is None:
-            self.cache_path = self.dataset_path / "models" / self.tokenizer.prefix
         self._vocab = None
 
     def load_lm_databunch(self, bs, bptt):
-        lm_suffix = bptt if bptt != 70 else ""
-        lm_suffix += self.use_tst_for_lm if "" else "-notst"
+        lm_suffix = str(bptt) if bptt != 70 else ""
+        lm_suffix += "" if self.use_tst_for_lm else "-notst"
         data_lm = self.load_n_cache_databunch(f"lm{lm_suffix}",
                                               bunch_class=TextLMDataBunch,
                                               data_loader=self.load_unsupervised_data,
@@ -238,7 +243,7 @@ class ULMFiTDataset(Dataset):
         if bunch_path.exists():
             databunch = load_data(self.cache_path, name, bs=bs)
         else:
-            print(f"Running tokenization {name}...")
+            print(f"Running tokenization: '{name}' ...")
             train_df, valid_df = data_loader()
             databunch = self.databunch_from_df(bunch_class, train_df, valid_df, **args)
             databunch.save(name)
@@ -268,7 +273,7 @@ class ULMFiTTokenizer:
             self.temp_dir = tempfile.TemporaryDirectory()
             self.pretrained_path = Path(self.temp_dir.name)
 
-    def save(self, new_path: Path, learn: Learner):
+    def save(self, new_path: Path, vocab: Vocab = None, learn: Learner = None):
         """
             In case of subwoard vocabularies reuse the base model vocabulary during tokenization.
             For word tokenization we still generate new vocabulary for each dataset,
@@ -283,17 +288,20 @@ class ULMFiTTokenizer:
 
         # reuse base model sentencepiece vocabulary
         new_path.mkdir(exist_ok=True, parents=True)
-        if self.pretrained_path is None or self.pretrained_path.parent.resolve() == new_path.resolve():
+        if self.pretrained_path is None or self.pretrained_path.resolve() == new_path.resolve():
             return
-
-        if (self.pretrained_path.parent / 'spm.vocab').exists():
-            copy_sp(self.pretrained_path.parent)
+        #
+        # if (self.pretrained_path.parent / 'spm.vocab').exists():
+        #     copy_sp(self.pretrained_path.parent)
 
         if (self.pretrained_path / 'spm.vocab').exists():
             copy_sp(self.pretrained_path)
 
-        with (new_path / "itos.pkl").open('wb') as f:
-            pickle.dump(learn.data.vocab.itos, f)
+        if learn is not None:
+            vocab = learn.data.vocab
+        if vocab is not None:
+            with (new_path / "itos.pkl").open('wb') as f:
+                pickle.dump(vocab.itos, f)
 
     def get_fastai_config(self, dataset_uses_moses=False, add_open_file_processor=False):
         return {
@@ -305,7 +313,7 @@ class ULMFiTTokenizer:
             'sp': self._get_processor_sentence_piece,  # deprecated
             'v': self._get_processor_pure_moses,  # deprecated
             'vf': self._get_processor_moses_fastai,  # deprecated
-        }.get(self.arch.tokenizer)(dataset_uses_moses, add_open_file_processor)
+        }.get(self.arch.tokenizer_type)(dataset_uses_moses, add_open_file_processor)
 
     @property
     def prefix(self):

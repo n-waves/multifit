@@ -13,7 +13,7 @@ ENC_BEST = "enc_best"
 
 
 def detect_lang_from_dataset_path(dataset_path:Path):
-    lang, size = dataset_path.name.split('-')
+    lang, *size = dataset_path.name.split('-')
     if lang == "wikitext":
         lang = "en"
     if len(lang) == 2:
@@ -23,14 +23,14 @@ def detect_lang_from_dataset_path(dataset_path:Path):
 
 @dataclass
 class Params:
-    def replace_(self, verbose_diff=False, **changes):
+    def replace_(self, _verbose_diff=False, **changes):
         for f in dataclasses.fields(self):
             if f.name in changes:
                 v = changes[f.name]
                 if f.type == Path and v is not None:
                     v = Path(v)
                 orig = getattr(self, f.name)
-                if orig != v and verbose_diff:
+                if orig != v and _verbose_diff:
                     print(f"{self.__class__.__name__} Replacing {f.name} '{orig}' with '{v}")
                 setattr(self, f.name, v)
         return self
@@ -38,7 +38,7 @@ class Params:
 
 @dataclass
 class ULMFiTArchitecture(Params):
-    tokenizer: str = "f"
+    tokenizer_type: str = "f"
     max_vocab: int = 60000
     lang: str = None
 
@@ -55,16 +55,25 @@ class ULMFiTArchitecture(Params):
         return model_name
 
     def dataset_cache_suffix(self):
-        tokenizer_prefix = f"{self.tokenizer}{self.max_vocab // 1000}k"
+        tokenizer_prefix = f"{self.tokenizer_type}{self.max_vocab // 1000}k"
         return f'models/{tokenizer_prefix}'
 
-    def dataset(self, dataset_path_or_object, tokenizer, **args):
+    def dataset(self, dataset_path_or_object, tokenizer=None, **args):
         if hasattr(dataset_path_or_object, 'load_lm_databunch'):
             return dataset_path_or_object
         if dataset_path_or_object is None:
             return None
-        return ULMFiTDataset(dataset_path=Path(dataset_path_or_object), tokenizer=tokenizer, **args)
+        ds_path = Path(dataset_path_or_object)
+        cache_path = ds_path / self.dataset_cache_suffix()
+        if tokenizer is not None:
+            tokenizer.save(cache_path) # saving the tokenizer to the cache_path so that it can be reused later.
+            # TODO add proper caching prefixed with tokenizer hash.
+        tokenizer = self.new_tokenizer(cache_path)
+        return ULMFiTDataset(dataset_path=ds_path, cache_path=cache_path, tokenizer=tokenizer, **args)
 
+    def new_tokenizer(self, pretrained_path=None):
+        "gets untrained tokenizer in that stores its data in tmp, use .save once trained"
+        return ULMFiTTokenizer(arch=self, pretrained_path=pretrained_path)
 
 def set_seed(seed, name):
     if seed is not None:
@@ -115,12 +124,12 @@ class ULMFiTTrainingCommand(Params):
 
     @property
     def dataset(self):
-        return self.arch.dataset(self.dataset_path, self.tokneizer)
+        return self.arch.dataset(self.dataset_path, self.tokenizer)
 
     @property
     def tokenizer(self):
         if self.experiment_path is None:
-            raise ValueError("There is no pretrained tokenizer, experiment_path is None")
+            raise ValueError("There is no pretrained tokenizer, experiment_path is None, use arch.new_tokenizer()")
         return ULMFiTTokenizer(arch=self.arch, pretrained_path=self.experiment_path)
 
     def save_paramters(self):
@@ -149,16 +158,18 @@ class ULMFiTTrainingCommand(Params):
         arch = d.pop('arch')
         if hasattr(self, 'base'):
             self.base.load_(Path(base), tantetive=True, update_arch=False)
-        if update_arch:
-            self.arch.replace_(verbose_diff=True, **arch)
-        self.replace_(verbose_diff=True, **d)
+
         # compatiblity with older info.json formats where lang was not stored
-        if self.arch.lang is None and 'dataset_path' in d:
-            self.arch.lang = detect_lang_from_dataset_path(Path(d['dataset_path']))
-        self.name = experiment_path.name
-        dataset_path = experiment_path.parent.parent.parent # ./de-1/models/fsp15k/multfit_fp16 -> ./de-1
-        self.dataset_path = Path(dataset_path)
-        self.experiment_path = Path(experiment_path)
+        self.name = experiment_path.name                # V ./de-1/models/fsp15k/multifit_fp16 -> ./de-1
+        dataset_path = Path(d.get('dataset_path', experiment_path.parent.parent.parent))
+        d['dataset_path'] = dataset_path
+        d['experiment_path'] = experiment_path
+        arch['lang'] = arch.get('lang', None) or detect_lang_from_dataset_path(dataset_path)
+        arch['tokenizer_type'] = arch.pop('tokenizer', arch.get('tokenizer_type', None))
+
+        if update_arch:
+            self.arch.replace_(_verbose_diff=True, **arch)
+        self.replace_(_verbose_diff=True, **d)
         return arch
 
 
@@ -168,19 +179,22 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     bs: int = 20
     bptt: int = 70
     drop_mult: float = 1.0
+    dropout_values: dict = field(default_factory=dict)
     label_smoothing_eps: float = 0.0
     use_adam_08: bool = False
     true_wd: bool = True
     wd: bool = 0.1
+    clip: float = None
     fp16: bool = False
     lr: float = 5e-3
 
     def _learner(self, data_lm, **additional_trn_args):
         config = awd_lstm_lm_config.copy()
-        config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn)
+        config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn,
+                      **self.dropout_values)
 
         trn_args = dict(drop_mult=self.drop_mult, true_wd=self.true_wd, wd=self.wd,
-                        pretrained=False)
+                        pretrained=False, clip=self.clip)
         trn_args.update(**additional_trn_args)
         print("Training args: ", trn_args, "config: ", config)
         learn = language_model_learner(data_lm,
@@ -207,7 +221,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
         learn.unfreeze()
         learn.fit_one_cycle(self.num_epochs, self.lr, (0.8, 0.7))
 
-    def train_(self, dataset_or_path, **train_config):
+    def train_(self, dataset_or_path, tokenizer=None, **train_config):
         if self.arch.lang is None:
             lang = detect_lang_from_dataset_path(Path(dataset_or_path))
             if lang is None:
@@ -216,12 +230,13 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
             self.arch.lang = lang
         self.replace_(**train_config, _strict=True)
         set_seed(self.seed, "LM weights seed")
-        if hasattr(self, 'base'):
-            base_tokenizer = self.base.tokenizer
-        else:
-            base_tokenizer = ULMFiTTokenizer(arch=self.arch, pretrained_path=None)
+        if tokenizer is None:
+            if hasattr(self, 'base'):
+                tokenizer = self.base.tokenizer
+            else:
+                tokenizer = self.arch.new_tokenizer()
 
-        dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
+        dataset = self._set_dataset_(dataset_or_path, tokenizer)
         learn = self._learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
         experiment_path = learn.path / learn.model_dir
         print("Experiment", experiment_path)
@@ -229,7 +244,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
             self._fit_schedule(learn)
 
         self.experiment_path = experiment_path
-        base_tokenizer.save(self.experiment_path, learn=learn)
+        tokenizer.save(self.experiment_path, learn=learn)
         learn.to_fp32()
         learn.save_encoder(ENC_BEST)
         learn.save(LM_BEST, with_opt=False)
@@ -267,7 +282,7 @@ class ULMFiTFinetuning(ULMFiTPretraining):
         pretrained_fnames = None if self.base is None else self.base.model_fnames
         # data_lm.lang is added after dataloading
         if self.pretrained and pretrained_fnames is None and data_lm.lang != 'en':
-            warn("You are using fastai english langauge model for {data_lm.lang}, you might be better off with just random weights.")
+            warn(f"You are using fastai english langauge model for {data_lm.lang}, you might be better off with just random weights.")
         return super()._learner(data_lm, pretrained=self.pretrained, pretrained_fnames=pretrained_fnames,
                                 **additional_trn_args)
 
@@ -286,7 +301,9 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     bs: int = 20
     num_epochs: int = 10
     drop_mult: float = 0.5
+    dropout_values: dict = field(default_factory=dict)
     wd: float = 0.1
+    clip: float = None
     label_smoothing_eps: float = 0.0
     weighted_cross_entropy: tuple = None
     early_stopping: str = 'accuracy'
@@ -309,10 +326,11 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
 
         set_seed(self.seed, "Classifier weights seed")
         config = awd_lstm_clas_config.copy()
-        config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn)
+        config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn,
+                      **self.dropout_values)
 
         trn_args = dict(drop_mult=self.drop_mult, wd=self.wd, pretrained=False, bptt=self.bptt,
-                        loss_func=loss_func)
+                        loss_func=loss_func, clip=self.clip)
 
         trn_args.update(**additional_trn_args)
         print("Training args: ", trn_args, "config: ", config)
@@ -327,6 +345,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
             print("Loading pretrained model", self.base.encoder_fname)
             learn.load_encoder(self.base.encoder_fname)
             learn.freeze()
+        else:
+            warn("No pretrained encoder")
 
         set_seed(self.seed, "Classifier training seed")
         if not eval_only:
@@ -340,13 +360,13 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         return learn
 
     def train_(self, dataset_or_path=None, **train_config):
-
         self.replace_(**train_config, _strict=True)
 
         base_tokenizer = self.base.tokenizer
         dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
-        learn = self._learner(data_clas=dataset.load_clas_databunch(bs=self.bs))
-
+        data_clas = dataset.load_clas_databunch(bs=self.bs)
+        learn = self._learner(data_clas=data_clas)
+        print(f"Training: {learn.path / learn.model_dir}")
         self._fit_schedule(learn)
 
         self.experiment_path = learn.path / learn.model_dir
@@ -357,6 +377,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         self.save_paramters()
         learn.destroy()
 
+
     def _validate(self, learn, ds_type):
         ds_name = ds_type.name.lower()
         print(f"Model: {self.name}, ds_name: {ds_name}")
@@ -366,14 +387,17 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         results_dict['name'] = self.name
         return results_dict
 
-    def validate(self, save_name=CLS_BEST, use_cache=True):
-        dataset = self.dataset
+    def validate(self, data_cls=None, save_name=CLS_BEST, use_cache=True):
+
         cache_file = (self.experiment_path / f'results{"" if save_name == CLS_BEST else "-" + save_name}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
                 return json.load(fp)
 
-        learn = self._learner(dataset, eval_only=True)
+        if data_cls is None:
+            data_cls = self.dataset.load_clas_databunch(bs=self.bs)
+
+        learn = self._learner(data_cls, eval_only=True)
         avg = 'binary' if learn.data.c == 2 else 'macro'
         learn.metrics = [FBeta(beta=1.0, average=avg), Precision(average=avg), Recall(average=avg), accuracy]
         print(f"Loading model {save_name}")
@@ -475,11 +499,14 @@ class ULMFiT:
         dataset_path = d.pop('dataset_path', "")
         d['n_hid'] = d['nh']
         d['n_layers'] = d['nl']
-        self.replace_(**d)
+        d['lang'] = detect_lang_from_dataset_path(Path(dataset_path))
         if "wiki" in str(dataset_path):
+            self.arch.replace_(**d)
+            self.pretrain_lm.replace_(**d)
             self.pretrain_lm.experiment_path = path_if_model_exists(experiment_path, LM_BEST)
             self.pretrain_lm.dataset_path = dataset_path if dataset_path in str(experiment_path) else None
         else:
+            self.replace_(**d)
             self.finetune_lm.experiment_path = path_if_model_exists(experiment_path, ENC_BEST)
             self.finetune_lm.dataset_path = dataset_path if dataset_path in str(experiment_path) else None
             self.classifier.experiment_path = path_if_model_exists(experiment_path, CLS_BEST)
@@ -507,8 +534,8 @@ class ULMFiT:
         path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
         return self.load_(path)
 
-    @classmethod
-    def from_pretrained(cls, name):
-        #TODO: Detect name and load configuration
-        from . import configurations
-        return configurations.multifit_paper_version().from_pretrained_(name)
+
+def from_pretrained(name):
+    #TODO: Detect name and load configuration
+    from . import configurations
+    return configurations.multifit_paper_version().from_pretrained_(name)
