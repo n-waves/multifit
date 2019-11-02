@@ -1,3 +1,5 @@
+import tempfile
+
 from fastai.text import *
 from fastai_contrib.text_data import MosesPreprocessingFunc, \
     make_data_bunch_from_df, SPProcessor2
@@ -240,9 +242,13 @@ class ULMFiTDataset(Dataset):
 
     def load_n_cache_databunch(self, name, bunch_class, data_loader, bs, **args):
         bunch_path = self.cache_path / name
+        databunch = None
         if bunch_path.exists():
-            databunch = load_data(self.cache_path, name, bs=bs)
-        else:
+            try:
+                databunch = load_data(self.cache_path, name, bs=bs)
+            except (AttributeError, ImportError):
+                print("Unable  to load data bunch from cache - pickle issue, running processing again.")
+        if databunch is None:
             print(f"Running tokenization: '{name}' ...")
             train_df, valid_df = data_loader()
             databunch = self.databunch_from_df(bunch_class, train_df, valid_df, **args)
@@ -303,7 +309,7 @@ class ULMFiTTokenizer:
             with (new_path / "itos.pkl").open('wb') as f:
                 pickle.dump(vocab.itos, f)
 
-    def get_fastai_config(self, dataset_uses_moses=False, add_open_file_processor=False):
+    def get_processor(self, dataset_uses_moses=False):
         return {
             'fsp': self._get_processor_sentence_piece,
             'f': self._get_processor_pure_fastai,
@@ -313,13 +319,20 @@ class ULMFiTTokenizer:
             'sp': self._get_processor_sentence_piece,  # deprecated
             'v': self._get_processor_pure_moses,  # deprecated
             'vf': self._get_processor_moses_fastai,  # deprecated
-        }.get(self.arch.tokenizer_type)(dataset_uses_moses, add_open_file_processor)
+        }.get(self.arch.tokenizer_type)(dataset_uses_moses)
+
+    def get_vocab(self): return Vocab.load(self.pretrained_path / 'itos.pkl')
+
+    def get_fastai_config(self, dataset_uses_moses=False, add_open_file_processor=False):
+        processor = self.get_processor(dataset_uses_moses)
+        openfile = [OpenFileProcessor()] if add_open_file_processor else []
+        return {'processor': openfile + [processor]}
 
     @property
     def prefix(self):
         return f"{self.arch.tokenizer}{self.arch.max_vocab // 1000}k"
 
-    def _get_processor_sentence_piece(self, ds_uses_moses, add_open_file_processor=False):
+    def _get_processor_sentence_piece(self, ds_uses_moses):
         moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
 
         sp_model = self.pretrained_path / 'spm.model'
@@ -337,34 +350,35 @@ class ULMFiTTokenizer:
             lang=self.arch.lang,
             tmp_dir=self.pretrained_path.absolute()  # absolute make sure that dataset path is not added as prefix
         )
-        openfile = [OpenFileProcessor()] if add_open_file_processor else []
-        return {'processor': openfile + [ processor ]}
+        return processor
 
-    def _default_processor(self, fastai_tokenizer):
-        fastai_tokenizer = Tokenizer(SpacyTokenizer, self.arch.lang)
+    def _default_processor(self, fastai_tokenizer=None):
+        if fastai_tokenizer is None:
+            fastai_tokenizer = Tokenizer(SpacyTokenizer, self.arch.lang)
         return [TokenizeProcessor(tokenizer=fastai_tokenizer), NumericalizeProcessor(max_vocab=self.arch.max_vocab)]
 
-    def _get_processor_pure_moses(self, ds_uses_moses, add_open_file_processor=False):
+    def _get_processor_pure_moses(self, ds_uses_moses):
+        #TODO make sure processor doesnot return openfile
         moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
         tokenizer = Tokenizer(tok_func=BaseTokenizer,
                               lang=self.arch.lang,
                               pre_rules=moses_preproc,
                               post_rules=[])
-        return dict(processor=self._default_processor(tokenizer))
+        return self._default_processor(tokenizer)
 
-    def _get_processor_moses_fastai(self, ds_uses_moses, add_open_file_processor=False):
+    def _get_processor_moses_fastai(self, ds_uses_moses):
         moses_preproc = [MosesPreprocessingFunc(self.arch.lang)] if not ds_uses_moses else []
         tokenizer = Tokenizer(tok_func=BaseTokenizer,
                               lang=self.arch.lang,
                               pre_rules=moses_preproc + defaults.text_pre_rules,
                               post_rules=defaults.text_post_rules)
-        return dict(processor=self._default_processor(tokenizer))
+        return self._default_processor(tokenizer)
 
-    def _get_processor_pure_fastai(self, ds_uses_moses, add_open_file_processor=False):
+    def _get_processor_pure_fastai(self, ds_uses_moses):
         if not ds_uses_moses:
             warn("Make sure your base model was not pretrained on moses tokenized Wikipedia (default for multifit).")
         tokenizer = Tokenizer(tok_func=SpacyTokenizer, lang=self.arch.lang)
-        return dict(processor=self._default_processor(tokenizer))
+        return self._default_processor(tokenizer)
 
     def cleanup(self):
         if self.temp_dir is not None:
