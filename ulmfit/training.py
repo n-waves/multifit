@@ -181,6 +181,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     drop_mult: float = 1.0
     dropout_values: dict = field(default_factory=dict)
     label_smoothing_eps: float = 0.0
+    label_smoothing_eps_norm_by_classes: bool = True
     use_adam_08: bool = False
     true_wd: bool = True
     wd: bool = 0.1
@@ -209,7 +210,11 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
 
         learn.callback_fns += [partial(CSVLogger, filename=f"{learn.model_dir}/lm-history")]
         if self.label_smoothing_eps > 0.0:
-            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=self.label_smoothing_eps / learn.data.c)
+            eps = self.label_smoothing_eps
+            if self.label_smoothing_eps_norm_by_classes:
+                eps = eps/ learn.data.c
+            print("Using Label smoothing with eps = ", eps)
+            learn.loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=eps)
 
         set_seed(self.seed, "LM training seed")
         if self.fp16:
@@ -305,6 +310,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     wd: float = 0.1
     clip: float = None
     label_smoothing_eps: float = 0.0
+    label_smoothing_eps_norm_by_classes: bool = False
     weighted_cross_entropy: tuple = None
     early_stopping: str = 'accuracy'
     fit_schedule: str = '1cycle'
@@ -320,7 +326,11 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         if self.weighted_cross_entropy is not None:
             loss_func = CrossEntropyFlat(weight=torch.tensor(self.weighted_cross_entropy, dtype=torch.float32).cuda())
         elif self.label_smoothing_eps > 0.0:
-            loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=self.label_smoothing_eps)
+            eps = self.label_smoothing_eps
+            if self.label_smoothing_eps_norm_by_classes:
+                eps = eps/ data_clas.c
+            print("Using Label smoothing with eps = ", eps)
+            loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=eps)
         else:
             loss_func = None
 
@@ -338,12 +348,23 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
                                         AWD_LSTM,
                                         config=config,
                                         model_dir=self.model_name,
-                                        silent=eval_only,
+                                        # silent=eval_only,
                                         **trn_args)
 
         if self.base.encoder_fname and not self.random_init:
             print("Loading pretrained model", self.base.encoder_fname)
-            learn.load_encoder(self.base.encoder_fname)
+            try:
+                learn.load_encoder(self.base.encoder_fname)
+            except RuntimeError:
+                encoder = get_model(learn.model)[0]
+                if hasattr(encoder, 'module'): encoder = encoder.module
+                state = torch.load(learn.path / learn.model_dir / f'{self.base.encoder_fname}.pth',
+                           map_location=lambda storage, loc: storage)
+                def convert(k):
+                    return k.replace('layers.0.', '')
+                state = {convert(k):v for k,v in state.items()}
+                encoder.load_state_dict(state)
+
             learn.freeze()
         else:
             warn("No pretrained encoder")
@@ -367,6 +388,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         data_clas = dataset.load_clas_databunch(bs=self.bs)
         learn = self._learner(data_clas=data_clas)
         print(f"Training: {learn.path / learn.model_dir}")
+        learn.unfreeze()
         self._fit_schedule(learn)
 
         self.experiment_path = learn.path / learn.model_dir
@@ -488,7 +510,7 @@ class ULMFiT:
                    self.pretrain_lm.load_(experiment_path) or
                    self.load_legacy_(experiment_path))
         if not success:
-            warn('Unable to load experiment')
+            warn(f'Unable to load experiment {experiment_path}')
         return self
 
     def load_legacy_(self, experiment_path):
