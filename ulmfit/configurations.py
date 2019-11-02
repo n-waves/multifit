@@ -71,8 +71,9 @@ def multifit_paper_version():
     dps = {'output_p': 0.25, 'hidden_p': 0.1, 'input_p': 0.2, 'embed_p': 0.02, 'weight_p': 0.15}
     self.replace_(
         label_smoothing_eps=0.0,
+        label_smoothing_eps_norm_by_classes=True,
         true_wd=True,
-        wd=0.1,
+        wd=0.01, ## important :)
         seed=0,
         fp16=False,
         bs=64,
