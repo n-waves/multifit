@@ -29,7 +29,7 @@ def evaluate(pretrained_name):
 
     test_df = ds.read_data(ds.tst_path)
     data_lm = ds.databunch_from_df(TextLMDataBunch, test_df, test_df, bs=20, bptt=70)
-    learn = model.finetune_lm._learner(data_lm)
+    learn = model.finetune_lm.get_learner(data_lm)
 
     full_data = np.concatenate(data_lm.valid_ds.items)
 

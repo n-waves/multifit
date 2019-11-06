@@ -98,6 +98,28 @@ def to_json_serializable(d):
     return n
 
 
+def rename_dict_keys(d, rename_func):
+    for k in list(d.keys()):
+        d[rename_func(k)] = d.pop(k)
+
+def convert_old_models_keys_hook(state_dict, *_, **__):
+    rename_dict_keys(state_dict, lambda k:
+        k.replace('linear', 'layers.0.linear') if 'layers.0' not in k else k)
+
+def convert_new_models_keys_hook(state_dict, *_, **__):
+    rename_dict_keys(state_dict, lambda k: k.replace('layers.0.linear', 'linear'))
+
+def patch_learner(learn):
+    encoder = get_model(learn.model)[0]
+    if hasattr(encoder, 'module'): encoder = encoder.module
+    if hasattr(encoder.rnns[0], 'layers'):
+        encoder._register_load_state_dict_pre_hook(convert_old_models_keys_hook)
+        learn.model._register_load_state_dict_pre_hook(convert_old_models_keys_hook)
+    else:
+        encoder._register_load_state_dict_pre_hook(convert_new_models_keys_hook)
+        learn.model._register_load_state_dict_pre_hook(convert_new_models_keys_hook)
+    return learn
+
 @dataclass
 class ULMFiTTrainingCommand(Params):
     seed: int = 0
@@ -129,7 +151,7 @@ class ULMFiTTrainingCommand(Params):
     @property
     def tokenizer(self):
         if self.experiment_path is None:
-            raise ValueError("There is no pretrained tokenizer, experiment_path is None, use arch.new_tokenizer()")
+            return None
         return ULMFiTTokenizer(arch=self.arch, pretrained_path=self.experiment_path)
 
     def save_paramters(self):
@@ -145,7 +167,7 @@ class ULMFiTTrainingCommand(Params):
                 f.write(json_str)
             return json_str
 
-    def load_(self, experiment_path, tantetive=True, update_arch=True):
+    def load_(self, experiment_path, tantetive=True, update_arch=True, silent=False):
         fn = experiment_path / self.info_json
         if not fn.exists():
             if not tantetive:
@@ -157,7 +179,7 @@ class ULMFiTTrainingCommand(Params):
         base = d.pop('base', None)
         arch = d.pop('arch')
         if hasattr(self, 'base'):
-            self.base.load_(Path(base), tantetive=True, update_arch=False)
+            self.base.load_(Path(base), tantetive=True, update_arch=False, silent=silent)
 
         # compatiblity with older info.json formats where lang was not stored
         self.name = experiment_path.name                # V ./de-1/models/fsp15k/multifit_fp16 -> ./de-1
@@ -168,8 +190,8 @@ class ULMFiTTrainingCommand(Params):
         arch['tokenizer_type'] = arch.pop('tokenizer', arch.get('tokenizer_type', None))
 
         if update_arch:
-            self.arch.replace_(_verbose_diff=True, **arch)
-        self.replace_(_verbose_diff=True, **d)
+            self.arch.replace_(_verbose_diff=not silent, **arch)
+        self.replace_(_verbose_diff=not silent, **d)
         return arch
 
 
@@ -184,12 +206,12 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     label_smoothing_eps_norm_by_classes: bool = True
     use_adam_08: bool = False
     true_wd: bool = True
-    wd: bool = 0.1
+    wd: bool = 0.01
     clip: float = None
     fp16: bool = False
     lr: float = 5e-3
 
-    def _learner(self, data_lm, **additional_trn_args):
+    def get_learner(self, data_lm, **additional_trn_args):
         config = awd_lstm_lm_config.copy()
         config.update(emb_sz=self.arch.emb_sz, n_hid=self.arch.n_hid, n_layers=self.arch.n_layers, qrnn=self.arch.qrnn,
                       **self.dropout_values)
@@ -203,7 +225,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
                                        config=config,
                                        model_dir=self.model_name,
                                        **trn_args)
-
+        learn = patch_learner(learn)
         # compared to standard Adam, we set beta_1 to 0.8
         if self.use_adam_08:
             learn.opt_func = partial(optim.Adam, betas=(0.8, 0.99))
@@ -242,7 +264,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
                 tokenizer = self.arch.new_tokenizer()
 
         dataset = self._set_dataset_(dataset_or_path, tokenizer)
-        learn = self._learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
+        learn = self.get_learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
         experiment_path = learn.path / learn.model_dir
         print("Experiment", experiment_path)
         if self.num_epochs > 0:
@@ -278,21 +300,26 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
 @dataclass
 class ULMFiTFinetuning(ULMFiTPretraining):
     base: ULMFiTPretraining = field(repr=False, default=None)
-    pretrained: bool = True
 
     def __post_init__(self):
         self.lr = 1e-3
 
-    def _learner(self, data_lm, **additional_trn_args):
+    def get_learner(self, data_lm, **additional_trn_args):
         pretrained_fnames = None if self.base is None else self.base.model_fnames
         # data_lm.lang is added after dataloading
-        if self.pretrained and pretrained_fnames is None and data_lm.lang != 'en':
+        if pretrained_fnames is None and data_lm.lang != 'en':
             warn(f"You are using fastai english langauge model for {data_lm.lang}, you might be better off with just random weights.")
-        return super()._learner(data_lm, pretrained=self.pretrained, pretrained_fnames=pretrained_fnames,
-                                **additional_trn_args)
+        learn = super().get_learner(data_lm, **additional_trn_args)
+        # we don't use pretrained_fnames param so that we can add load_state_dict_hook
+        if pretrained_fnames is not None:
+            print("Loading pretrained weights: ", pretrained_fnames)
+            fnames = [learn.path / learn.model_dir / f'{fn}.{ext}' for fn, ext in zip(pretrained_fnames, ['pth', 'pkl'])]
+            learn.load_pretrained(*fnames)
+            learn.freeze()
+        return learn
 
     def _fit_schedule(self, learn):
-        if self.pretrained:
+        if self.base is not None and self.base.model_fnames:
             print("Fitting using 2 cycle fit schedule")
             learn.freeze_to(-1)
             learn.fit_one_cycle(1, self.lr * 10, moms=(0.8, 0.7))
@@ -307,7 +334,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     num_epochs: int = 10
     drop_mult: float = 0.5
     dropout_values: dict = field(default_factory=dict)
-    wd: float = 0.1
+    wd: float = 0.01
     clip: float = None
     label_smoothing_eps: float = 0.0
     label_smoothing_eps_norm_by_classes: bool = False
@@ -321,14 +348,14 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     fp16: bool = False
     arch: ULMFiTArchitecture = None
 
-    def _learner(self, data_clas, eval_only=False, **additional_trn_args):
+    def get_learner(self, data_clas, eval_only=False, **additional_trn_args):
         assert self.weighted_cross_entropy is None or self.label_smoothing_eps == 0, "Label smoohting not implemented with weighted_cross_entropy"
         if self.weighted_cross_entropy is not None:
             loss_func = CrossEntropyFlat(weight=torch.tensor(self.weighted_cross_entropy, dtype=torch.float32).cuda())
         elif self.label_smoothing_eps > 0.0:
             eps = self.label_smoothing_eps
             if self.label_smoothing_eps_norm_by_classes:
-                eps = eps/ data_clas.c
+                eps = eps / data_clas.c
             print("Using Label smoothing with eps = ", eps)
             loss_func = FlattenedLoss(LabelSmoothingCrossEntropy, eps=eps)
         else:
@@ -341,6 +368,8 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
 
         trn_args = dict(drop_mult=self.drop_mult, wd=self.wd, pretrained=False, bptt=self.bptt,
                         loss_func=loss_func, clip=self.clip)
+        if hasattr(Learner, 'silent'):
+            trn_args.update(silent=eval_only)
 
         trn_args.update(**additional_trn_args)
         print("Training args: ", trn_args, "config: ", config)
@@ -348,23 +377,11 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
                                         AWD_LSTM,
                                         config=config,
                                         model_dir=self.model_name,
-                                        # silent=eval_only,
                                         **trn_args)
-
+        learn = patch_learner(learn)
         if self.base.encoder_fname and not self.random_init:
             print("Loading pretrained model", self.base.encoder_fname)
-            try:
-                learn.load_encoder(self.base.encoder_fname)
-            except RuntimeError:
-                encoder = get_model(learn.model)[0]
-                if hasattr(encoder, 'module'): encoder = encoder.module
-                state = torch.load(learn.path / learn.model_dir / f'{self.base.encoder_fname}.pth',
-                           map_location=lambda storage, loc: storage)
-                def convert(k):
-                    return k.replace('layers.0.', '')
-                state = {convert(k):v for k,v in state.items()}
-                encoder.load_state_dict(state)
-
+            learn.load_encoder(self.base.encoder_fname)
             learn.freeze()
         else:
             warn("No pretrained encoder")
@@ -386,7 +403,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         base_tokenizer = self.base.tokenizer
         dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
         data_clas = dataset.load_clas_databunch(bs=self.bs)
-        learn = self._learner(data_clas=data_clas)
+        learn = self.get_learner(data_clas=data_clas)
         print(f"Training: {learn.path / learn.model_dir}")
         learn.unfreeze()
         self._fit_schedule(learn)
@@ -398,7 +415,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         print("Classifier model saved to", self.experiment_path)
         self.save_paramters()
         learn.destroy()
-
+        return
 
     def _validate(self, learn, ds_type):
         ds_name = ds_type.name.lower()
@@ -409,8 +426,12 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         results_dict['name'] = self.name
         return results_dict
 
-    def validate(self, data_cls=None, save_name=CLS_BEST, use_cache=True):
-
+    def validate(self, *splits, data_cls=None, save_name=CLS_BEST, use_cache=True, save_preds=False):
+        """Validates
+            splits - Dataset Types to validate on default DatasetType.Test, DatasetType.Valid, DatasetType.Train
+        """
+        if len(splits) == 0:
+            splits = [DatasetType.Test, DatasetType.Valid, DatasetType.Train]
         cache_file = (self.experiment_path / f'results{"" if save_name == CLS_BEST else "-" + save_name}.json')
         if use_cache and cache_file.exists():
             with cache_file.open("r") as fp:
@@ -419,18 +440,19 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         if data_cls is None:
             data_cls = self.dataset.load_clas_databunch(bs=self.bs)
 
-        learn = self._learner(data_cls, eval_only=True)
-        avg = 'binary' if learn.data.c == 2 else 'macro'
-        learn.metrics = [FBeta(beta=1.0, average=avg), Precision(average=avg), Recall(average=avg), accuracy]
+        learn = self.get_learner(data_cls, eval_only=True)
+        # avg = 'binary' if learn.data.c == 2 else 'macro'
+        # FBeta(beta=1.0, average=avg), Precision(average=avg), Recall(average=avg),
+        learn.metrics = [accuracy]
         print(f"Loading model {save_name}")
         learn.load(save_name)
+        if save_preds:
+            probs, targets = learn.get_preds(ordered=True, ds_type=DatasetType.Test, activ=partial(F.softmax, dim=-1))
+            np.save(str(self.experiment_path / f"preds-on-test.npy"), probs.cpu().numpy())
 
-        probs, targets = learn.get_preds(ordered=True, ds_type=DatasetType.Test, activ=partial(F.softmax, dim=-1))
-        np.save(str(self.experiment_path / f"preds-on-test.npy"), probs.cpu().numpy())
-
-        results_dict = self._validate(learn, DatasetType.Test)
-        results_dict.update(self._validate(learn, DatasetType.Valid))
-        results_dict.update(self._validate(learn, DatasetType.Train))
+        results_dict = {}
+        for split in splits:
+            results_dict.update(self._validate(learn, split))
         print(results_dict)
         with cache_file.open("w") as fp:
             json.dump(results_dict, fp)
@@ -504,16 +526,16 @@ class ULMFiT:
         self.finetune_lm = ULMFiTFinetuning(arch=self.arch, base=self.pretrain_lm)
         self.classifier = ULMFiTClassifier(arch=self.arch, base=self.finetune_lm)
 
-    def load_(self, experiment_path:Path):
-        success = (self.classifier.load_(experiment_path) or
-                   self.finetune_lm.load_(experiment_path) or
-                   self.pretrain_lm.load_(experiment_path) or
-                   self.load_legacy_(experiment_path))
+    def load_(self, experiment_path:Path, silent=False):
+        success = (self.classifier.load_(experiment_path, silent=silent) or
+                   self.finetune_lm.load_(experiment_path, silent=silent) or
+                   self.pretrain_lm.load_(experiment_path, silent=silent) or
+                   self.load_legacy_(experiment_path, silent=silent))
         if not success:
             warn(f'Unable to load experiment {experiment_path}')
         return self
 
-    def load_legacy_(self, experiment_path):
+    def load_legacy_(self, experiment_path, silent=True):
         if not (experiment_path / "info.json").exists():
             return False
         with (experiment_path / "info.json").open('r') as f:

@@ -13,7 +13,7 @@ class Experiment:
         return ulmfit.ULMFiT().load_(Path(model_path))
 
     def from_pretrained(self):
-        return ulmfit.ULMFiT.from_pretrained
+        return ulmfit.from_pretrained
 
 if __name__ == '__main__':
     fire.Fire(Experiment())
