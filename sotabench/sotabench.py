@@ -1,4 +1,4 @@
-from ulmfit import ULMFiT
+from multifit import ULMFiT
 from fastai.text import *
 from sotabencheval.language_modelling import WikiText103Evaluator
 from sotabencheval.utils import is_server

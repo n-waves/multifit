@@ -46,8 +46,8 @@ else
   echo "${EXTR_PATH} already exists. Skipping extraction."
 fi
 
-python -m ulmfit.create_wikitext -i "${EXTR_PATH}"  -l "${LANG}" -o "${WIKI_DIR}"
+python -m multifit.create_wikitext -i "${EXTR_PATH}"  -l "${LANG}" -o "${WIKI_DIR}"
 
-python -m ulmfit.postprocess_wikitext "${WIKI_DIR}/${LANG}-2" $LANG
-python -m ulmfit.postprocess_wikitext "${WIKI_DIR}/${LANG}-100" $LANG
-#python -m ulmfit.postprocess_wikitext "${WIKI_DIR}/${LANG}-all" $LANG
+python -m multifit.postprocess_wikitext "${WIKI_DIR}/${LANG}-2" $LANG
+python -m multifit.postprocess_wikitext "${WIKI_DIR}/${LANG}-100" $LANG
+#python -m multifit.postprocess_wikitext "${WIKI_DIR}/${LANG}-all" $LANG

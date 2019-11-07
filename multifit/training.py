@@ -5,7 +5,7 @@ import dataclasses
 from fastai.callbacks import CSVLogger, SaveModelCallback
 from fastai.text import *
 
-from ulmfit.datasets import ULMFiTDataset,ULMFiTTokenizer
+from multifit.datasets import ULMFiTDataset,ULMFiTTokenizer
 
 CLS_BEST = 'cls_best'
 LM_BEST = "lm_best"
