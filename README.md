@@ -18,7 +18,7 @@ We released 7 language models trained on corresponding Wikipedia dumps:
    - ru_multifit_paper_version
    - zh_multifit_paper_version
    
-To fetch the model just use `ulmfit.from_pretreined` function. 
+To fetch the model just use `multifit.from_pretrained` function. 
 Here are some example notebook showing how to train a classifier using a pretrained models.
 - [./notebooks/CLS-JA.ipynb](./notebooks/CLS-JA.ipynb) - example of classifier trained on amazon CLS JA music.
 - [./notebooks/MLDoc-JA-multifit_fp16.ipynb](./notebooks/MLDoc-JA-multifit_fp16.ipynb) - example of a faster multifit training using fp16 on MDLDoc.
@@ -45,7 +45,10 @@ Sentiment classification results on CLS dataset [Prettenhofer and Stein, 2010](h
 ## How to use it with fastai v1.0
 You can use the pretrained models with fastai library as follows:
 ```
-exp = ulmfit.from_pretrained("name of the model")
+from fastai.text import *
+import multifit
+
+exp = multifit.from_pretrained("name of the model")
 fa_config =  exp.pretrain_lm.tokenizer.get_fastai_config(add_open_file_processor=True)
 data_lm = (TextList.from_folder(imdb_path, **fa_config)
             .filter_by_folder(include=['train', 'test', 'unsup']) 
