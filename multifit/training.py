@@ -593,9 +593,12 @@ class ULMFiT:
         return results
 
     def from_pretrained_(self, name, repo="n-waves/multifit-models"):
-        name = name.rstrip(".tgz")  # incase someone put's tgz name the name
-        url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
-        path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
+        if (Path(name)/f"{LM_BEST}.pth").exists():
+            path = Path(name)
+        else:
+            name = name.rstrip(".tgz")  # incase someone put's tgz name the name
+            url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
+            path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
         return self.load_(path)
 
 
