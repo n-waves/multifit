@@ -12,6 +12,8 @@ __all__ = [
     'multifit_lstm',
     'multifit1152_lstm_nl3',
     'multifit1152_lstm_nl3_fp16_large',
+
+    'multifit_mini_test',
 ]
 
 def multifit1552_fp32(bs=64):
@@ -25,7 +27,7 @@ def multifit1552_fp32(bs=64):
         bs=bs,
         use_adam_08=False,
         early_stopping=None,
-        name=_use_caller_name()
+        config_name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer_type='fsp',
@@ -42,29 +44,29 @@ def multifit1552_fp32(bs=64):
 multifit_fp32 = multifit1552_fp32
 
 def multifit_fp32_nl3():
-    return multifit1552_fp32().replace_(n_layers=3, name=_use_caller_name())
+    return multifit1552_fp32().replace_(n_layers=3, config_name=_use_caller_name())
 
 # FP16
 
 def multifit1552_fp16():
-    return multifit1552_fp32(bs=128).replace_(fp16=True, name=_use_caller_name())
+    return multifit1552_fp32(bs=128).replace_(fp16=True, config_name=_use_caller_name())
 
 def multifit1552_fp16_nl3_large():
-    return multifit1552_fp32(bs=448).replace_(fp16=True, n_layers=3, num_epochs=20, name=_use_caller_name())
+    return multifit1552_fp32(bs=448).replace_(fp16=True, n_layers=3, num_epochs=20, config_name=_use_caller_name())
 
 multifit_fp16 = multifit1552_fp16
 
 def multifit_lstm():
-    return multifit1552_fp32(bs=128).replace_(qrnn=False, n_hid=1552, name=_use_caller_name())
+    return multifit1552_fp32(bs=128).replace_(qrnn=False, n_hid=1552, config_name=_use_caller_name())
 
 def multifit1152_lstm_nl3(bs=128):
-    return multifit1552_fp32(bs).replace_(qrnn=False, n_hid=1152,  n_layers=3, name=_use_caller_name())
+    return multifit1552_fp32(bs).replace_(qrnn=False, n_hid=1152,  n_layers=3, config_name=_use_caller_name())
 
 def multifit1152_lstm_nl3_fp16_large():
-    return multifit1152_lstm_nl3(bs=448).replace_(fp16=True, num_epochs=20, name=_use_caller_name())
+    return multifit1152_lstm_nl3(bs=448).replace_(fp16=True, num_epochs=20, config_name=_use_caller_name())
 
 def multifit_fp16_nl3():
-    return multifit1552_fp16().replace_(n_layers=3, name=_use_caller_name())
+    return multifit1552_fp16().replace_(n_layers=3, config_name=_use_caller_name())
 
 def multifit_paper_version():
     self = ULMFiT()
@@ -81,7 +83,7 @@ def multifit_paper_version():
         early_stopping=None,
         clip=0.12,
         dropout_values=dps,
-        name=_use_caller_name()
+        config_name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer_type='sp',
@@ -99,7 +101,7 @@ def ulmfit_orig():
     self = multifit_paper_version()
     self.replace_(
         seed=None,
-        name=_use_caller_name()
+        config_name=_use_caller_name()
     )
     self.arch.replace_(
         tokenizer_type='f',
@@ -110,6 +112,18 @@ def ulmfit_orig():
     )
     return self
 
+def multifit_mini_test():
+    self = multifit_paper_version()
+    self.replace_(
+        config_name=_use_caller_name(),
+        n_hid=240,
+        n_layers=2,
+        bs=40,
+        num_epochs=1,
+        fp16=False,
+        limit=100
+    )
+    return self
 
 def _use_caller_name():
     return inspect.stack()[1].function

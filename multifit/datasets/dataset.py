@@ -36,7 +36,6 @@ class Dataset:
     dataset_path: Path
 
     noise: float = 0.0
-    limit: int = None
 
     ds_type: str = None
     lang: str = None
@@ -96,6 +95,8 @@ class Dataset:
                 use_lang_as_prefix=True)
         else:
             self.read_data = read_clas_csv
+            self.lang = self._language_from_dataset_path()
+            self.uses_moses = False
             self.trn_path = self.dataset_path / self.trn_name
             self.val_path = self.dataset_path / self.val_name
             self.tst_path = self.dataset_path / self.tst_name
@@ -161,11 +162,6 @@ class Dataset:
             trn_df = self._add_noise(trn_df, self.noise)
             val_df = self._add_noise(val_df, self.noise)
 
-        if self.limit is not None:
-            print("Limiting data set to:", self.limit)
-            trn_df = trn_df[:self.limit]
-            val_df = val_df[:self.limit]
-
         return trn_df, val_df, tst_df
 
     def load_unsupervised_data(self):
@@ -200,14 +196,16 @@ class ULMFiTDataset(Dataset):
         super().__post_init__()
         self._vocab = None
 
-    def load_lm_databunch(self, bs, bptt):
+    def load_lm_databunch(self, bs, bptt, limit=None):
         lm_suffix = str(bptt) if bptt != 70 else ""
         lm_suffix += "" if self.use_tst_for_lm else "-notst"
+        lm_suffix += "" if limit is None else f"-{limit}"
         data_lm = self.load_n_cache_databunch(f"lm{lm_suffix}",
                                               bunch_class=TextLMDataBunch,
                                               data_loader=self.load_unsupervised_data,
                                               bptt=bptt,
-                                              bs=bs)
+                                              bs=bs,
+                                              limit=limit)
 
         with (self.cache_path / "itos.pkl").open('wb') as f:
             pickle.dump(data_lm.vocab.itos, f)
@@ -223,24 +221,26 @@ class ULMFiTDataset(Dataset):
             self._vocab = self.load_lm_databunch(bs=20, bptt=70).vocab
         return self._vocab
 
-    def load_clas_databunch(self, bs):
+    def load_clas_databunch(self, bs, limit=None):
         vocab = self._load_vocab()
 
         cls_name = "cls"
-        if self.limit is not None:
-            cls_name = f'{cls_name}limit{self.limit}'
+        if limit is not None:
+            cls_name = f'{cls_name}limit{limit}'
         if self.noise > 0.0:
             cls_name = f'{cls_name}noise{self.noise}'
 
         args = dict(vocab=vocab, bunch_class=TextClasDataBunch, bs=bs)
-        data_cls = self.load_n_cache_databunch(cls_name, data_loader=lambda: self.load_supervised_data()[:2], **args)
+        trn_val_dl = lambda: self.load_supervised_data()[:2]
+        data_cls = self.load_n_cache_databunch(cls_name, data_loader=trn_val_dl, limit=limit, **args)
         # Hack to load test dataset with labels
-        data_tst = self.load_n_cache_databunch('tst', data_loader=lambda: self.load_supervised_data()[1:], **args)
+        val_tst_dl = lambda: self.load_supervised_data()[1:]
+        data_tst = self.load_n_cache_databunch('tst', data_loader=val_tst_dl, **args)
         data_cls.test_dl = data_tst.valid_dl # data_tst.valid_dl holds test data
         data_cls.lang = self.lang
         return data_cls
 
-    def load_n_cache_databunch(self, name, bunch_class, data_loader, bs, **args):
+    def load_n_cache_databunch(self, name, bunch_class, data_loader, bs, limit=None, **args):
         bunch_path = self.cache_path / name
         databunch = None
         if bunch_path.exists():
@@ -251,6 +251,10 @@ class ULMFiTDataset(Dataset):
         if databunch is None:
             print(f"Running tokenization: '{name}' ...")
             train_df, valid_df = data_loader()
+            if limit is not None:
+                print(f"Limiting number of examples in train and valid sets to: {limit}")
+                train_df = train_df[:limit]
+                valid_df = valid_df[:limit]
             databunch = self.databunch_from_df(bunch_class, train_df, valid_df, **args)
             databunch.save(name)
         print(f"Data {name}, trn: {len(databunch.train_ds)}, val: {len(databunch.valid_ds)}")
