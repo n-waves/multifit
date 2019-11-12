@@ -1,3 +1,6 @@
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multifit-efficient-multi-lingual-language/cross-lingual-document-classification-on-2)](https://paperswithcode.com/sota/cross-lingual-document-classification-on-2?p=multifit-efficient-multi-lingual-language)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multifit-efficient-multi-lingual-language/cross-lingual-document-classification-on)](https://paperswithcode.com/sota/cross-lingual-document-classification-on?p=multifit-efficient-multi-lingual-language)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multifit-efficient-multi-lingual-language/cross-lingual-document-classification-on-1)](https://paperswithcode.com/sota/cross-lingual-document-classification-on-1?p=multifit-efficient-multi-lingual-language)
 
 # MultiFiT: Efficient Multi-lingual Language Model Fine-tuning
 Code to reproduce the paper "[MultiFiT: Efficient Multi-lingual Language Model Fine-tuning](https://arxiv.org/abs/1909.04761)".
