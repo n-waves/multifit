@@ -41,6 +41,7 @@ class ULMFiTArchitecture(Params):
     tokenizer_type: str = "f"
     max_vocab: int = 60000
     lang: str = None
+    config_name: str = None
 
     emb_sz: int = awd_lstm_lm_config['emb_sz']
     n_hid: int = awd_lstm_lm_config['n_hid']
@@ -130,7 +131,7 @@ class ULMFiTTrainingCommand(Params):
 
     @property
     def model_name(self):
-        return (self.name or self.arch.model_name()) + (
+        return (self.name or self.arch.config_name or self.arch.model_name()) + (
             "" if self.seed is None or self.seed == 0 or "seed" in self.name else f"seed{self.seed}")
 
     @property
@@ -161,7 +162,7 @@ class ULMFiTTrainingCommand(Params):
         exp_path = params.get('experiment_path', None)
         if exp_path:
             fn = self.info_json
-            print("Saving dump to", exp_path / fn)
+            print("Saving args to", exp_path / fn)
             json_str = json.dumps(to_json_serializable(params), indent=2)
             with (exp_path / fn).open("w") as f:
                 f.write(json_str)
@@ -194,6 +195,12 @@ class ULMFiTTrainingCommand(Params):
         self.replace_(_verbose_diff=not silent, **d)
         return arch
 
+    def train_(self, dataset_or_path, **kwargs):
+        pass
+
+    def validate(self, **kwargs):
+        pass
+
 
 @dataclass
 class ULMFiTPretraining(ULMFiTTrainingCommand):
@@ -210,6 +217,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
     clip: float = None
     fp16: bool = False
     lr: float = 5e-3
+    limit: int = None
 
     def get_learner(self, data_lm, **additional_trn_args):
         config = awd_lstm_lm_config.copy()
@@ -264,7 +272,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
                 tokenizer = self.arch.new_tokenizer()
 
         dataset = self._set_dataset_(dataset_or_path, tokenizer)
-        learn = self.get_learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt))
+        learn = self.get_learner(data_lm=dataset.load_lm_databunch(bs=self.bs, bptt=self.bptt, limit=self.limit))
         experiment_path = learn.path / learn.model_dir
         print("Experiment", experiment_path)
         if self.num_epochs > 0:
@@ -280,7 +288,7 @@ class ULMFiTPretraining(ULMFiTTrainingCommand):
         print("Language model saved to", self.experiment_path)
 
     def validate(self):
-        raise NotImplementedError("The validation on the language model is not implemented.")
+        return "not implemented"
 
     @property
     def model_fnames(self):
@@ -346,6 +354,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
     seed: int = 0
     bptt: int = 70
     fp16: bool = False
+    limit: int = None
     arch: ULMFiTArchitecture = None
 
     def get_learner(self, data_clas, eval_only=False, **additional_trn_args):
@@ -402,7 +411,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
 
         base_tokenizer = self.base.tokenizer
         dataset = self._set_dataset_(dataset_or_path, base_tokenizer)
-        data_clas = dataset.load_clas_databunch(bs=self.bs)
+        data_clas = dataset.load_clas_databunch(bs=self.bs, limit=self.limit)
         learn = self.get_learner(data_clas=data_clas)
         print(f"Training: {learn.path / learn.model_dir}")
         learn.unfreeze()
@@ -415,7 +424,6 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
         print("Classifier model saved to", self.experiment_path)
         self.save_paramters()
         learn.destroy()
-        return
 
     def _validate(self, learn, ds_type):
         ds_name = ds_type.name.lower()
@@ -438,7 +446,7 @@ class ULMFiTClassifier(ULMFiTTrainingCommand):
                 return json.load(fp)
 
         if data_cls is None:
-            data_cls = self.dataset.load_clas_databunch(bs=self.bs)
+            data_cls = self.dataset.load_clas_databunch(bs=self.bs, limit=self.limit)
 
         learn = self.get_learner(data_cls, eval_only=True)
         # avg = 'binary' if learn.data.c == 2 else 'macro'
@@ -572,10 +580,25 @@ class ULMFiT:
     {self.classifier},
 )""")
 
+    def train_(self, pretrain_dataset=None, clas_dataset=None):
+        results = {}
+        if pretrain_dataset is not None:
+            self.pretrain_lm.train_(pretrain_dataset)
+            results['pretrain_lm'] = self.pretrain_lm.validate()
+        if clas_dataset is not None:
+            self.finetune_lm.train_(clas_dataset)
+            results['finetune_lm'] = self.finetune_lm.validate(use_cache=None)
+            self.classifier.train_(clas_dataset)
+            results['classifier'] = self.classifier.validate(use_cache=None)
+        return results
+
     def from_pretrained_(self, name, repo="n-waves/multifit-models"):
-        name = name.rstrip(".tgz")  # incase someone put's tgz name the name
-        url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
-        path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
+        if (Path(name)/f"{LM_BEST}.pth").exists():
+            path = Path(name)
+        else:
+            name = name.rstrip(".tgz")  # incase someone put's tgz name the name
+            url = f"https://github.com/{repo}/releases/download/{name}/{name}.tgz"
+            path = untar_data(url.rstrip(".tgz"), data=False)  # untar_data adds .tgz
         return self.load_(path)
 
 

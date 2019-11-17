@@ -65,6 +65,28 @@ learn.save_encoder("enc")
 ...
 ```
 
+## How to pre-train your own language model
+Here is how you can per-train a 'de' language model:
+From command line:
+```
+    $ bash prepare_wiki.sh de
+    $ python -W ignore -m multifit new multifit_paper_version replace_ --name my_lm - train_ --pretrain-dataset data/wiki/de-100 
+```
+This should give you the pre-trained language model in 'data/wiki/de-100/models/sp15k/my_lm'
+You can later use it as follows:
+```
+from fastai.text import *
+import multifit
+
+exp = multifit.from_pretrained("data/wiki/de-100/models/sp15k/my_lm")
+exp.finetune_lm.train_("data/cls/de-books", num_epochs=20)
+exp.classifier.train_(seed=0)  
+```
+
+Please note, even though `python -m multifit new ` let's you pick other configurations than `multifit_paper_version` it is not recommended.
+As the `from_pretrained` do not yet detect the configuration so your training specific parameters will be overwritten with 
+defaults from `multifit_paper_version`.
+
 ## Reproducing the results
 This repository is a rewrite of the original training scripts so it lacks all the scripts used in the paper. 
 We are working on a port to fastai v2.0 and then we will be adding the scripts that show how to reproduce the results. 
